@@ -8,6 +8,8 @@ included unchanged. This is a separate addon, not a re-upload of the HUD.
 The original game's boot bytecode and all GUI/HUD rendering are excluded.
 Only that version's Lua identity/provider modules and ammunition definitions
 are adapted. Later releases are not copied or covered by this permission.
+The BootState callback reference is included in source for coexistence tests
+only; it is not included in the playable addon resource or release ZIP.
 
 Bingus Shared Loader API and archive format documentation by CowboyBingus:
 https://github.com/CowboyBingus/BingusSharedLoader

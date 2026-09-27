@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.0-test';
+const version = '0.3.1-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -69,6 +69,11 @@ assert(!core.includes('__original_boot') && !core.includes('90-main'));
 fs.mkdirSync(vendor, { recursive: true });
 fs.writeFileSync(path.join(vendor, 'reader_core.lua'), core);
 fs.writeFileSync(path.join(vendor, 'numbers.lua'), compact(numbers));
+const hooks = sections.filter(section => section.startsWith('if type(imports) ~= "table" then error("00-boot-state:'));
+assert.equal(hooks.length, 1, 'HUD callback test module boundary changed');
+fs.writeFileSync(path.join(vendor, 'hud_hooks_reference.lua'),
+  '-- Test-only callback reference derived from HD2 HUD+ 0.1.2 by DDRK1NG.\n' +
+  compact(sections[0] + boundary + hooks[0]) + '\nreturn __module_registry.BootState\n');
 fs.copyFileSync(path.join(sourceFolder, 'README.txt'), path.join(vendor, 'HD2-HUD-0.1.2-original-README.txt'));
 } else {
   core = readSource(path.join(vendor, 'reader_core.lua'));
@@ -76,9 +81,11 @@ fs.copyFileSync(path.join(sourceFolder, 'README.txt'), path.join(vendor, 'HD2-HU
 }
 const source = readSource(path.join(root, 'addon.lua'))
   .replace('-- @POLICY@', () => readSource(path.join(root, 'policy.lua')))
+  .replace('-- @NATIVE@', () => readSource(path.join(root, 'native.lua')))
   .replace('-- @READER_CORE@', () => core)
   .replace('-- @NUMBERS@', () => compact(numbers));
 assert.equal(source.split('\n')[0], `-- HD2-Addon: ${resource}`);
+assert(!source.includes('00-boot-state') && !source.includes('90-main'), 'HUD test reference must not ship');
 const stage = path.join(root, 'dist', `HD2-AutoReload-${version}`);
 fs.mkdirSync(path.join(stage, 'Addon'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'auto_reload.generated.lua'), source);

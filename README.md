@@ -1,12 +1,38 @@
-# HD2 Helper Auto Reload 0.3.0-test
+# HD2 Helper Auto Reload 0.3.1-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
 
 Source: https://github.com/pwj891129-arch/HD2-AutoReload
 Test releases: https://github.com/pwj891129-arch/HD2-AutoReload/releases
-Published separately from HD2 Helper. The 0.3.0-test release ZIP is unchanged
-from the original validated test package.
+Published separately from HD2 Helper.
+
+## HD2 HUD Coexistence
+
+Keep HD2 HUD enabled for its displays. This addon owns no HUD textures, GUI,
+boot, Wwise replacement or HD2 HUD resource names. Its unique Lua resource is
+`mods/hd2_helper/auto_reload`. Arsenal assigns each mod's patch index; the ZIP's
+`patch_0` filename is not itself a resource conflict. Do not manually overwrite
+one mod's archive with another mod's archive in the game's data folder.
+
+The update/shutdown hooks preserve earlier callbacks and their return values.
+Errors in the auto-reload callback are isolated so a HUD callback wrapping it
+still runs. Win32 FFI symbols use private aliases and the reader clones its
+mutable field map instead of modifying shared HUD definitions. It does not
+change another mod's JIT options, input settings, GUI or configuration files.
+
+Test coverage uses the installed HD2 HUD+ 0.1.2 callback implementation in both
+hook orders, plus real Win32 symbol resolution and mock reload input. This is
+not a live gameplay compatibility test of the latest HD2 HUD build.
+
+Use HD2 HUD's game-compatible release; the installed 0.1.2 package is old. The
+author lists 0.1.12 as the September 24 game-update fix:
+https://www.nexusmods.com/helldivers2/mods/15298
+
+Enable HD2 HUD, this addon and Bingus Shared Loader together. Keep Bingus as
+the winning Wwise startup replacement (normally below other such replacements
+in Arsenal), then purge/redeploy with the game closed and restart the game.
+Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 
 ## Reload Triggers
 
@@ -73,7 +99,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.0-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.0-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.1-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.1-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

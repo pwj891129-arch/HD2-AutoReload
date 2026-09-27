@@ -1,7 +1,10 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.0-test"
+local VERSION = "0.3.1-test"
 local Policy = (function()
 -- @POLICY@
+end)()
+local Native = (function()
+-- @NATIVE@
 end)()
 local Reader = {}
 Reader.__index = Reader
@@ -18,12 +21,15 @@ local function valid_count(value)
 end
 
 function Reader.new(parts, fragment)
-    local generated = parts.GeneratedCommon
+    local generated = {}
+    for key, value in pairs(parts.GeneratedCommon) do generated[key] = value end
     for _, name in ipairs({ "snapshot", "signals", "role_tables", "authored_base",
         "authored_delta", "network_fields", "relations" }) do
         generated[name] = fragment[name] or {}
     end
-    local fields = generated.snapshot
+    local fields = {}
+    for key, value in pairs(generated.snapshot) do fields[key] = value end
+    generated.snapshot = fields
     for name, hash in pairs({ raw_slot0 = "0x04ec5b95", raw_slot1 = "0xe525fa9c",
         raw_selected = "0xa74ef0d5", raw_chamber = "0x4a893e74",
         reloading = "0xcd889dbc" }) do
@@ -87,25 +93,30 @@ function Reader:sample(session, world, peer)
         avatar = resolved.avatar.goid }, ammo == nil and "ammo-unavailable" or "ready"
 end
 
-local function install_hooks(env, tick, stop)
+local function install_hooks(env, tick, stop, on_error)
     local original_update = env.update
     if type(original_update) ~= "function" then return false end
-    local function pack(...) return { n = select("#", ...), ... } end
+    local function own_callback(callback, where)
+        local success, failure = pcall(callback)
+        if not success and on_error then pcall(on_error, where, failure) end
+    end
+    local function after_update(...)
+        own_callback(tick, "update")
+        return ...
+    end
     env.update = function(...)
-        local result = pack(original_update(...))
-        tick()
-        return unpack(result, 1, result.n)
+        return after_update(original_update(...))
     end
     local original_shutdown = env.shutdown
     env.shutdown = function(...)
-        stop()
+        own_callback(stop, "shutdown")
         if type(original_shutdown) == "function" then return original_shutdown(...) end
     end
     return true
 end
 
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
-    return { Policy = Policy, Reader = Reader, boolean = boolean,
+    return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
         install_hooks = install_hooks }
 end
 if rawget(_G, "HD2HelperAutoReload") then return end
@@ -159,33 +170,7 @@ if config.reload_vk <= 6 or config.reload_vk == config.fire_vk or
 end
 local ffi_ok, ffi = pcall(require, "ffi")
 if not ffi_ok then log("DISABLED LuaJIT FFI unavailable"); return end
-local native_ok, native = pcall(function()
-    ffi.cdef[[
-    typedef struct { unsigned short vk, scan; unsigned int flags, time; uintptr_t extra; } HD2AR_KEY;
-    typedef struct { int x, y; unsigned int data, flags, time; uintptr_t extra; } HD2AR_MOUSE;
-    typedef union { HD2AR_KEY key; HD2AR_MOUSE mouse; } HD2AR_UNION;
-    typedef struct { unsigned int type; HD2AR_UNION value; } HD2AR_INPUT;
-    void* GetForegroundWindow(void);
-    unsigned int GetWindowThreadProcessId(void*, unsigned int*);
-    unsigned int GetCurrentProcessId(void);
-    short GetAsyncKeyState(int);
-    unsigned int SendInput(unsigned int, const HD2AR_INPUT*, int);
-    unsigned int MapVirtualKeyW(unsigned int, unsigned int);
-    ]]
-    local user32, kernel32 = ffi.load("user32"), ffi.load("kernel32")
-    local process = kernel32.GetCurrentProcessId()
-    local size = ffi.sizeof("HD2AR_INPUT")
-    assert(size == (ffi.abi("64bit") and 40 or 28), "INPUT layout mismatch")
-    local pid = ffi.new("unsigned int[1]")
-    local input = ffi.new("HD2AR_INPUT[1]")
-    input[0].type = 1
-    local scan = user32.MapVirtualKeyW(config.reload_vk, 4)
-    assert(scan ~= 0, "reload key has no scan code")
-    input[0].value.key.scan = scan % 256
-    local flags = scan >= 256 and 9 or 8
-    return { user32 = user32, process = process, pid = pid, input = input,
-        size = size, flags = flags }
-end)
+local native_ok, native = pcall(Native.create, ffi, config)
 if not native_ok then log("DISABLED input initialization: " .. tostring(native)); return end
 
 local sr = rawget(_G, "stingray") or {}

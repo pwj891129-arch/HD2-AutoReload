@@ -195,7 +195,12 @@ local user32 = {
 }
 local fake_ffi = {
     cdef = function() end,
-    load = function(name) return name == "user32" and user32 or { GetCurrentProcessId = function() return 42 end } end,
+    load = function(name)
+        if name ~= "user32" then return { HD2AR_GetCurrentProcessId = function() return 42 end } end
+        return setmetatable({}, { __index = function(_, key)
+            return user32[key:gsub("^HD2AR_", "")]
+        end })
+    end,
     sizeof = function() return 40 end,
     abi = function() return true end,
     new = function(name)
@@ -223,8 +228,10 @@ TEST_READER_PARTS = parts
 HD2_AUTO_RELOAD_TEST = nil
 local file = assert(io.open("addon.lua", "r")); local source = file:read("*a"); file:close()
 file = assert(io.open("policy.lua", "r")); local policy_source = file:read("*a"); file:close()
+file = assert(io.open("native.lua", "r")); local native_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
+    :gsub("%-%- @NATIVE@", function() return native_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
 update = function() return 123, nil, 321 end
@@ -269,4 +276,5 @@ shutdown()
 equal(#inputs, 8, "shutdown releases outstanding key")
 equal(inputs[8].flags, 10)
 require, os.getenv = original_require, original_getenv
+dofile("compatibility.test.lua")(api, equal)
 print("PASS " .. count .. " assertions; actual LuaJIT, no game inputs sent")
