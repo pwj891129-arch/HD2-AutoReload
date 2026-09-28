@@ -6,7 +6,12 @@ local function equal(actual, expected, name)
     count = count + 1
 end
 local function sample(weapon, ammo, fire)
-    return { active = true, weapon = weapon, ammo = ammo, reserve = 5,
+    return { active = true, mode = "ammo", weapon = weapon, ammo = ammo, reserve = 5,
+        reloading = false, fire = fire or false }
+end
+local function heat_sample(weapon, overheated, fire)
+    return { active = true, mode = "heat", weapon = weapon,
+        overheated = overheated, ammo = 0, reserve = 2,
         reloading = false, fire = fire or false }
 end
 local p = api.Policy.new()
@@ -69,6 +74,57 @@ p:step(sample("A", nil, true), 0)
 p:reset()
 equal(p:step(sample("A", 0), 0.1), nil, "reset removes pending fire")
 
+p = api.Policy.new()
+equal(p:step(heat_sample("H", false), 0), nil, "heat weapon baseline")
+equal(p:step(heat_sample("H", false, true), 0.1), nil, "empty ammo does not imply overheat")
+local hot = heat_sample("H", true, true)
+hot.ammo = 3
+equal(p:step(hot, 0.2), "overheated", "actual overheat ignores ammo count")
+p:sent(0.2)
+equal(p:step(heat_sample("H", true, true), 0.6), nil, "held fire does not repeat on heat")
+equal(p:step(heat_sample("H", false), 0.7), nil, "cooling clears heat state")
+equal(p:step(heat_sample("H", true), 0.8), "overheated", "later overheat retriggers")
+p:sent(0.8)
+equal(p:step(heat_sample("H", false), 0.9), nil)
+equal(p:step(heat_sample("H", nil, true), 1.0), nil, "unknown overheat blocks reload")
+equal(p:step(heat_sample("H", false), 1.1), nil, "unknown is not inferred as overheat")
+p = api.Policy.new()
+equal(p:step(heat_sample("H", true), 0), nil, "initial overheated is not an event")
+equal(p:step(heat_sample("H", true, true), 0.1), "fire-attempt", "fire while overheated")
+p = api.Policy.new()
+p:step(sample("A", 3), 0)
+equal(p:step(heat_sample("H", false), 0.1), nil, "swap to cool heat weapon")
+equal(p:step(sample("A", 3), 0.2), nil)
+equal(p:step(heat_sample("H", true), 0.3), "weapon-swapped", "swap to overheated weapon")
+p = api.Policy.new()
+p:step(heat_sample("H", false), 0)
+local blocked_heat = heat_sample("H", true)
+blocked_heat.reserve = nil
+equal(p:step(blocked_heat, 0.1), nil, "unknown heat reserve blocks")
+blocked_heat = heat_sample("H", true)
+blocked_heat.reloading = true
+equal(p:step(blocked_heat, 0.2), nil, "active heat reload blocks")
+equal(p:step(heat_sample("H", true), 0.3), nil, "heat reload does not repeat")
+p = api.Policy.new()
+p:step(heat_sample("H", false), 0)
+blocked_heat = heat_sample("H", true)
+blocked_heat.manual_reload = true
+equal(p:step(blocked_heat, 0.1), nil, "manual heat reload blocks")
+blocked_heat.manual_reload = false
+blocked_heat.reloading = nil
+equal(p:step(blocked_heat, 0.2), nil, "unknown heat reload state blocks")
+p = api.Policy.new()
+p:step(heat_sample("H", false), 0)
+blocked_heat = heat_sample("H", true)
+blocked_heat.reserve = 0
+equal(p:step(blocked_heat, 0.1), nil, "no spare heat sink blocks")
+equal(p:step(heat_sample("H", true), 0.2), "overheated", "late heat reserve remains eligible")
+p = api.Policy.new()
+p:step(heat_sample("H", false), 0)
+equal(p:step(heat_sample("H", true), 0.1), "overheated")
+equal(p:step(heat_sample("H", false), 0.2), nil, "cooling cancels pending heat reload")
+equal(p:step(heat_sample("H", true), 0.3), "overheated", "new overheat event after cooling")
+
 -- Adapter contracts: a mocked provider never touches the game or sends input.
 local cells, resolved, control, rotation, declaration
 local equipment = { A = { resource = "content/fac_helldivers/equipment/primary_weapons/test/test" } }
@@ -94,8 +150,21 @@ control, rotation = true, false; equal(reader:sample().active, false, "rotation 
 rotation = true; resolved.hand_weapon = nil
 equal(reader:sample().weapon, nil, "no selected weapon")
 resolved.hand_weapon = { goid = 5, type = "A" }
-cells.heat_shown = 0.9; equal(reader:sample().active, false, "heat is not empty")
-cells.heat_shown = nil; resolved.underbarrel = { goid = 5 }
+cells.heat_shown = 0.9; cells.overheated = false
+equal(reader:sample().mode, "heat", "heat mode detected")
+equal(reader:sample().overheated, false, "warm is not overheated")
+cells.overheated = true
+equal(reader:sample().overheated, true, "explicit overheated state")
+cells.overheated = nil
+equal(reader:sample().overheated, nil, "missing overheat state remains unknown")
+cells.heat_shown = nil; declaration = "0xa5023836"
+equal(reader:sample().mode, "heat", "declared heat without readable gauge")
+declaration = ""
+reader.generated.authored_base["WeaponHeatComponentData.overheat_temperature"] = { A = 100 }
+equal(reader:sample().mode, "heat", "authored heat without readable field")
+reader.generated.authored_base["WeaponHeatComponentData.overheat_temperature"] = nil
+equal(reader:sample().mode, "ammo", "normal weapon retains ammo mode")
+declaration = ""; resolved.underbarrel = { goid = 5 }
 equal(reader:sample().active, false, "base ammo not used for underbarrel")
 resolved.underbarrel.goid = 6
 equal(reader:sample().active, true, "unused underbarrel does not block main gun")
@@ -135,8 +204,8 @@ equal(env.shutdown(9), 9); equal(calls[3], "stop")
 equal(api.install_hooks({}, function() end, function() end), false)
 
 -- Load the actual embedded reader and exercise its real batched ammo provider.
-local field_ids = { "d7a5d63e", "4a893e74", "ec64918b", "cd889dbc" }
-local raw = { 0, false, 4, false }
+local field_ids = { "d7a5d63e", "4a893e74", "ec64918b", "cd889dbc", "f6275c53" }
+local raw = { 0, false, 4, false, false }
 stingray = { Network = { object_info = function()
     local fields = {}
     for i, id in ipairs(field_ids) do fields[i] = { id = id } end
@@ -164,6 +233,9 @@ raw[2] = true
 equal(real_provider:provide(id, 1).cells.ammo, 0, "actual provider empty chamber")
 equal(real_provider:provide(id, 1).cells.reserve, 4, "actual reserve reader")
 equal(real_provider:provide(id, 1).cells.reloading, false)
+equal(real_provider:provide(id, 1).cells.overheated, false, "actual overheat field false")
+raw[5] = true
+equal(real_provider:provide(id, 1).cells.overheated, true, "actual overheat field true")
 raw[1] = 3
 equal(real_provider:provide(id, 1).cells.ammo, 3)
 raw[4] = true

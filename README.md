@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.1-test
+# HD2 Helper Auto Reload 0.3.2-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -36,19 +36,24 @@ Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 
 ## Reload Triggers
 
-- Usable ammunition in the held weapon changes from a positive count to zero.
-- The actual held weapon changes to an empty weapon.
-- A new fire-key press attempts to fire an empty weapon.
+- Magazine weapons: usable ammunition changes from a positive count to zero.
+- Heat weapons: the game's explicit overheat flag changes from false to true.
+- The actual held weapon changes to an empty or overheated weapon.
+- A new fire-key press attempts to fire an empty or overheated weapon.
 
-Requests require known zero ammo, a known positive reserve, a known idle reload
+Requests require known zero ammo for magazine weapons or an explicit true
+overheat flag for heat weapons, a known positive reserve, a known idle reload
 state, an unambiguous local held weapon, and player movement/rotation control.
 The addon checks at most every 20 ms, plus game-frame scheduling. A 40 ms
 reload-key pulse is sent through Windows SendInput. It does not write ammunition
 or alter game state. An initial empty reading alone does not trigger a reload.
 An event can wait up to 350 ms for complete data, with a 350 ms repeat guard.
 
-Heat/laser weapons, underbarrels, throwables, melee, vehicle and mounted weapons
-are excluded in this first test. Unknown data never counts as empty. The reader
+Heat/laser weapons are identified from their heat metadata or declared heat
+field. A red/near-full heat gauge and zero ammo alone do not trigger reload.
+If the overheat flag or spare heat sink count is unavailable, no reload is sent.
+Underbarrels, throwables, melee, vehicle and mounted weapons remain excluded.
+Unknown data never counts as empty or overheated. The reader
 is derived from HD2 HUD+ 0.1.2 with credit and its packaged reuse permission.
 Its compatibility with the current game needs a live mission test. Schema checks
 and Lua errors disable action instead of guessing. This does not certify that
@@ -85,7 +90,7 @@ actual game behavior must be tested. F8 is an emergency pause/resume toggle.
 Diagnostics are written through the Bingus loader to
 `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`.
 Look for START, ready, RELOAD followed by
-one of ammo-exhausted / weapon-swapped / fire-attempt, or a blocking reason.
+one of ammo-exhausted / overheated / weapon-swapped / fire-attempt, or a blocking reason.
 RELOAD means an input was accepted by Windows, not confirmed completion by the
 game. INPUT_FAILED or DISABLED means no further guessed action is taken.
 
@@ -99,7 +104,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.1-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.1-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.2-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.2-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

@@ -11,7 +11,7 @@ function Policy.new()
 end
 
 function Policy:reset()
-    self.weapon, self.ammo, self.seen_at, self.pending = nil, nil, nil, nil
+    self.weapon, self.mode, self.empty, self.seen_at, self.pending = nil, nil, nil, nil, nil
     self.fire_wait_until = nil
     self.fire = false
 end
@@ -25,31 +25,37 @@ function Policy:step(sample, now)
     local fire_edge = firing and not self.fire
     self.fire = firing
     local weapon = sample.weapon
-    if weapon == nil or not finite(sample.ammo) then
-        -- Keep a short swap transition, but never use stale ammunition to reload.
+    local mode = sample.mode
+    local known = (mode == "ammo" and finite(sample.ammo)) or
+        (mode == "heat" and type(sample.overheated) == "boolean")
+    if weapon == nil or not known then
+        -- Keep a short swap transition, but never use stale weapon state to reload.
         if self.seen_at and now - self.seen_at > 0.5 then
-            self.weapon, self.ammo, self.pending = nil, nil, nil
+            self.weapon, self.mode, self.empty, self.pending = nil, nil, nil, nil
         end
         if fire_edge then self.fire_wait_until = now + 0.25 end
         return nil
     end
+    local empty
+    if mode == "heat" then empty = sample.overheated
+    else empty = sample.ammo == 0 end
     local swapped = self.weapon ~= nil and self.weapon ~= weapon
-    local exhausted = self.weapon == weapon and finite(self.ammo) and
-        self.ammo > 0 and sample.ammo == 0
-    self.weapon, self.ammo, self.seen_at = weapon, sample.ammo, now
-    if sample.ammo > 0 then
+    local exhausted = self.weapon == weapon and self.mode == mode and
+        self.empty == false and empty
+    self.weapon, self.mode, self.empty, self.seen_at = weapon, mode, empty, now
+    if not empty then
         self.pending, self.fire_wait_until = nil, nil
         return nil
     end
-    if self.pending and (self.pending.weapon ~= weapon or
+    if self.pending and (self.pending.weapon ~= weapon or self.pending.mode ~= mode or
         now > self.pending.until_time) then self.pending = nil end
-    local reason = exhausted and "ammo-exhausted" or
+    local reason = exhausted and (mode == "heat" and "overheated" or "ammo-exhausted") or
         swapped and "weapon-swapped" or
         (fire_edge or (self.fire_wait_until and now <= self.fire_wait_until))
             and "fire-attempt" or nil
     self.fire_wait_until = nil
     if reason then
-        self.pending = { weapon = weapon, reason = reason, until_time = now + 0.35 }
+        self.pending = { weapon = weapon, mode = mode, reason = reason, until_time = now + 0.35 }
     end
     if not self.pending then return nil end
     if sample.reloading == true then

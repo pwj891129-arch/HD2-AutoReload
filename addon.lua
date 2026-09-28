@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.1-test"
+local VERSION = "0.3.2-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -62,11 +62,24 @@ function Reader:sample(session, world, peer)
         return { active = false }, "underbarrel-not-supported"
     end
     local cells = self.provider:provide(resolved, session).cells
-    if cells.heat_shown ~= nil then
-        return { active = false }, "heat-weapon-not-supported"
+    local declared = self.provider:declared_of(hand.type) or ""
+    local heat_base = self.generated.authored_base["WeaponHeatComponentData.overheat_temperature"] or {}
+    local heat = heat_base[hand.type] ~= nil or
+        string.find(declared, "0xa5023836", 1, true) ~= nil or cells.heat_shown ~= nil
+    local reserve = cells.reserve
+    if spec.spare_pack then
+        local pack = resolved.backpack
+        reserve = pack and spec.spare_pack[pack.type] and cells.pack_spare or nil
+    end
+    local weapon = tostring(hand.goid) .. ":" .. tostring(hand.type)
+    if heat then
+        local overheated = boolean(cells.overheated)
+        return { active = true, mode = "heat", weapon = weapon,
+            overheated = overheated, reserve = reserve,
+            reloading = boolean(cells.reloading), avatar = resolved.avatar.goid },
+            overheated == nil and "overheat-unavailable" or "ready"
     end
     local ammo = cells.ammo
-    local declared = self.provider:declared_of(hand.type) or ""
     if string.find(declared, "0x4a893e74", 1, true) and
         boolean(cells.raw_chamber) == nil then ammo = nil end
     if string.find(declared, "0xe525fa9c", 1, true) then
@@ -82,13 +95,7 @@ function Reader:sample(session, world, peer)
         end
     end
     if not valid_count(ammo) then ammo = nil end
-    local reserve = cells.reserve
-    if spec.spare_pack then
-        local pack = resolved.backpack
-        reserve = pack and spec.spare_pack[pack.type] and cells.pack_spare or nil
-    end
-    return { active = true,
-        weapon = tostring(hand.goid) .. ":" .. tostring(hand.type),
+    return { active = true, mode = "ammo", weapon = weapon,
         ammo = ammo, reserve = reserve, reloading = boolean(cells.reloading),
         avatar = resolved.avatar.goid }, ammo == nil and "ammo-unavailable" or "ready"
 end
@@ -203,7 +210,9 @@ end
 local function status(reason, sample)
     local label = tostring(reason) .. " weapon=" .. tostring(sample and sample.weapon)
     local text = label ..
-        " ammo=" .. tostring(sample and sample.ammo) .. " reserve=" .. tostring(sample and sample.reserve)
+        " ammo=" .. tostring(sample and sample.ammo) ..
+        " overheated=" .. tostring(sample and sample.overheated) ..
+        " reserve=" .. tostring(sample and sample.reserve)
     if label ~= state.status then log(text); state.status = label end
 end
 local function tick()
