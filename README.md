@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.6-test
+# HD2 Helper Auto Reload 0.3.7-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -42,8 +42,13 @@ Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 - A new fire-key press attempts to fire an empty or overheated weapon.
 
 Requests require known zero ammo for magazine weapons or an explicit true
-overheat flag for heat weapons, a known positive reserve, a known idle reload
-state, an unambiguous local held weapon, and player movement/rotation control.
+overheat flag for heat weapons, a known positive reserve, an unambiguous local
+held weapon, and player movement/rotation control. A known idle reload state
+is normally required. When a heat weapon's reload flag turns true with the
+overheat flag, one attempt is allowed after 150 ms of persistent overheat and
+unchanged reserve; a manual R press or reserve change cancels that attempt.
+Only one input is sent per observed overheat episode, including across brief
+weapon-recognition gaps. Cooling or a confirmed weapon change clears the guard.
 Primary, sidearm (including the missile pistol), and support weapon classes
 are supported.
 After a new game or respawn, the addon refreshes its local weapon identity
@@ -109,18 +114,18 @@ read-only diagnostics and do not bypass an unknown safety condition.
 
 Tank cannon automatic reload is not enabled in this test. The existing weapon
 reader stops when the player is seated and does not expose the cannon's loaded
-round or remaining shells. If TankSeatKit is enabled, this test build records
-read-only `TANK_PROBE` snapshots when its last seat-switch hint is present and
-the normal weapon reader is blocked. The hint is not live seat confirmation;
-it must never authorize a reload input. The probe rotates through up to 12
+round or remaining shells. This build records read-only `TANK_PROBE` snapshots
+when player control is blocked. It also records a 20-second window after aiming
+or firing while grip 70 has no recognized held object. Neither a seat hint nor
+grip 70 alone confirms a tank or authorizes reload input. The probe rotates through up to 12
 locally owned objects per 250 ms and logs only the first or changed bounded
 small integer and boolean fields on each page, up to 120 lines per session.
 It does not send a reload input from those snapshots.
 
 For field mapping, sit in the Bastion gunner seat with one shell loaded, fire
 to show `0/1`, then manually reload to show `1/1`. Hold each state for at least
-15 seconds so the rotating probe can see every page. TankSeatKit must have
-observed a seat-switch key press in that session to supply its hint. Send the `TANK_PROBE` lines
+15 seconds so the rotating probe can see every page. Aim before firing to
+start the probe when the held object is unresolved. Send the `TANK_PROBE` lines
 from the log along with the screenshots. This is needed to distinguish the
 cannon's loaded round and reserve from unrelated vehicle and personal-weapon
 fields. The ordinary reload policy already blocks unknown or zero reserves;
@@ -136,7 +141,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.6-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.6-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.7-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.7-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

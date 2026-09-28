@@ -180,6 +180,37 @@ p:step(heat_sample("H", false), 0)
 equal(p:step(heat_sample("H", true), 0.1), "overheated")
 equal(p:step(heat_sample("H", false), 0.2), nil, "cooling cancels pending heat reload")
 equal(p:step(heat_sample("H", true), 0.3), "overheated", "new overheat event after cooling")
+p = api.Policy.new()
+p:step(heat_sample("dagger", false), 0)
+local hot_reloading = heat_sample("dagger", true)
+hot_reloading.reloading = true
+equal(p:step(hot_reloading, 0.1), nil, "heat reload flag needs dwell")
+equal(p:step(hot_reloading, 0.24), nil, "heat reload flag still settling")
+equal(p:step(hot_reloading, 0.26), "overheated", "persistent heat with reload flag")
+p:sent(0.26)
+equal(p:step(hot_reloading, 0.7), nil, "one attempt per overheat event")
+p:reset()
+hot_reloading.fire = true
+equal(p:step(hot_reloading, 0.8), nil, "identity gap cannot repeat heat reload")
+hot_reloading.fire = false
+equal(p:step(heat_sample("dagger", false), 0.9), nil, "cooling clears heat latch")
+equal(p:step(heat_sample("dagger", true), 1.0), "overheated", "new overheat can reload")
+p = api.Policy.new()
+p:step(heat_sample("dagger", false), 0)
+equal(p:step(hot_reloading, 0.1), nil)
+hot_reloading.reserve = 1
+equal(p:step(hot_reloading, 0.3), nil, "reserve change cancels pending heat reload")
+hot_reloading.reserve = 2
+equal(p:step(hot_reloading, 0.31), nil, "cancelled heat attempt stays cancelled")
+p = api.Policy.new()
+p:step(heat_sample("dagger", false), 0)
+hot_reloading.manual_reload = nil
+equal(p:step(hot_reloading, 0.1), nil)
+hot_reloading.manual_reload = true
+equal(p:step(hot_reloading, 0.2), nil, "manual heat reload cancels pending")
+hot_reloading.manual_reload = false
+equal(p:step(hot_reloading, 0.3), nil, "manual heat reload is not duplicated")
+hot_reloading.reloading, hot_reloading.manual_reload = false, nil
 
 -- Adapter contracts: a mocked provider never touches the game or sends input.
 local cells, resolved, control, rotation, declaration
@@ -409,7 +440,9 @@ cells = { ammo = 1, reserve = 3, reloading = false }
 identity.invalidate = function() end
 stingray = {
     Network = { game_session = function() return 1 end, peer_id = function() return 2 end },
-    GameSession = { in_session = function() return true end },
+    GameSession = { in_session = function() return true end,
+        objects_owned_by = function() return { 42 } end,
+        game_object_field_batched = function() return { [1] = 1 } end },
     Application = { time_since_launch = function() return now end,
         main_world = function() return 3 end, worlds = function() return {3} end },
 }
@@ -451,8 +484,18 @@ for _, line in ipairs(logs) do
     end
 end
 equal(aimed, true, "seated aim logs grip and control gate")
+Hd2TankSeatSwitch = nil; keys[2] = false; frame(0.57)
+keys[2] = true; frame(0.59)
+local unconfirmed_aim = false
+for _, line in ipairs(logs) do
+    if line:find("SEAT_AIM seat_hint=unconfirmed", 1, true) then
+        unconfirmed_aim = true
+    end
+end
+equal(unconfirmed_aim, true, "seated aim logs without seat addon")
 resolved.grip, control, keys[2], Hd2TankSeatSwitch = nil, true, false, nil
 keys[1] = false; frame(0.6)
+frame(0.62)
 resolved.hand_weapon.goid = 6
 frame(0.7); equal(#inputs, 3, "runtime actual swap trigger")
 frame(0.75)
@@ -475,6 +518,16 @@ keys[119], keys[1] = false, false; frame(2.35)
 cells.ammo = 3; frame(2.4)
 cells.ammo = 0; frame(2.5)
 equal(#inputs, 7, "resume exhaustion")
+resolved.status, resolved.reason, resolved.grip = "absent", "no-on-body-object-of-grip=70", 70
+keys[2] = true; frame(2.51); frame(2.55)
+local grip_probe = false
+for _, line in ipairs(logs) do
+    if line:find("TANK_PROBE", 1, true) and
+        line:find("seat_hint=unconfirmed-grip70", 1, true) then
+        grip_probe = true
+    end
+end
+equal(grip_probe, true, "unresolved grip 70 aim starts a bounded tank probe")
 shutdown()
 equal(#inputs, 8, "shutdown releases outstanding key")
 equal(inputs[8].flags, 10)

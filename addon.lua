@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.6-test"
+local VERSION = "0.3.7-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -283,10 +283,11 @@ local function tick()
     local aim = focused and down(2)
     local aim_edge = aim and not state.aim
     state.aim = aim
+    if aim_edge then state.aim_pending = true end
     if fire and not state.fire then state.fire_pending = true end
     state.fire = fire
     if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
-        policy:reset(); state.fire_pending = nil; release(); return
+        policy:reset(); state.fire_pending, state.aim_pending = nil, nil; release(); return
     end
     if state.next_read and now < state.next_read then return end
     state.next_read = now + 0.02
@@ -311,17 +312,29 @@ local function tick()
     if type(seat_hint) ~= "string" or seat_hint:sub(1, 5) ~= "seat:" then
         seat_hint = nil
     end
-    if aim_edge and seat_hint and (state.seat_aim_lines or 0) < 20 then
+    local control_blocked = reason == "no-player-control" or
+        (type(reason) == "string" and reason:find("^avatar%-not%-in%-control"))
+    local unknown_grip70 = sample.grip == 70 and type(reason) == "string" and
+        reason:find("^no%-on%-body%-object%-of%-grip=70")
+    local aim_event = state.aim_pending == true
+    state.aim_pending = nil
+    if unknown_grip70 and (aim_event or state.fire_pending) then
+        tank_probe:reset()
+        state.probe_until = now + 20
+    end
+    if aim_event and control_blocked and (state.seat_aim_lines or 0) < 20 then
         state.seat_aim_lines = (state.seat_aim_lines or 0) + 1
-        log("SEAT_AIM seat_hint=" .. seat_hint .. " reason=" .. tostring(reason) ..
+        log("SEAT_AIM seat_hint=" .. tostring(seat_hint or "unconfirmed") ..
+            " reason=" .. tostring(reason) ..
             " grip=" .. tostring(sample.grip) ..
             " control=" .. tostring(sample.in_control) ..
             " rotation=" .. tostring(sample.rotation_free))
     end
-    if seat_hint and (reason == "no-player-control" or
-        (type(reason) == "string" and reason:find("^avatar%-not%-in%-control"))) then
+    if control_blocked or (unknown_grip70 and state.probe_until and
+        now <= state.probe_until) then
         local probe_ok, probe_line = pcall(tank_probe.read, tank_probe,
-            session, peer, now, seat_hint)
+            session, peer, now, seat_hint or
+                (unknown_grip70 and "unconfirmed-grip70" or "unconfirmed"))
         if probe_ok and probe_line then log(probe_line) end
     end
     if recover_identity(reader.identity, state, sample, reason, now) then
