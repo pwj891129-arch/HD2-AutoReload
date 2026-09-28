@@ -24,16 +24,42 @@ local probe = api.TankProbe.new({
     end,
 })
 local probe_line = probe:read(1, 2, 0, "seat:bastion:1")
-equal(probe_line:find("seat=bastion", 1, true) ~= nil, false, "seat string preserved")
-equal(probe_line:find("seat=seat:bastion:1", 1, true) ~= nil, true)
+equal(probe_line:find("seat_hint=bastion", 1, true) ~= nil, false, "seat hint preserved")
+equal(probe_line:find("seat_hint=seat:bastion:1", 1, true) ~= nil, true)
 equal(probe_line:find("31[1=0,2=30,3=false,6.1=1,6.2=0]", 1, true) ~= nil, true,
     "bounded tank numeric fields")
 equal(probe_line:find("4=99", 1, true) == nil, true, "unrelated large value omitted")
 equal(probe:read(1, 2, 0.5, "seat:bastion:1"), nil, "probe throttled")
 equal(probe:read(1, 2, 1.1, "seat:bastion:1"), nil, "unchanged fields not logged")
+equal(probe:read(1, 2, 2.2, "seat:bastion:2"):find(
+    "seat_hint=seat:bastion:2", 1, true) ~= nil, true, "seat hint change logged")
 raw_tank[2] = 29
-equal(probe:read(1, 2, 2.2, "seat:bastion:1"):find("2=29", 1, true) ~= nil,
+equal(probe:read(1, 2, 3.3, "seat:bastion:2"):find("2=29", 1, true) ~= nil,
     true, "changed tank reserve logged")
+probe:reset()
+equal(probe:read(1, 2, 3.4, "seat:bastion:2") ~= nil, true,
+    "new session probe resets timing and fingerprint")
+local pages_seen = {}
+probe = api.TankProbe.new({
+    objects_owned_by = function()
+        local owned = {}
+        for i = 1, 25 do owned[i] = i end
+        return owned
+    end,
+    game_object_field_batched = function(_, goid) return { [1] = goid % 10 } end,
+})
+for i = 0, 2 do
+    local line = probe:read(1, 2, i * 0.25, "seat:bastion:1")
+    equal(line:find("page=" .. tostring(i + 1) .. "/3", 1, true) ~= nil,
+        true, "tank probe visits each bounded page")
+    pages_seen[i + 1] = line
+end
+equal(probe:read(1, 2, 0.75, "seat:bastion:1"), nil,
+    "unchanged tank page is not logged again")
+equal(pages_seen[1]:find("13[", 1, true) == nil, true,
+    "first page stays within 12 objects")
+equal(pages_seen[2]:find("13[", 1, true) ~= nil, true,
+    "second page reaches later objects")
 probe = api.TankProbe.new({})
 equal(probe:read(1, 2, 0), "TANK_PROBE unavailable", "no unsupported field calls")
 local p = api.Policy.new()
@@ -188,14 +214,19 @@ local switch = api.Policy.new()
 equal(switch:step(sample("primary", 2), 0), nil)
 equal(switch:step(missile, 0.1), "weapon-swapped", "switch to empty missile pistol reloads")
 equipment.A.resource = "content/fac_helldivers/equipment/primary_weapons/test/test"
-control = false; equal(reader:sample().active, false, "non-player control")
-control, rotation = true, false; equal(reader:sample().active, false, "rotation gate")
+control = false
+equal(reader:sample().active, false, "non-player control")
+equal(reader:sample().in_control, false, "seated control diagnostic")
+control, rotation = true, false
+equal(reader:sample().active, false, "rotation gate")
+equal(reader:sample().rotation_free, false, "seated rotation diagnostic")
 rotation = true; resolved.hand_weapon = nil
 equal(reader:sample().weapon, nil, "no selected weapon")
 resolved.hand_weapon = { goid = 5, type = "A" }
 cells.heat_shown = 0.9; cells.overheated = false
 equal(reader:sample().mode, "heat", "heat mode detected")
 equal(reader:sample().overheated, false, "warm is not overheated")
+equal(reader:sample().heat_shown, 0.9, "heat diagnostic retains gauge")
 cells.overheated = true
 equal(reader:sample().overheated, true, "explicit overheated state")
 cells.overheated = nil
@@ -409,6 +440,18 @@ frame(0.062)
 equal(#inputs, 2, "scheduled up")
 equal(inputs[2].flags, 10, "scan-code up")
 frame(0.5); equal(#inputs, 2, "held fire not repeated")
+Hd2TankSeatSwitch = { last = "seat:16474112801385b6:3" }
+resolved.grip, control, keys[2] = 15, false, true
+frame(0.55)
+equal(#inputs, 2, "seated aim diagnostic never reloads")
+local aimed = false
+for _, line in ipairs(logs) do
+    if line:find("SEAT_AIM", 1, true) and line:find("grip=15", 1, true) then
+        aimed = true
+    end
+end
+equal(aimed, true, "seated aim logs grip and control gate")
+resolved.grip, control, keys[2], Hd2TankSeatSwitch = nil, true, false, nil
 keys[1] = false; frame(0.6)
 resolved.hand_weapon.goid = 6
 frame(0.7); equal(#inputs, 3, "runtime actual swap trigger")

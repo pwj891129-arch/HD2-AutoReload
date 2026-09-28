@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.5-test"
+local VERSION = "0.3.6-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -46,12 +46,15 @@ end
 function Reader:sample(session, world, peer)
     local resolved = self.identity:resolve(session, world, peer)
     if not resolved or not resolved.avatar or resolved.status ~= "resolved" then
-        return { active = false, avatar = resolved and resolved.avatar and resolved.avatar.goid },
+        return { active = false, avatar = resolved and resolved.avatar and resolved.avatar.goid,
+            grip = resolved and resolved.grip },
             resolved and resolved.reason or "no-avatar"
     end
-    if boolean(self.identity:in_control(session, resolved.avatar)) ~= true or
-        boolean(self.identity:rotation_free(session, resolved.avatar)) ~= true then
-        return { active = false }, "no-player-control"
+    local in_control = boolean(self.identity:in_control(session, resolved.avatar))
+    local rotation_free = boolean(self.identity:rotation_free(session, resolved.avatar))
+    if in_control ~= true or rotation_free ~= true then
+        return { active = false, avatar = resolved.avatar.goid, grip = resolved.grip,
+            in_control = in_control, rotation_free = rotation_free }, "no-player-control"
     end
     local hand = resolved.hand_weapon
     if not hand then return { active = true }, "no-held-weapon" end
@@ -80,6 +83,7 @@ function Reader:sample(session, world, peer)
         local overheated = boolean(cells.overheated)
         return { active = true, mode = "heat", weapon = weapon,
             overheated = overheated, reserve = reserve,
+            heat_shown = cells.heat_shown, heat_max = cells.heat_max,
             reloading = boolean(cells.reloading), avatar = resolved.avatar.goid },
             overheated == nil and "overheat-unavailable" or "ready"
     end
@@ -246,11 +250,17 @@ local function scope()
     for _, value in pairs(worlds) do if value == world then return session, world, peer end end
 end
 local function status(reason, sample)
-    local label = tostring(reason) .. " weapon=" .. tostring(sample and sample.weapon)
+    local label = tostring(reason) .. " weapon=" .. tostring(sample and sample.weapon) ..
+        " mode=" .. tostring(sample and sample.mode)
+    if sample and sample.mode == "heat" then
+        label = label .. " overheat=" .. tostring(sample.overheated) ..
+            " reserve=" .. tostring(sample.reserve) ..
+            " reloading=" .. tostring(sample.reloading)
+    end
     local text = label ..
         " ammo=" .. tostring(sample and sample.ammo) ..
-        " overheated=" .. tostring(sample and sample.overheated) ..
-        " reserve=" .. tostring(sample and sample.reserve)
+        " heat=" .. tostring(sample and sample.heat_shown) ..
+        "/" .. tostring(sample and sample.heat_max)
     if label ~= state.status then log(text); state.status = label end
 end
 local function tick()
@@ -270,6 +280,9 @@ local function tick()
     end
     state.keys = keys
     local fire = focused and down(config.fire_vk)
+    local aim = focused and down(2)
+    local aim_edge = aim and not state.aim
+    state.aim = aim
     if fire and not state.fire then state.fire_pending = true end
     state.fire = fire
     if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
@@ -281,21 +294,35 @@ local function tick()
     if not session then
         policy:reset(); reader.identity:invalidate(); state.avatar = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
+        if state.context then
+            tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
+        end
         state.fire_pending = nil; status("no-session"); return
     end
     local context = tostring(session) .. ":" .. tostring(world) .. ":" .. tostring(peer)
     if state.context ~= context then
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
+        tank_probe:reset(); state.seat_aim_lines = nil
     end
     local sample, reason = reader:sample(session, world, peer)
-    if reason == "no-player-control" then
-        local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
-        local seat = type(seat_mod) == "table" and seat_mod.last or nil
-        if type(seat) == "string" and seat:sub(1, 5) == "seat:" then
-            local probe_ok, probe_line = pcall(tank_probe.read, tank_probe, session, peer, now, seat)
-            if probe_ok and probe_line then log(probe_line) end
-        end
+    local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
+    local seat_hint = type(seat_mod) == "table" and seat_mod.last or nil
+    if type(seat_hint) ~= "string" or seat_hint:sub(1, 5) ~= "seat:" then
+        seat_hint = nil
+    end
+    if aim_edge and seat_hint and (state.seat_aim_lines or 0) < 20 then
+        state.seat_aim_lines = (state.seat_aim_lines or 0) + 1
+        log("SEAT_AIM seat_hint=" .. seat_hint .. " reason=" .. tostring(reason) ..
+            " grip=" .. tostring(sample.grip) ..
+            " control=" .. tostring(sample.in_control) ..
+            " rotation=" .. tostring(sample.rotation_free))
+    end
+    if seat_hint and (reason == "no-player-control" or
+        (type(reason) == "string" and reason:find("^avatar%-not%-in%-control"))) then
+        local probe_ok, probe_line = pcall(tank_probe.read, tank_probe,
+            session, peer, now, seat_hint)
+        if probe_ok and probe_line then log(probe_line) end
     end
     if recover_identity(reader.identity, state, sample, reason, now) then
         local raw_owned = reader.identity.counters and reader.identity.counters.owned_seen

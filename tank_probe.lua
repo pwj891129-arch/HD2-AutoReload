@@ -26,12 +26,17 @@ local function fields(value, prefix, depth, out)
 end
 
 function TankProbe.new(game_session)
-    return setmetatable({ gs = game_session, next_read = 0, lines = 0 }, TankProbe)
+    return setmetatable({ gs = game_session, next_read = 0, lines = 0,
+        page = 0, last = {} }, TankProbe)
+end
+
+function TankProbe:reset()
+    self.next_read, self.lines, self.page, self.last = 0, 0, 0, {}
 end
 
 function TankProbe:read(session, peer, now, seat)
     if now < self.next_read or self.lines >= 120 then return nil end
-    self.next_read = now + 1
+    self.next_read = now + 0.25
     if type(self.gs.objects_owned_by) ~= "function" or
         type(self.gs.game_object_field_batched) ~= "function" then
         return "TANK_PROBE unavailable"
@@ -43,8 +48,11 @@ function TankProbe:read(session, peer, now, seat)
         if type(goid) == "number" and goid >= 0 then goids[#goids + 1] = goid end
     end
     table.sort(goids)
+    local pages = math.max(1, math.ceil(#goids / 12))
+    local page = self.page % pages
+    self.page = (page + 1) % pages
     local chunks = {}
-    for index = 1, math.min(#goids, 12) do
+    for index = page * 12 + 1, math.min(#goids, (page + 1) * 12) do
         local goid = goids[index]
         local read_ok, raw = pcall(self.gs.game_object_field_batched, session, goid, {})
         if read_ok and type(raw) == "table" then
@@ -53,12 +61,13 @@ function TankProbe:read(session, peer, now, seat)
             chunks[#chunks + 1] = tostring(goid) .. "[" .. table.concat(out, ",") .. "]"
         end
     end
-    local fingerprint = table.concat(chunks, " ")
-    if fingerprint == self.last then return nil end
-    self.last = fingerprint
+    local fields_text = table.concat(chunks, " ")
+    local fingerprint = tostring(seat or "unknown") .. " " .. fields_text
+    if fingerprint == self.last[page] then return nil end
+    self.last[page] = fingerprint
     self.lines = self.lines + 1
-    return string.format("TANK_PROBE t=%.1f seat=%s owned=%d %s", now,
-        tostring(seat or "unknown"), #goids, fingerprint)
+    return string.format("TANK_PROBE t=%.1f seat_hint=%s owned=%d page=%d/%d %s", now,
+        tostring(seat or "unknown"), #goids, page + 1, pages, fields_text)
 end
 
 return TankProbe
