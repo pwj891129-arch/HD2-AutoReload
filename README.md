@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.2-test
+# HD2 Helper Auto Reload 0.3.3-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -44,6 +44,8 @@ Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 Requests require known zero ammo for magazine weapons or an explicit true
 overheat flag for heat weapons, a known positive reserve, a known idle reload
 state, an unambiguous local held weapon, and player movement/rotation control.
+Primary, sidearm (including the missile pistol), and support weapon classes
+are supported.
 The addon checks at most every 20 ms, plus game-frame scheduling. A 40 ms
 reload-key pulse is sent through Windows SendInput. It does not write ammunition
 or alter game state. An initial empty reading alone does not trigger a reload.
@@ -104,7 +106,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.2-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.2-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.3-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.3-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

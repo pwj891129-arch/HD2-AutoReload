@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.2-test"
+local VERSION = "0.3.3-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -54,7 +54,7 @@ function Reader:sample(session, world, peer)
     local spec = self.generated.identity.equipment[hand.type]
     local resource = spec and spec.resource or ""
     if not string.find(resource, "/equipment/primary_weapons/", 1, true) and
-        not string.find(resource, "/equipment/secondary_weapons/", 1, true) and
+        not string.find(resource, "/equipment/sidearm_weapons/", 1, true) and
         not string.find(resource, "/equipment/support_weapons/", 1, true) then
         return { active = false }, "unsupported-held-item"
     end

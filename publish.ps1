@@ -2,12 +2,12 @@ param(
     [Parameter(Mandatory)][string]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.2-test'
+    [string]$Tag = 'auto-reload-0.3.3-test'
 )
 $ErrorActionPreference = 'Stop'
 $AssetPath = (Resolve-Path -LiteralPath $AssetPath).Path
 $assetName = [IO.Path]::GetFileName($AssetPath)
-if ($assetName -ne 'HD2-AutoReload-0.3.2-test.zip') { throw 'Unexpected addon package name.' }
+if ($assetName -ne 'HD2-AutoReload-0.3.3-test.zip') { throw 'Unexpected addon package name.' }
 if ($Commit -notmatch '^[0-9a-f]{40}$') { throw 'A full source commit hash is required.' }
 if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Invalid repository name.' }
 $credentialLines = "protocol=https`nhost=github.com`n`n" | git -c "safe.directory=$PSScriptRoot" credential fill
@@ -22,10 +22,11 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload 0.3.2-test
+## HD2 Auto Reload 0.3.3-test
 
 HD2 HUD와 함께 사용할 수 있는 Arsenal / Bingus용 별도 자동 재장전 애드온 테스트입니다.
 
+- 미사일 권총을 포함한 보조무기가 자동 재장전 대상에서 누락되던 분류 오류를 수정했습니다.
 - 과열식 무기는 게임의 실제 과열 상태값이 `true`일 때만 재장전합니다. 탄약 0이나 붉은 열 게이지만으로는 재장전하지 않습니다.
 - 과열 전환 직후, 과열 무기로 교체한 직후, 과열 중 발사 시도에 반응합니다.
 - 과열 상태 또는 예비 열 교체분을 읽을 수 없거나 예비분이 0이면 입력하지 않습니다.
@@ -45,7 +46,7 @@ Bingus가 Wwise 시작 스크립트 충돌에서 우선하도록 배치한 뒤 �
 HD2 HUD는 끄지 마세요. 기존 헬퍼 자동 재장전과 이전 Auto Reload 진단/보조 스크립트만 끄고 테스트하세요.
 기본 키는 좌클릭 / R이며 `%APPDATA%\HD2AutoReload.ini`에서 변경할 수 있습니다.
 활성 언더배럴, 차량/거치 무기는 이번 테스트에서 제외했습니다.
-분리된 LuaJIT 테스트 291개 검증 항목이 통과했습니다. HD2 HUD+ 0.1.2의 실제 콜백 구현을 테스트 참조로 사용했습니다.
+분리된 LuaJIT 테스트 301개 검증 항목이 통과했습니다. HD2 HUD+ 0.1.2의 실제 콜백 구현을 테스트 참조로 사용했습니다.
 현재 게임에서 최신 HD2 HUD와의 실제 동시 실행 및 재장전 동작은 아직 확인하지 못했습니다.
 HD2 HUD는 게임 버전에 맞는 빌드를 사용해야 합니다. 저자는 0.1.12를 9월 24일 게임 업데이트 대응 버전으로 안내합니다.
 Windows 입력 전송 성공은 게임 내 재장전 완료를 뜻하지 않습니다.
@@ -63,7 +64,7 @@ try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload 0.3.2-test (overheat-aware reload)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload 0.3.3-test (missile pistol reload)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

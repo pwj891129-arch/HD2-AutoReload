@@ -145,6 +145,15 @@ cells = { ammo = 0, reserve = 2, reloading = false }
 equal(reader:sample().ammo, 0, "known empty")
 equal(reader:sample().weapon, "5:A", "object identity")
 equal(reader:sample().reloading, false)
+equipment.A.resource = "content/fac_helldivers/equipment/sidearm_weapons/smart_pistol_missile/smart_pistol_missile"
+local missile = reader:sample()
+equal(missile.active, true, "missile pistol is a supported sidearm")
+equal(missile.mode, "ammo", "missile pistol uses ammo state")
+equal(missile.ammo, 0, "missile pistol empty state is readable")
+local switch = api.Policy.new()
+equal(switch:step(sample("primary", 2), 0), nil)
+equal(switch:step(missile, 0.1), "weapon-swapped", "switch to empty missile pistol reloads")
+equipment.A.resource = "content/fac_helldivers/equipment/primary_weapons/test/test"
 control = false; equal(reader:sample().active, false, "non-player control")
 control, rotation = true, false; equal(reader:sample().active, false, "rotation gate")
 rotation = true; resolved.hand_weapon = nil
@@ -227,6 +236,13 @@ for key, row in pairs(generated.identity.equipment) do
     if row.resource:find("/primary_weapons/assault_rifle/", 1, true) then real_type = key; break end
 end
 assert(real_type, "known rifle type missing")
+local missile_type
+for key, row in pairs(generated.identity.equipment) do
+    if row.resource:find("/sidearm_weapons/smart_pistol_missile/", 1, true) then
+        missile_type = key; break
+    end
+end
+equal(missile_type, "0xfd585726", "missile pistol is classified as a sidearm")
 local id = { hand_weapon = { goid = 5, type = real_type } }
 equal(real_provider:provide(id, 1).cells.ammo, 1, "actual provider adds chambered round")
 raw[2] = true
@@ -242,6 +258,18 @@ raw[4] = true
 equal(real_provider:provide(id, 1).cells.reloading, true)
 raw[1] = nil
 equal(real_provider:provide(id, 1).cells.ammo, nil, "failed read remains unknown")
+raw[1], raw[2], raw[4] = 0, true, false
+resolved.hand_weapon = { goid = 5, type = missile_type }
+local missile_reader = api.Reader.new({ GeneratedCommon = real_parts.GeneratedCommon,
+    IdentityCore = { new = function() return identity end },
+    Provider = real_parts.Provider }, real_fragment)
+local live_missile = missile_reader:sample(1)
+equal(live_missile.active, true, "real missile pistol metadata is supported")
+equal(live_missile.ammo, 0, "real provider reads empty missile pistol")
+equal(live_missile.reserve, 4, "real provider reads missile pistol reserve")
+switch = api.Policy.new()
+switch:step(sample("primary", 2), 0)
+equal(switch:step(live_missile, 0.1), "weapon-swapped", "real missile pistol reload path")
 local ffi = require("ffi")
 ffi.cdef[[
 typedef struct { unsigned short vk, scan; unsigned int flags, time; uintptr_t extra; } ARTEST_KEY;
