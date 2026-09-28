@@ -175,6 +175,10 @@ cells = { ammo = 0, reserve = 2, reloading = false }
 equal(reader:sample().ammo, 0, "known empty")
 equal(reader:sample().weapon, "5:A", "object identity")
 equal(reader:sample().reloading, false)
+resolved.status, resolved.reason = "absent", "no-on-body-object-of-grip=15"
+equal(reader:sample().avatar, 100, "unresolved weapon retains avatar identity")
+equal(reader:sample().active, false, "unresolved weapon remains inactive")
+resolved.status, resolved.reason = "resolved", nil
 equipment.A.resource = "content/fac_helldivers/equipment/sidearm_weapons/smart_pistol_missile/smart_pistol_missile"
 local missile = reader:sample()
 equal(missile.active, true, "missile pistol is a supported sidearm")
@@ -230,6 +234,30 @@ resolved.backpack = { type = "wrong" }; cells.pack_spare = 4
 equal(reader:sample().reserve, nil, "wrong backpack")
 resolved.backpack.type = "P"; equal(reader:sample().reserve, 4)
 equal(api.boolean(0), false); equal(api.boolean(1), true); equal(api.boolean(nil), nil)
+
+local invalidations = 0
+local cache = { invalidate = function() invalidations = invalidations + 1 end }
+local recovery = {}
+equal(api.recover_identity(cache, recovery, { avatar = 100 }, "ready", 0), false)
+equal(api.recover_identity(cache, recovery, {}, "no-avatar:no-avatar-right-now", 0.1), false)
+equal(api.recover_identity(cache, recovery, { avatar = 100 },
+    "no-on-body-object-of-grip=15", 0.2), true, "same-id avatar recovered in new game")
+equal(invalidations, 1)
+equal(api.recover_identity(cache, recovery, { avatar = 100 },
+    "no-on-body-object-of-grip=15", 0.3), false, "brief weapon gap tolerated")
+equal(api.recover_identity(cache, recovery, { avatar = 100 },
+    "no-on-body-object-of-grip=1", 1.1), true, "persistent secondary gap resets cache")
+equal(api.recover_identity(cache, recovery, { avatar = 100 },
+    "hand-empty:nothing-at-the-wield-node", 1.2), false, "recovery throttled")
+equal(api.recover_identity(cache, recovery, { avatar = 100 },
+    "no-on-body-object-of-grip=70", 3.2), true, "support weapon can retry cache")
+equal(invalidations, 3)
+equal(api.recover_identity(cache, recovery, { avatar = 100 }, "ready", 3.3), false)
+equal(api.recover_identity(cache, recovery, { avatar = 100 },
+    "no-player-control", 5), false, "vehicle control does not reset identity")
+equal(api.recover_identity(cache, recovery, { avatar = 101 }, "ready", 5.1), true,
+    "new avatar goid resets identity")
+equal(invalidations, 4)
 
 local calls = {}
 local env = { update = function(a, b) calls[#calls+1] = "original"; return a, nil, b end,

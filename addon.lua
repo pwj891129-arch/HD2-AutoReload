@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.4-test"
+local VERSION = "0.3.5-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -46,7 +46,8 @@ end
 function Reader:sample(session, world, peer)
     local resolved = self.identity:resolve(session, world, peer)
     if not resolved or not resolved.avatar or resolved.status ~= "resolved" then
-        return { active = false }, resolved and resolved.reason or "no-avatar"
+        return { active = false, avatar = resolved and resolved.avatar and resolved.avatar.goid },
+            resolved and resolved.reason or "no-avatar"
     end
     if boolean(self.identity:in_control(session, resolved.avatar)) ~= true or
         boolean(self.identity:rotation_free(session, resolved.avatar)) ~= true then
@@ -103,6 +104,38 @@ function Reader:sample(session, world, peer)
         avatar = resolved.avatar.goid }, ammo == nil and "ammo-unavailable" or "ready"
 end
 
+local function recover_identity(identity, state, sample, reason, now)
+    if type(reason) == "string" and reason:find("^no%-avatar") then
+        state.avatar_missing = true
+    end
+    if sample.avatar then
+        local changed = state.avatar_missing or
+            (state.avatar ~= nil and state.avatar ~= sample.avatar)
+        state.avatar = sample.avatar
+        state.avatar_missing = nil
+        if changed then
+            identity:invalidate()
+            state.unresolved_since, state.next_recovery = nil, nil
+            return true
+        end
+    end
+    local unresolved = sample.avatar and type(reason) == "string" and
+        (reason:find("^no%-on%-body%-object%-of%-grip") or
+            reason:find("^hand%-empty"))
+    if unresolved then
+        state.unresolved_since = state.unresolved_since or now
+        if now - state.unresolved_since >= 0.75 and
+            now >= (state.next_recovery or 0) then
+            identity:invalidate()
+            state.next_recovery = now + 2
+            return true
+        end
+    else
+        state.unresolved_since, state.next_recovery = nil, nil
+    end
+    return false
+end
+
 local function install_hooks(env, tick, stop, on_error)
     local original_update = env.update
     if type(original_update) ~= "function" then return false end
@@ -127,7 +160,8 @@ end
 
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
-        TankProbe = TankProbe, install_hooks = install_hooks }
+        TankProbe = TankProbe, recover_identity = recover_identity,
+        install_hooks = install_hooks }
 end
 if rawget(_G, "HD2HelperAutoReload") then return end
 
@@ -246,11 +280,13 @@ local function tick()
     local session, world, peer = scope()
     if not session then
         policy:reset(); reader.identity:invalidate(); state.avatar = nil
+        state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         state.fire_pending = nil; status("no-session"); return
     end
     local context = tostring(session) .. ":" .. tostring(world) .. ":" .. tostring(peer)
     if state.context ~= context then
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
+        state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
     end
     local sample, reason = reader:sample(session, world, peer)
     if reason == "no-player-control" then
@@ -261,8 +297,12 @@ local function tick()
             if probe_ok and probe_line then log(probe_line) end
         end
     end
-    if sample.avatar and state.avatar and sample.avatar ~= state.avatar then policy:reset() end
-    state.avatar = sample.avatar
+    if recover_identity(reader.identity, state, sample, reason, now) then
+        local raw_owned = reader.identity.counters and reader.identity.counters.owned_seen
+        log("IDENTITY_RECOVERY reason=" .. tostring(reason) ..
+            " raw_owned=" .. tostring(raw_owned))
+        policy:reset(); state.fire_pending = nil; status("identity-recovery", sample); return
+    end
     sample.fire = fire or state.fire_pending == true
     sample.manual_reload = down(config.reload_vk) or state.release_at ~= nil
     state.fire_pending = nil
