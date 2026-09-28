@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.3-test';
+const version = '0.3.4-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -82,6 +82,7 @@ fs.copyFileSync(path.join(sourceFolder, 'README.txt'), path.join(vendor, 'HD2-HU
 const source = readSource(path.join(root, 'addon.lua'))
   .replace('-- @POLICY@', () => readSource(path.join(root, 'policy.lua')))
   .replace('-- @NATIVE@', () => readSource(path.join(root, 'native.lua')))
+  .replace('-- @TANK_PROBE@', () => readSource(path.join(root, 'tank_probe.lua')))
   .replace('-- @READER_CORE@', () => core)
   .replace('-- @NUMBERS@', () => compact(numbers));
 assert.equal(source.split('\n')[0], `-- HD2-Addon: ${resource}`);

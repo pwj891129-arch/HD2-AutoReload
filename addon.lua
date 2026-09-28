@@ -1,10 +1,13 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.3-test"
+local VERSION = "0.3.4-test"
 local Policy = (function()
 -- @POLICY@
 end)()
 local Native = (function()
 -- @NATIVE@
+end)()
+local TankProbe = (function()
+-- @TANK_PROBE@
 end)()
 local Reader = {}
 Reader.__index = Reader
@@ -124,7 +127,7 @@ end
 
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
-        install_hooks = install_hooks }
+        TankProbe = TankProbe, install_hooks = install_hooks }
 end
 if rawget(_G, "HD2HelperAutoReload") then return end
 
@@ -184,6 +187,7 @@ local sr = rawget(_G, "stingray") or {}
 local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {}
 if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
 local policy, state = Policy.new(), { paused = not config.enabled, keys = {} }
+local tank_probe = TankProbe.new(GS)
 rawset(_G, "HD2HelperAutoReload", state)
 
 local function down(vk) return native.user32.GetAsyncKeyState(vk) < 0 end
@@ -249,6 +253,14 @@ local function tick()
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
     end
     local sample, reason = reader:sample(session, world, peer)
+    if reason == "no-player-control" then
+        local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
+        local seat = type(seat_mod) == "table" and seat_mod.last or nil
+        if type(seat) == "string" and seat:sub(1, 5) == "seat:" then
+            local probe_ok, probe_line = pcall(tank_probe.read, tank_probe, session, peer, now, seat)
+            if probe_ok and probe_line then log(probe_line) end
+        end
+    end
     if sample.avatar and state.avatar and sample.avatar ~= state.avatar then policy:reset() end
     state.avatar = sample.avatar
     sample.fire = fire or state.fire_pending == true

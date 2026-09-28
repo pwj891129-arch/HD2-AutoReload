@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.3-test
+# HD2 Helper Auto Reload 0.3.4-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -96,6 +96,23 @@ one of ammo-exhausted / overheated / weapon-swapped / fire-attempt, or a blockin
 RELOAD means an input was accepted by Windows, not confirmed completion by the
 game. INPUT_FAILED or DISABLED means no further guessed action is taken.
 
+## Tank Cannon Diagnostic
+
+Tank cannon automatic reload is not enabled in this test. The existing weapon
+reader stops when the player is seated and does not expose the cannon's loaded
+round or remaining shells. If TankSeatKit is enabled, this test build records
+read-only `TANK_PROBE` snapshots while its seat state confirms a tank seat and
+the normal weapon reader is blocked. It does not send a reload input from those
+snapshots. The probe samples at most once per second and logs only bounded
+small integer and boolean fields of up to 12 locally owned game objects.
+
+For field mapping, sit in the Bastion gunner seat with one shell loaded, fire
+to show `0/1`, then manually reload to show `1/1`. Send the `TANK_PROBE` lines
+from the log along with the screenshots. This is needed to distinguish the
+cannon's loaded round and reserve from unrelated vehicle and personal-weapon
+fields. The ordinary reload policy already blocks unknown or zero reserves;
+it is not yet connected to tank data.
+
 ## Build And Test
 
 Requires Node.js, PowerShell, and the game's LuaJIT `bin/lua51.dll`. Build reads
@@ -106,7 +123,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.3-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.3-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.4-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.4-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

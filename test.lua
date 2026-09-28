@@ -14,6 +14,28 @@ local function heat_sample(weapon, overheated, fire)
         overheated = overheated, ammo = 0, reserve = 2,
         reloading = false, fire = fire or false }
 end
+local raw_tank = { [1] = 0, [2] = 30, [3] = false, [4] = 99,
+    [5] = 0.5, [6] = { [1] = 1, [2] = 0 } }
+local probe = api.TankProbe.new({
+    objects_owned_by = function() return { 32, 31 } end,
+    game_object_field_batched = function(_, goid)
+        if goid == 31 then return raw_tank end
+        return { [1] = true }
+    end,
+})
+local probe_line = probe:read(1, 2, 0, "seat:bastion:1")
+equal(probe_line:find("seat=bastion", 1, true) ~= nil, false, "seat string preserved")
+equal(probe_line:find("seat=seat:bastion:1", 1, true) ~= nil, true)
+equal(probe_line:find("31[1=0,2=30,3=false,6.1=1,6.2=0]", 1, true) ~= nil, true,
+    "bounded tank numeric fields")
+equal(probe_line:find("4=99", 1, true) == nil, true, "unrelated large value omitted")
+equal(probe:read(1, 2, 0.5, "seat:bastion:1"), nil, "probe throttled")
+equal(probe:read(1, 2, 1.1, "seat:bastion:1"), nil, "unchanged fields not logged")
+raw_tank[2] = 29
+equal(probe:read(1, 2, 2.2, "seat:bastion:1"):find("2=29", 1, true) ~= nil,
+    true, "changed tank reserve logged")
+probe = api.TankProbe.new({})
+equal(probe:read(1, 2, 0), "TANK_PROBE unavailable", "no unsupported field calls")
 local p = api.Policy.new()
 equal(p:step(sample("A", 3), 0), nil, "baseline")
 equal(p:step(sample("A", 1, true), 0.1), nil, "one round remains")
@@ -51,6 +73,14 @@ for _, reserve in ipairs({ 0, -1, math.huge, 0/0 }) do
     local s = sample("A", 0, true); s.reserve = reserve
     equal(p:step(s, 0), nil, "no usable reserve")
 end
+p = api.Policy.new()
+p:step(sample("A", 1), 0)
+local spareless = sample("A", 0, true); spareless.reserve = 0
+equal(p:step(spareless, 0.1), nil, "exhaustion cannot reload without spare ammo")
+p = api.Policy.new()
+p:step(sample("A", 2), 0)
+spareless = sample("B", 0); spareless.reserve = nil
+equal(p:step(spareless, 0.1), nil, "swap cannot reload with unknown spare ammo")
 p = api.Policy.new()
 local s = sample("A", 0, true); s.reserve = nil; s.reloading = nil
 equal(p:step(s, 0), nil, "unknown reload and reserve")
@@ -329,9 +359,11 @@ HD2_AUTO_RELOAD_TEST = nil
 local file = assert(io.open("addon.lua", "r")); local source = file:read("*a"); file:close()
 file = assert(io.open("policy.lua", "r")); local policy_source = file:read("*a"); file:close()
 file = assert(io.open("native.lua", "r")); local native_source = file:read("*a"); file:close()
+file = assert(io.open("tank_probe.lua", "r")); local tank_probe_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
+    :gsub("%-%- @TANK_PROBE@", function() return tank_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
 update = function() return 123, nil, 321 end
