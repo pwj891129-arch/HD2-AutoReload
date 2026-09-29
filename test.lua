@@ -103,6 +103,40 @@ equal(#self_probe:read(1, 2, 0.7, false, false), 0,
     "idle probe scans without extra log entries")
 equal(self_probe.next_scan >= 1.0, true,
     "idle probe backs off after the baseline")
+local catalog = api.CatalogProbe.new({
+    game_object_is_type = function(_, goid, kind)
+        return goid == 18 and kind == "id:2df95dfe"
+    end,
+    game_object_field = function(_, _, kind)
+        if kind == "id:d7a5d63e" or kind == "4fqtox" then return 7 end
+    end,
+    unit_synchronizer = function() return "sync" end,
+}, { object_info = function(kind) return kind == "id:2df95dfe" and {} end },
+    { from_hex = function(hex) return "id:" .. hex end },
+    { game_object_id_to_unit = function(sync, goid)
+        if sync == "sync" and goid == 18 then return "unit" end
+    end }, { debug_name = function(unit)
+        if unit == "unit" then return "0x12345678" end
+    end })
+local catalog_line = catalog:read(1, { goid = 18, type_hash = "0x2df95dfe" })
+equal(catalog_line:find("type_hex=true", 1, true) ~= nil, true,
+    "catalog checks a known type hash")
+equal(catalog_line:find("info_hex=table", 1, true) ~= nil, true,
+    "catalog checks network metadata")
+equal(catalog_line:find("field_hex=7 field_string=7", 1, true) ~= nil, true,
+    "catalog compares hashed and string field access")
+equal(catalog_line:find("unit_link=string:string:0x12345678", 1, true) ~= nil, true,
+    "catalog checks unit mapping")
+equal(catalog:read(1, { goid = 18, type_hash = "0x2df95dfe" }), nil,
+    "catalog probe logs once per session")
+catalog:reset()
+equal(catalog:read(1, { goid = 18, type_hash = "0x2df95dfe" }) ~= nil,
+    true, "catalog probe resets with session")
+local no_catalog = api.CatalogProbe.new({}, {}, {}, {}, {})
+equal(no_catalog:read(1, { goid = 18, type_hash = "0x2df95dfe" }),
+    "CATALOG_API id32=unavailable", "missing API cannot authorize input")
+equal(api.CatalogProbe.new({}, {}, {}, {}, {}):read(1, {}), nil,
+    "unresolved weapon is never guessed")
 local many_probe = api.SelfProbe.new({
     objects_owned_by = function()
         local rows = {}
@@ -542,11 +576,13 @@ file = assert(io.open("policy.lua", "r")); local policy_source = file:read("*a")
 file = assert(io.open("native.lua", "r")); local native_source = file:read("*a"); file:close()
 file = assert(io.open("tank_probe.lua", "r")); local tank_probe_source = file:read("*a"); file:close()
 file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:read("*a"); file:close()
+file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
     :gsub("%-%- @TANK_PROBE@", function() return tank_probe_source end)
     :gsub("%-%- @SELF_PROBE@", function() return self_probe_source end)
+    :gsub("%-%- @CATALOG_PROBE@", function() return catalog_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
 update = function() return 123, nil, 321 end

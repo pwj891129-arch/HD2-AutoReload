@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.9-test"
+local VERSION = "0.3.10-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -11,6 +11,9 @@ local TankProbe = (function()
 end)()
 local SelfProbe = (function()
 -- @SELF_PROBE@
+end)()
+local CatalogProbe = (function()
+-- @CATALOG_PROBE@
 end)()
 local Reader = {}
 Reader.__index = Reader
@@ -92,6 +95,7 @@ function Reader:sample(session, world, peer, allow_seated_fire)
     if heat then
         local overheated = boolean(cells.overheated)
         return { active = true, mode = "heat", weapon = weapon,
+            goid = hand.goid, type_hash = hand.type,
             overheated = overheated, reserve = reserve,
             heat_shown = cells.heat_shown, heat_max = cells.heat_max,
             reloading = boolean(cells.reloading), avatar = resolved.avatar.goid,
@@ -115,6 +119,7 @@ function Reader:sample(session, world, peer, allow_seated_fire)
     end
     if not valid_count(ammo) then ammo = nil end
     return { active = true, mode = "ammo", weapon = weapon,
+        goid = hand.goid, type_hash = hand.type,
         ammo = ammo, reserve = reserve, reloading = boolean(cells.reloading),
         avatar = resolved.avatar.goid, slot = slot, seated_fire = seated_fire },
         ammo == nil and "ammo-unavailable" or "ready"
@@ -176,7 +181,8 @@ end
 
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
-        TankProbe = TankProbe, SelfProbe = SelfProbe, recover_identity = recover_identity,
+        TankProbe = TankProbe, SelfProbe = SelfProbe, CatalogProbe = CatalogProbe,
+        recover_identity = recover_identity,
         install_hooks = install_hooks }
 end
 if rawget(_G, "HD2HelperAutoReload") then return end
@@ -239,6 +245,7 @@ if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock 
 local policy, state = Policy.new(), { paused = not config.enabled, keys = {} }
 local tank_probe = TankProbe.new(GS)
 local self_probe = SelfProbe.new(GS)
+local catalog_probe = CatalogProbe.new(GS, Net, sr.IdString32, sr.UnitSynchronizer, sr.Unit)
 rawset(_G, "HD2HelperAutoReload", state)
 
 local function down(vk) return native.user32.GetAsyncKeyState(vk) < 0 end
@@ -330,6 +337,7 @@ local function tick()
             tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
             state.probe_until = nil
             self_probe:reset()
+            catalog_probe:reset()
         end
         state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
         status("no-session"); return
@@ -340,6 +348,7 @@ local function tick()
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
         self_probe:reset()
+        catalog_probe:reset()
         state.self_probe_failed = nil
         state.switch, state.lean_fire_until = nil, nil
     end
@@ -358,6 +367,10 @@ local function tick()
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until
     local sample, reason = reader:sample(session, world, peer, allow_seated_fire)
+    local catalog_ok, catalog_line = pcall(catalog_probe.read, catalog_probe,
+        session, sample)
+    if catalog_ok and catalog_line then log(catalog_line) end
+    if not catalog_ok then log("CATALOG_API error=" .. tostring(catalog_line)) end
     local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
     local seat_hint = type(seat_mod) == "table" and seat_mod.last or nil
     if type(seat_hint) ~= "string" or seat_hint:sub(1, 5) ~= "seat:" then

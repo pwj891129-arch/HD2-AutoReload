@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.9-test
+# HD2 Helper Auto Reload 0.3.10-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -96,6 +96,23 @@ then backs off to 300 ms while idle. It records at most 600 lines per session.
 Share the log below to identify the fields before
 enabling automatic action from this independent reader.
 
+## Game Catalog Check
+
+`inspect_game_catalog.cjs` reads the installed game's bundle index and locates
+the `.network_config` asset without changing game files. Its current purpose is
+diagnostic: that asset contains hashed game-object types and fields, but not the
+string call names needed by the existing reader. It is not yet a replacement
+equipment database.
+
+The addon's `CATALOG_API` log entry tests whether the live Stingray API accepts
+those hashes as `IdString32` values for a known equipped weapon. It runs once
+per game session and never sends reload input. Equip a weapon already supported
+by the addon in a mission, then look for `CATALOG_API` in the log below. Test
+LAS-12 Sai separately with the independent field probe. Do not infer that a
+`CATALOG_API` result identifies Sai or authorizes automatic reload. Unknown
+weapons remain disabled until held identity, zero ammo/overheat, reserve and
+reload state are independently verified.
+
 ## Installation
 
 1. Close the game before deploying mods.
@@ -170,7 +187,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.9-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.9-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.10-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.10-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.
