@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.17-test"
+local VERSION = "0.3.18-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -61,12 +61,12 @@ end
 function Reader:sample_native(resolved, session, allow_seated_fire)
     if not self.native or not resolved or not resolved.avatar then
         self.native_pending = nil
-        return nil
+        return nil, "no-avatar"
     end
     if type(resolved.grip) ~= "number" or resolved.grip == 0 or
         resolved.grip == 40 or resolved.grip == 70 then
         self.native_pending = nil
-        return nil
+        return nil, "unsupported-grip"
     end
     local ok, sample, reason = pcall(self.native.sample, self.native)
     if not ok or not sample or sample.avatar ~= resolved.avatar.goid then
@@ -74,7 +74,8 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
             self.native_refusal = ok and reason or tostring(sample)
         end
         self.native_pending = nil
-        return nil
+        return nil, not ok and "native-read-error" or
+            (not sample and (reason or "native-unavailable") or "avatar-mismatch")
     end
     local in_control = boolean(self.identity:in_control(session, resolved.avatar))
     local rotation_free = boolean(self.identity:rotation_free(session, resolved.avatar))
@@ -82,7 +83,8 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
         rotation_free == false and resolved.grip ~= 70
     if (in_control ~= true or rotation_free ~= true) and not seated_fire then
         self.native_pending = nil
-        return nil
+        return nil, "no-player-control", { in_control = in_control,
+            rotation_free = rotation_free, held_reason = resolved.reason }
     end
     sample.seated_fire = seated_fire
     sample.slot = nil
@@ -101,6 +103,33 @@ end
 
 function Reader:sample(session, world, peer, allow_seated_fire)
     local resolved = self.identity:resolve(session, world, peer)
+    if self.native then
+        if resolved and resolved.underbarrel and resolved.hand_weapon and
+            resolved.underbarrel.goid == resolved.hand_weapon.goid then
+            self.native_pending = nil
+            return { active = false, avatar = resolved.avatar and resolved.avatar.goid,
+                grip = resolved.grip }, "underbarrel-not-supported"
+        end
+        local sample, native_reason, control = self:sample_native(resolved, session,
+            allow_seated_fire)
+        if sample then return sample, native_reason end
+        local inactive = { active = false,
+            avatar = resolved and resolved.avatar and resolved.avatar.goid,
+            grip = resolved and resolved.grip,
+            in_control = control and control.in_control,
+            rotation_free = control and control.rotation_free,
+            held_reason = control and control.held_reason }
+        if not resolved or resolved.status ~= "resolved" then
+            return inactive, resolved and resolved.reason or native_reason
+        end
+        return inactive, native_reason
+    end
+    return self:sample_legacy(session, world, peer, allow_seated_fire, resolved)
+end
+
+-- Retained only for the opt-in F9 type-hash diagnostic.
+function Reader:sample_legacy(session, world, peer, allow_seated_fire, resolved)
+    resolved = resolved or self.identity:resolve(session, world, peer)
     if not resolved or not resolved.avatar or resolved.status ~= "resolved" then
         local sample, reason = self:sample_native(resolved, session, allow_seated_fire)
         if sample then return sample, reason end
@@ -433,13 +462,27 @@ local function tick()
         log("NATIVE_READER unavailable=" .. reader.native_refusal)
         state.native_refusal_logged = true
     end
+    if sample.native and sample.weapon then
+        local source = sample.weapon .. ":" .. tostring(sample.feed)
+        if state.native_source ~= source then
+            log("NATIVE_SOURCE weapon=" .. sample.weapon ..
+                " feed=" .. tostring(sample.feed) ..
+                " ammo=" .. tostring(sample.ammo) ..
+                " overheat=" .. tostring(sample.overheated) ..
+                " reserve=" .. tostring(sample.reserve))
+            state.native_source = source
+        end
+    else
+        state.native_source = nil
+    end
     if sample.active and sample.weapon then state.last_weapon = sample.weapon end
     if state.probe_pending then
         state.probe_pending = nil
-        local equipment = sample.type_hash and
-            reader.generated.identity.equipment[sample.type_hash]
+        local diagnostic = reader:sample_legacy(session, world, peer, allow_seated_fire)
+        local equipment = diagnostic.type_hash and
+            reader.generated.identity.equipment[diagnostic.type_hash]
         local probe_ok, probe_line = pcall(hash_type_probe.read, hash_type_probe,
-            session, sample, equipment and equipment.call)
+            session, diagnostic, equipment and equipment.call)
         log(probe_ok and probe_line or "HASH_TYPE error=" .. tostring(probe_line))
     end
     local seat_mod = rawget(_G, "Hd2TankSeatSwitch")

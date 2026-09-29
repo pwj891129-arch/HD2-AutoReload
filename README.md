@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.17-test
+# HD2 Helper Auto Reload 0.3.18-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -25,8 +25,9 @@ Test coverage uses the HD2 HUD+ 0.1.2 callback implementation in both hook
 orders, plus real Win32 symbol resolution, mocked memory and reload input. This
 is not a live gameplay compatibility test of HD2 HUD+ 0.1.12.
 
-Use HD2 HUD's game-compatible release. The addon retains a reader derived
-from 0.1.2 for registered weapons, but does not require HUD+ to be installed.
+Use HD2 HUD's game-compatible release. Automatic reload now reads all personal
+weapons through the held-object native reader; the older 0.1.2-derived reader
+remains for opt-in F9 diagnostics only. HUD+ does not need to be installed.
 The author lists 0.1.12 as the September 24 game-update fix:
 https://www.nexusmods.com/helldivers2/mods/15298
 
@@ -48,9 +49,8 @@ Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 Requests require known zero ammo for magazine weapons or an explicit true
 overheat flag for heat weapons, a known positive reserve, an unambiguous local
 held weapon, and player movement/rotation control. The seated-passenger
-exception requires right-click aim, recent fire, and an ordinary personal
-weapon confirmed at the hand node. It does not apply to the cannon or a
-merely carried weapon. A known idle reload state
+exception requires right-click aim, recent fire, and a personal held weapon.
+It does not apply to the cannon or a merely carried weapon. A known idle reload state
 is normally required. When a heat weapon's reload flag turns true with the
 overheat flag, one attempt is allowed after 150 ms of persistent overheat and
 unchanged reserve; a manual R press or reserve change cancels that attempt.
@@ -68,19 +68,22 @@ reload-key pulse is sent through Windows SendInput. It does not write ammunition
 or alter game state. An initial empty reading alone does not trigger a reload.
 An event can wait up to 350 ms for complete data, with a 350 ms repeat guard.
 
-Heat/laser weapons are identified from their heat metadata or declared heat
-field. A red/near-full heat gauge and zero ammo alone do not trigger reload.
+Heat weapons are identified by the native heat component on the held weapon.
+A red/near-full heat gauge and zero ammo alone do not trigger reload.
 If the overheat flag or spare heat sink count is unavailable, no reload is sent.
 Underbarrels, throwables, melee, vehicle and mounted weapons remain excluded.
-Unknown data never counts as empty or overheated. Registered weapons use a
-reader derived from HD2 HUD+ 0.1.2 with credit and its packaged reuse permission.
-For unregistered held weapons, a separate read-only native reader follows the
-current wielder's entity and its ammunition or heat component without a weapon
-name list. This reader is restricted to the pinned September 24 game binaries;
+Unknown data never counts as empty or overheated. All personal held weapons use
+a read-only native reader following the current wielder's entity and its ammo
+or heat component without a weapon name list. No legacy ammo reading is used
+when that native read fails. The older HD2 HUD+ 0.1.2-derived reader is retained
+only for F9 diagnostics with credit and its packaged reuse permission.
+The native reader is restricted to the pinned September 24 game binaries;
 it refuses an unknown game build. A zero-ammo or overheated reading must be
-observed twice before it can trigger reload. LAS-12 Sai is a target for live
-mission testing, not yet confirmed to work. Failed component, chamber, reserve,
-avatar or control checks block input. This does not certify that mod use is
+observed twice before it can trigger reload. Failed component, chamber, reserve,
+avatar or control checks block input. The log records `NATIVE_SOURCE` with the
+selected feed for each held weapon. Sai has been seen as `ammo=1` without a
+held heat component, so its automatic overheat reload is not yet confirmed.
+This does not certify that mod use is
 accepted by the game or its anti-cheat.
 
 ## Experimental Diagnostics
@@ -91,8 +94,9 @@ Versions 0.3.9-test and 0.3.10-test added independent `SELF_` field scanning and
 `CATALOG_API` result; that is not enough to prove the crash's exact cause. Both
 experimental diagnostics are disabled in this build. Their source and mock
 tests remain for investigation, but they perform no live game-object reads.
-The earlier broad scan remains disabled. Version 0.3.17-test instead uses a
-bounded, directly linked current-weapon read for unlisted equipment.
+The earlier broad scan remains disabled. Version 0.3.17-test introduced a
+bounded, directly linked current-weapon read for unlisted equipment;
+0.3.18-test uses it for all personal weapons.
 
 ## Game Type Hash Check
 
@@ -205,7 +209,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.17-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.17-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.18-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.18-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

@@ -65,6 +65,7 @@ return function(api, equal)
     equal(reason, "game-module-unavailable", "missing game module does not start reads")
     local hot = reader:sample()
     equal(hot.mode, "heat", "unlisted held weapon uses heat component")
+    equal(hot.feed, "heat", "native heat source is identified")
     equal(hot.overheated, true, "complete overheat is read from held weapon")
     equal(hot.reserve, 2, "held weapon spare heat sinks")
     equal(hot.avatar, 100, "native avatar matches game-object identity")
@@ -86,7 +87,9 @@ return function(api, equal)
     put(0xe00000 + 156, string.char(1))
     put(mag + 72, pointer(0xf00000))
     put(0xf00000 + 8, word(1))
-    equal(reader:sample().ammo, 1, "chambered round prevents early reload")
+    local chambered = reader:sample()
+    equal(chambered.feed, "magazine", "native magazine source is identified")
+    equal(chambered.ammo, 1, "chambered round prevents early reload")
     put(0xf00000 + 8, word(0))
     equal(reader:sample().ammo, 0, "empty magazine and chamber are empty")
     put(avatars + 5495040 + 2948, word(501))
@@ -96,8 +99,13 @@ return function(api, equal)
         return { active = true, native = true, avatar = 100, weapon = "native:500:900",
             mode = "heat", overheated = true, reserve = 2, reloading = false }
     end }
+    local known = false
+    local underbarrel = false
     local identity = { resolve = function()
-        return { status = "unknown", avatar = { goid = 100 }, grip = 15 }
+        return { status = known and "resolved" or "unknown",
+            avatar = { goid = 100 }, grip = 15,
+            underbarrel = underbarrel and { goid = 900 } or nil,
+            hand_weapon = known and { goid = 900, type = "known-weapon" } or nil }
     end, in_control = function() return true end,
         rotation_free = function() return true end }
     local parts = { GeneratedCommon = { identity = { equipment = {} } },
@@ -120,6 +128,22 @@ return function(api, equal)
     equal(exhaustion:step(first, 0.05), nil, "single overheat sample is ignored")
     equal(exhaustion:step(second, 0.1), "overheated",
         "confirmed overheat keeps the prior cooling state")
+    known = true
+    native.sample = function() return { active = true, native = true,
+        avatar = 100, weapon = "native:500:900", mode = "ammo", ammo = 4,
+        reserve = 2, reloading = false, feed = "magazine" } end
+    local listed = adapter:sample()
+    equal(listed.native, true, "registered weapons also use the held-object reader")
+    equal(listed.ammo, 4, "registered weapon ammunition comes from the held object")
+    underbarrel = true
+    local blocked, blocked_reason = adapter:sample()
+    equal(blocked.active, false, "underbarrel remains excluded after native switch")
+    equal(blocked_reason, "underbarrel-not-supported", "underbarrel exclusion is explicit")
+    underbarrel = false
+    native.sample = function() return nil, "ammo-unavailable" end
+    local unreadable, unreadable_reason = adapter:sample()
+    equal(unreadable.active, false, "registered weapons do not fall back to old readings")
+    equal(unreadable_reason, "ammo-unavailable", "native failure remains visible")
     native.sample = function() return { active = true, native = true,
         avatar = 101, weapon = "native:501:900", mode = "ammo", ammo = 0,
         reserve = 2, reloading = false } end

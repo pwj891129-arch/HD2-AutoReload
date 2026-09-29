@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.17-test';
+const version = '0.3.18-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -125,8 +125,7 @@ const filename = '9ba626afa44a3aa3.patch_0';
 fs.writeFileSync(path.join(stage, 'Addon', filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, 'Addon', filename + suffix), Buffer.alloc(0));
 const description = `Auto reload ${version}. Requires Bingus Shared Loader v15+ / API 1. ` +
-  'Checks ammunition exhaustion, actual weapon swaps, and fire attempts. Uses a read-only ' +
-  'Known weapons use the existing HD2 HUD+ 0.1.2-derived reader. Unlisted held weapons can use an independent, build-pinned read-only component reader at 50 ms intervals. Ambiguous readings, underbarrel, and vehicle weapons remain excluded. Live testing required.';
+  'Checks ammunition exhaustion, actual weapon swaps, and fire attempts. All personal weapons use a build-pinned, read-only held-object component reader at 50 ms intervals. Ambiguous readings, underbarrel, and vehicle weapons remain excluded. Live testing required.';
 fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify({
   Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload ${version}`,
   Description: description, Options: [{ Name: 'Auto Reload', Description: description, Include: ['Addon'] }]

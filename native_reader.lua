@@ -259,7 +259,7 @@ function Reader:sample()
         return { active = true, mode = "heat", weapon = "native:" .. avatar .. ":" .. held,
             avatar = avatar_goid, goid = goid, reserve = reserve,
             overheated = flag == 1, reloading = reloading,
-            native = true }, "ready"
+            native = true, feed = "heat" }, "ready"
     end
     local magazine, mag_fault = self:component("magazine", held, record)
     local rounds, rounds_fault = self:component("rounds", held, record)
@@ -289,7 +289,8 @@ function Reader:sample()
     end
     return { active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,
         avatar = avatar_goid, goid = goid, reserve = reserve,
-        ammo = ammo, reloading = reloading, native = true }, "ready"
+        ammo = ammo, reloading = reloading, native = true,
+        feed = magazine and "magazine" or "rounds" }, "ready"
 end
 
 return Reader

@@ -674,7 +674,8 @@ equipment.A.spare_pack, equipment.A.ammo_icon = nil, nil
 equipment["0x2df95dfe"] = { call = "known-call",
     resource = "content/fac_helldivers/equipment/primary_weapons/test/test" }
 resolved = { status = "resolved", reason = "wield-node-named-the-hand:first-person-node",
-    avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "0x2df95dfe" } }
+    avatar = { goid = 100 }, grip = 15,
+    hand_weapon = { goid = 5, type = "0x2df95dfe" } }
 control, rotation, declaration = true, true, ""
 cells = { ammo = 1, reserve = 3, reloading = false }
 identity.invalidate = function() end
@@ -693,6 +694,13 @@ stingray = {
         main_world = function() return 3 end, worlds = function() return {3} end },
 }
 TEST_READER_PARTS = parts
+TEST_NATIVE_READER = { sample = function()
+    if resolved.status ~= "resolved" then return nil, "no-held-weapon" end
+    return { active = true, native = true, avatar = resolved.avatar.goid,
+        weapon = "native:100:" .. resolved.hand_weapon.goid,
+        mode = "ammo", ammo = cells.ammo, reserve = cells.reserve,
+        reloading = cells.reloading, feed = "magazine" }, "ready"
+end }
 HD2_AUTO_RELOAD_TEST = nil
 local file = assert(io.open("addon.lua", "r")); local source = file:read("*a"); file:close()
 equal(source:find("pcall(self_probe.read", 1, true), nil,
@@ -718,6 +726,8 @@ source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @HASH_TYPE_PROBE@", function() return hash_type_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
+    :gsub("pcall%(Reader%.new, parts, fragment, NativeReader%.new%(%)%)",
+        "pcall(Reader.new, parts, fragment, TEST_NATIVE_READER)")
 update = function() return 123, nil, 321 end
 local chunk = assert(loadstring(source, "@addon-runtime-test"))
 chunk()
@@ -745,9 +755,11 @@ equal(#inputs, 0, "disabled F10 sends no reload input")
 keys[121] = false
 cells.ammo = 0; keys[1] = true
 frame(0.204)
+equal(#inputs, 0, "first native empty reading is unconfirmed")
+frame(0.255)
 equal(#inputs, 1, "runtime exhaustion sends once")
 equal(inputs[1].flags, 8, "scan-code down")
-frame(0.245)
+frame(0.3)
 equal(#inputs, 2, "scheduled up")
 equal(inputs[2].flags, 10, "scan-code up")
 frame(0.5); equal(#inputs, 2, "held fire not repeated")
@@ -787,13 +799,14 @@ end
 equal(unconfirmed_aim, true, "seated aim logs without seat addon")
 resolved.grip, control, keys[2], Hd2TankSeatSwitch = nil, true, false, nil
 keys[1] = false; frame(0.75)
+resolved.grip, cells.ammo = 15, 1
 frame(0.8)
-resolved.hand_weapon.goid = 6
-frame(0.9); equal(#inputs, 3, "runtime actual swap trigger")
-frame(0.95)
-keys[1] = true; frame(1.1); frame(1.26)
+resolved.hand_weapon.goid, cells.ammo = 6, 0
+frame(0.9); equal(#inputs, 2, "new native weapon requires a second empty reading")
+frame(0.96); equal(#inputs, 3, "runtime actual swap trigger")
+frame(1.02)
+keys[1] = true; frame(1.1); frame(1.26); frame(1.32)
 equal(#inputs, 5, "runtime fresh fire attempt")
-frame(1.31)
 keys[13] = true; frame(1.35)
 keys[13], keys[1] = false, false; frame(1.4)
 keys[1] = true; frame(1.7)
@@ -809,9 +822,11 @@ keys[119], keys[1] = true, false; frame(2.3)
 keys[119], keys[1] = false, false; frame(2.35)
 cells.ammo = 3; frame(2.4)
 cells.ammo = 0; frame(2.5)
+equal(#inputs, 6, "resume empty reading first waits for confirmation")
+frame(2.56)
 equal(#inputs, 7, "resume exhaustion")
 resolved.status, resolved.reason, resolved.grip = "absent", "no-on-body-object-of-grip=70", 70
-keys[2] = true; frame(2.51); frame(2.55)
+keys[2] = true; frame(2.57); frame(2.62)
 local grip_probe = false
 for _, line in ipairs(logs) do
     if line:find("TANK_PROBE", 1, true) and
@@ -827,21 +842,21 @@ for _, line in ipairs(logs) do
     end
 end
 equal(input_marker, true, "tank probe records input timing")
-resolved.status, resolved.reason, resolved.grip = "resolved", nil, nil
+resolved.status, resolved.reason, resolved.grip = "resolved", nil, 15
 resolved.hand_weapon.goid = 7
 keys[2], keys[49] = false, true
-frame(2.6)
+frame(2.7)
 equal(#inputs, 8, "digit switch waits for the draw animation")
 keys[49] = false
-frame(3.5)
+frame(3.6)
 equal(#inputs, 8, "digit switch does not reload before 1.1 seconds")
-frame(3.8)
+frame(3.9)
 equal(#inputs, 9, "digit switch reloads an empty drawn weapon")
 resolved.reason, resolved.grip = "wield-node-named-the-hand:first-person-node", 1
 control, rotation, cells.ammo, keys[2], keys[1] = false, false, 1, true, true
 frame(4.0)
 equal(#inputs, 10, "seated lean reads a loaded personal weapon")
-cells.ammo = 0; frame(4.05); frame(4.2)
+cells.ammo = 0; frame(4.05); frame(4.2); frame(4.3)
 equal(#inputs, 11, "seated lean reloads exhausted personal weapon")
 shutdown()
 equal(#inputs, 12, "shutdown releases outstanding key")
