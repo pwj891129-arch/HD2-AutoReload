@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.8-test"
+local VERSION = "0.3.9-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -8,6 +8,9 @@ local Native = (function()
 end)()
 local TankProbe = (function()
 -- @TANK_PROBE@
+end)()
+local SelfProbe = (function()
+-- @SELF_PROBE@
 end)()
 local Reader = {}
 Reader.__index = Reader
@@ -173,7 +176,7 @@ end
 
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
-        TankProbe = TankProbe, recover_identity = recover_identity,
+        TankProbe = TankProbe, SelfProbe = SelfProbe, recover_identity = recover_identity,
         install_hooks = install_hooks }
 end
 if rawget(_G, "HD2HelperAutoReload") then return end
@@ -235,6 +238,7 @@ local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {
 if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
 local policy, state = Policy.new(), { paused = not config.enabled, keys = {} }
 local tank_probe = TankProbe.new(GS)
+local self_probe = SelfProbe.new(GS)
 rawset(_G, "HD2HelperAutoReload", state)
 
 local function down(vk) return native.user32.GetAsyncKeyState(vk) < 0 end
@@ -325,6 +329,7 @@ local function tick()
         if state.context then
             tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
             state.probe_until = nil
+            self_probe:reset()
         end
         state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
         status("no-session"); return
@@ -334,7 +339,21 @@ local function tick()
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
+        self_probe:reset()
+        state.self_probe_failed = nil
         state.switch, state.lean_fire_until = nil, nil
+    end
+    if not state.self_probe_failed then
+        local probe_ok, probe_lines = pcall(self_probe.read, self_probe,
+            session, peer, now, fire,
+            down(config.reload_vk) and state.release_at == nil,
+            state.switch and state.switch.slot or "unconfirmed")
+        if probe_ok then
+            for _, line in ipairs(probe_lines) do log(line) end
+        else
+            state.self_probe_failed = true
+            log("SELF_PROBE_ERROR " .. tostring(probe_lines))
+        end
     end
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until

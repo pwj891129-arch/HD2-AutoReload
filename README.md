@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.8-test
+# HD2 Helper Auto Reload 0.3.9-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -79,6 +79,23 @@ Its compatibility with the current game needs a live mission test. Schema checks
 and Lua errors disable action instead of guessing. This does not certify that
 mod use is accepted by the game or its anti-cheat.
 
+## Independent Field Probe
+
+The `SELF_INPUT` and `SELF_DELTA` log entries come from a separate read-only
+probe. It scans locally owned game objects and compares their raw fields across
+fire and manual reload inputs. It does not consult the HUD+ equipment list or
+send reload input. The existing automatic reload path is unchanged while the
+field mapping is unverified. Unknown weapons such as LAS-12 Sai therefore do
+not yet auto reload. A changed field is only a candidate, not proof that it is
+the equipped weapon, ammunition, reserve, or overheat flag.
+
+For a useful Sai capture, enter a mission and wait two seconds for a baseline,
+equip Sai, hold fire until it fully overheats, then manually press R once with a
+spare heat sink. The probe samples up to 24 objects per 80 ms during capture,
+then backs off to 300 ms while idle. It records at most 600 lines per session.
+Share the log below to identify the fields before
+enabling automatic action from this independent reader.
+
 ## Installation
 
 1. Close the game before deploying mods.
@@ -153,7 +170,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.8-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.8-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.9-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.9-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

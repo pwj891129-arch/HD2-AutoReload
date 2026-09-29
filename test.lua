@@ -62,6 +62,62 @@ equal(pages_seen[2]:find("13[", 1, true) ~= nil, true,
     "second page reaches later objects")
 probe = api.TankProbe.new({})
 equal(probe:read(1, 2, 0), "TANK_PROBE unavailable", "no unsupported field calls")
+local own_raw = { [1] = 4, [2] = false, [3] = { [2] = 2 } }
+local self_probe = api.SelfProbe.new({
+    objects_owned_by = function() return { 18 } end,
+    game_object_field_batched = function() return own_raw end,
+    game_object_field = function(_, _, name)
+        if name == "4fqtox" then return own_raw[1] end
+    end,
+})
+local baseline_lines = self_probe:read(1, 2, 0, false, false)
+equal(#baseline_lines, 1, "independent probe establishes a baseline")
+equal(baseline_lines[1]:find("SELF_BASELINE", 1, true) ~= nil, true)
+own_raw[1] = 3
+local own_lines = self_probe:read(1, 2, 0.1, true, false, "primary")
+equal(#own_lines, 2, "fire edge and changed object logged")
+equal(own_lines[2]:find("goid=18 fields=1:4>3", 1, true) ~= nil, true,
+    "own-object ammo change is correlated with fire")
+equal(own_lines[2]:find("direct=rounds=3", 1, true) ~= nil, true,
+    "independent direct field read labels a candidate")
+equal(#self_probe:read(1, 2, 0.12, true, false), 0,
+    "independent probe is rate limited")
+own_raw[2], own_raw[3][2] = true, 1
+own_lines = self_probe:read(1, 2, 0.2, false, true, "primary")
+equal(own_lines[2]:find("2:false>true", 1, true) ~= nil, true,
+    "boolean transitions are logged")
+equal(own_lines[2]:find("3.2:2>1", 1, true) ~= nil, true,
+    "nested reserve candidates are logged")
+equal(#self_probe:read(1, 2, 0.3, false, true), 0,
+    "held reload key does not create another input edge")
+own_raw[2] = 1
+equal(#self_probe:read(1, 2, 0.4, false, false), 1,
+    "field type changes remain diagnostic-only")
+self_probe.lines = 600
+equal(#self_probe:read(1, 2, 0.5, true, false), 0,
+    "bounded probe stops collecting after the session log limit")
+self_probe:reset()
+equal(#self_probe:read(1, 2, 0.6, false, false), 1,
+    "reset discards previous session fields")
+equal(#self_probe:read(1, 2, 0.7, false, false), 0,
+    "idle probe scans without extra log entries")
+equal(self_probe.next_scan >= 1.0, true,
+    "idle probe backs off after the baseline")
+local many_probe = api.SelfProbe.new({
+    objects_owned_by = function()
+        local rows = {}
+        for i = 1, 25 do rows[i] = i end
+        return rows
+    end,
+    game_object_field_batched = function(_, goid) return { [1] = goid } end,
+})
+equal(#many_probe:read(1, 2, 0, false, false), 0,
+    "first page alone is not a complete baseline")
+equal(many_probe:read(1, 2, 0.1, false, false)[1]:find(
+    "SELF_BASELINE", 1, true) ~= nil, true,
+    "baseline marker waits for every owned-object page")
+equal(#api.SelfProbe.new({}):read(1, 2, 0, true, false), 1,
+    "unavailable game API never fabricates weapon values")
 local p = api.Policy.new()
 equal(p:step(sample("A", 3), 0), nil, "baseline")
 equal(p:step(sample("A", 1, true), 0.1), nil, "one round remains")
@@ -485,10 +541,12 @@ local file = assert(io.open("addon.lua", "r")); local source = file:read("*a"); 
 file = assert(io.open("policy.lua", "r")); local policy_source = file:read("*a"); file:close()
 file = assert(io.open("native.lua", "r")); local native_source = file:read("*a"); file:close()
 file = assert(io.open("tank_probe.lua", "r")); local tank_probe_source = file:read("*a"); file:close()
+file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
     :gsub("%-%- @TANK_PROBE@", function() return tank_probe_source end)
+    :gsub("%-%- @SELF_PROBE@", function() return self_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
 update = function() return 123, nil, 321 end
