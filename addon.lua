@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.13-test"
+local VERSION = "0.3.14-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -303,6 +303,10 @@ local function tick()
     local probe_requested = focused and keys.probe and not previous_keys.probe and
         not state.paused and not state.chat and not keys.enter and
         not keys.escape and not keys.tab
+    if probe_requested then
+        state.probe_pending = true
+        log("HASH_TYPE requested")
+    end
     if focused then
         if keys.pause and not state.keys.pause then
             state.paused = not state.paused
@@ -333,6 +337,7 @@ local function tick()
     if aim and fire then state.lean_fire_until = now + 0.8 end
     if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
         policy:reset(); state.fire_pending, state.aim_pending = nil, nil
+        state.probe_pending = nil
         state.switch, state.lean_fire_until = nil, nil
         release(); return
     end
@@ -340,6 +345,8 @@ local function tick()
     state.next_read = now + 0.02
     local session, world, peer = scope()
     if not session then
+        if state.probe_pending then log("HASH_TYPE skipped=no-session") end
+        state.probe_pending = nil
         policy:reset(); reader.identity:invalidate(); state.avatar = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         if state.context then
@@ -361,7 +368,8 @@ local function tick()
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until
     local sample, reason = reader:sample(session, world, peer, allow_seated_fire)
-    if probe_requested then
+    if state.probe_pending then
+        state.probe_pending = nil
         local equipment = sample.type_hash and
             reader.generated.identity.equipment[sample.type_hash]
         local probe_ok, probe_line = pcall(hash_type_probe.read, hash_type_probe,

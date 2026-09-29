@@ -620,12 +620,14 @@ resolved = { status = "resolved", reason = "wield-node-named-the-hand:first-pers
 control, rotation, declaration = true, true, ""
 cells = { ammo = 1, reserve = 3, reloading = false }
 identity.invalidate = function() end
+local live_type_calls = 0
 stingray = {
     Network = { game_session = function() return 1 end, peer_id = function() return 2 end },
     GameSession = { in_session = function() return true end,
         objects_owned_by = function() return { 42 } end,
         game_object_field_batched = function() return { [1] = 1 } end,
         game_object_is_type = function(_, goid, kind)
+            live_type_calls = live_type_calls + 1
             return goid == 5 and (kind == "known-call" or kind == "id:2df95dfe")
         end },
     IdString32 = { from_hex = function(hash) return "id:" .. hash end },
@@ -663,13 +665,18 @@ equal(HD2HelperAutoReload ~= nil, true, "runtime initialized")
 local function frame(time) now = time; return update() end
 a, b, c = frame(0)
 equal(a, 123); equal(b, nil); equal(c, 321)
-keys[120] = true; frame(0.021)
+keys[120] = true; frame(0.005)
+equal(logs[#logs]:find("HASH_TYPE requested", 1, true) ~= nil,
+    true, "F9 edge is recorded before the next reader tick")
+equal(live_type_calls, 0, "throttled frame defers the type lookup")
+frame(0.021)
 local live_hash_result = false
 for _, line in ipairs(logs) do
     if line:find("HASH_TYPE goid=5", 1, true) and
         line:find("baseline=true hash=true", 1, true) then live_hash_result = true end
 end
 equal(live_hash_result, true, "F9 checks only a recognized held weapon")
+equal(live_type_calls, 2, "pending F9 runs exactly one comparison pair")
 keys[120] = false; frame(0.042)
 cells.ammo = 0; keys[1] = true
 frame(0.063)
@@ -679,6 +686,11 @@ frame(0.104)
 equal(#inputs, 2, "scheduled up")
 equal(inputs[2].flags, 10, "scan-code up")
 frame(0.5); equal(#inputs, 2, "held fire not repeated")
+keys[120] = true; frame(0.525)
+equal(logs[#logs]:find("HASH_TYPE already-checked", 1, true) ~= nil,
+    true, "second F9 reports the one-shot limit")
+equal(live_type_calls, 2, "second F9 makes no new game type calls")
+keys[120] = false; frame(0.54)
 Hd2TankSeatSwitch = { last = "seat:16474112801385b6:3" }
 resolved.grip, control, keys[2] = 15, false, true
 frame(0.55)

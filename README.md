@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.13-test
+# HD2 Helper Auto Reload 0.3.14-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -102,6 +102,8 @@ Dagger, and press F9 once. The addon checks that the known string alias still
 matches, then asks `GameSession.game_object_is_type` about the same object
 using `IdString32.from_hex`. It logs one `HASH_TYPE` result per session and
 does not scan other objects or execute this check on an unrecognized weapon.
+The F9 edge is logged as `HASH_TYPE requested` immediately and held until the
+next reader tick; `0.3.13-test` could lose the edge during its 20 ms read gap.
 `baseline=true hash=true` validates this type-matching step. A false/error
 result does not. Do not press F9 on ship entry; run the check after landing.
 The check does not reload unknown weapons or write game state.

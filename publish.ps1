@@ -2,12 +2,12 @@ param(
     [Parameter(Mandatory)][string]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.13-test'
+    [string]$Tag = 'auto-reload-0.3.14-test'
 )
 $ErrorActionPreference = 'Stop'
 $AssetPath = (Resolve-Path -LiteralPath $AssetPath).Path
 $assetName = [IO.Path]::GetFileName($AssetPath)
-if ($assetName -ne 'HD2-AutoReload-0.3.13-test.zip') { throw 'Unexpected addon package name.' }
+if ($assetName -ne 'HD2-AutoReload-0.3.14-test.zip') { throw 'Unexpected addon package name.' }
 if ($Commit -notmatch '^[0-9a-f]{40}$') { throw 'A full source commit hash is required.' }
 if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Invalid repository name.' }
 $credentialLines = "protocol=https`nhost=github.com`n`n" | git -c "safe.directory=$PSScriptRoot" credential fill
@@ -22,11 +22,11 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload 0.3.13-test
+## HD2 Auto Reload 0.3.14-test
 
-게임 파일의 타입 해시로 장착 무기를 식별할 수 있는지 확인하는 테스트 빌드입니다.
+게임 파일의 타입 해시로 장착 무기를 식별할 수 있는지 확인하는 테스트 빌드입니다. 이전 0.3.13-test에서 F9 입력이 20ms 읽기 간격에 걸리면 사라지던 문제를 수정했습니다.
 
-- 임무에서 이미 인식되는 무기(예: 대거)를 들고 F9를 누르면, 기존 문자열 타입 검사와 게임 타입 해시 검사를 동일 객체에 대해 한 번씩 실행하고 `HASH_TYPE` 한 줄을 기록합니다.
+- 임무에서 이미 인식되는 무기(예: 대거)를 들고 F9를 누르면 `HASH_TYPE requested`를 즉시 기록하고, 다음 읽기에서 기존 문자열 타입 검사와 게임 타입 해시 검사를 동일 객체에 대해 한 번씩 실행합니다. 두 번째 F9는 `already-checked`로 기록하며 추가 조회하지 않습니다.
 - `baseline=true hash=true`이면 해시로 타입을 검사하는 단계가 성공한 것입니다. 이 결과만으로 미등록 무기의 장착 여부나 탄약 필드까지 식별된 것은 아닙니다.
 - 함선 진입 중 종료가 보고된 전체 필드 스캔과 기존의 여러 API 동시 검사는 실행하지 않습니다. 직전 빌드의 `UNIT_LINK`는 실제 게임에서 `no-synchronizer`를 반환하여 이번 실행 경로에서 제거했습니다.
 - 기존에 인식되는 무기의 자동장전 동작은 유지합니다. **LAS-12 사이 같은 목록 밖 무기는 아직 자동장전되지 않습니다.**
@@ -56,7 +56,7 @@ try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload 0.3.13-test (game type hash check)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload 0.3.14-test (F9 diagnostic latch)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }
