@@ -158,6 +158,42 @@ equal(api.UnitLinkProbe.new({}, {}, {}):read(1,
 equal(api.UnitLinkProbe.new({}, {}, {}):read(1,
     { active = false, slot = "primary", goid = 18 }), nil,
     "unresolved weapon never triggers the unit-link API")
+local hash_calls = 0
+local hash_probe = api.HashTypeProbe.new({ game_object_is_type = function(_, goid, kind)
+    hash_calls = hash_calls + 1
+    return goid == 18 and (kind == "known-call" or kind == "id:2df95dfe")
+end }, { from_hex = function(hex) return "id:" .. hex end })
+equal(hash_probe:read(1, { active = false, goid = 18 }, "known-call"),
+    "HASH_TYPE skipped=no-recognized-held-weapon", "unresolved probe does no engine reads")
+equal(hash_calls, 0, "unresolved probe has no engine calls")
+local known_sample = { active = true, goid = 18, slot = "sidearm",
+    type_hash = "0x2df95dfe" }
+equal(hash_probe:read(1, known_sample, "known-call"),
+    "HASH_TYPE goid=18 slot=sidearm type=0x2df95dfe baseline=true hash=true",
+    "hash ID identifies a known held weapon")
+equal(hash_calls, 2, "one baseline and one hashed type lookup")
+equal(hash_probe:read(1, known_sample, "known-call"),
+    "HASH_TYPE already-checked", "one hash lookup per session")
+equal(hash_calls, 2, "repeat key does not query engine")
+hash_probe:reset()
+equal(hash_probe:read(1, known_sample, "known-call"):find("hash=true", 1, true) ~= nil,
+    true, "new session permits one lookup")
+equal(api.HashTypeProbe.new({ game_object_is_type = function() return false end },
+    { from_hex = function() error("must not run") end }):read(1, known_sample,
+        "known-call"):find("baseline=false hash=not-run", 1, true) ~= nil,
+    true, "invalid baseline never reaches new hashed API")
+local baseline_ready = false
+local retry_probe = api.HashTypeProbe.new({ game_object_is_type = function()
+    return baseline_ready
+end }, { from_hex = function() return "hash-id" end })
+equal(retry_probe:read(1, known_sample, "known-call"):find(
+    "hash=not-run", 1, true) ~= nil, true, "premature F9 skips hash lookup")
+baseline_ready = true
+equal(retry_probe:read(1, known_sample, "known-call"):find(
+    "hash=true", 1, true) ~= nil, true, "baseline failure permits retry")
+equal(api.HashTypeProbe.new({ game_object_is_type = function() return true end },
+    {}):read(1, known_sample, "known-call"):find("hash=api-unavailable", 1, true) ~= nil,
+    true, "missing hash constructor remains diagnostic")
 local many_probe = api.SelfProbe.new({
     objects_owned_by = function()
         local rows = {}
@@ -577,8 +613,10 @@ CowboyBingusModLoader = { open_log = function()
     return { write = function(_, text) logs[#logs+1] = text end, flush = function() end }
 end }
 equipment.A.spare_pack, equipment.A.ammo_icon = nil, nil
+equipment["0x2df95dfe"] = { call = "known-call",
+    resource = "content/fac_helldivers/equipment/primary_weapons/test/test" }
 resolved = { status = "resolved", reason = "wield-node-named-the-hand:first-person-node",
-    avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "A" } }
+    avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "0x2df95dfe" } }
 control, rotation, declaration = true, true, ""
 cells = { ammo = 1, reserve = 3, reloading = false }
 identity.invalidate = function() end
@@ -586,7 +624,11 @@ stingray = {
     Network = { game_session = function() return 1 end, peer_id = function() return 2 end },
     GameSession = { in_session = function() return true end,
         objects_owned_by = function() return { 42 } end,
-        game_object_field_batched = function() return { [1] = 1 } end },
+        game_object_field_batched = function() return { [1] = 1 } end,
+        game_object_is_type = function(_, goid, kind)
+            return goid == 5 and (kind == "known-call" or kind == "id:2df95dfe")
+        end },
+    IdString32 = { from_hex = function(hash) return "id:" .. hash end },
     Application = { time_since_launch = function() return now end,
         main_world = function() return 3 end, worlds = function() return {3} end },
 }
@@ -603,6 +645,7 @@ file = assert(io.open("tank_probe.lua", "r")); local tank_probe_source = file:re
 file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:read("*a"); file:close()
 file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = file:read("*a"); file:close()
 file = assert(io.open("unit_link_probe.lua", "r")); local unit_link_probe_source = file:read("*a"); file:close()
+file = assert(io.open("hash_type_probe.lua", "r")); local hash_type_probe_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
@@ -610,6 +653,7 @@ source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @SELF_PROBE@", function() return self_probe_source end)
     :gsub("%-%- @CATALOG_PROBE@", function() return catalog_probe_source end)
     :gsub("%-%- @UNIT_LINK_PROBE@", function() return unit_link_probe_source end)
+    :gsub("%-%- @HASH_TYPE_PROBE@", function() return hash_type_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
 update = function() return 123, nil, 321 end
@@ -619,11 +663,19 @@ equal(HD2HelperAutoReload ~= nil, true, "runtime initialized")
 local function frame(time) now = time; return update() end
 a, b, c = frame(0)
 equal(a, 123); equal(b, nil); equal(c, 321)
+keys[120] = true; frame(0.021)
+local live_hash_result = false
+for _, line in ipairs(logs) do
+    if line:find("HASH_TYPE goid=5", 1, true) and
+        line:find("baseline=true hash=true", 1, true) then live_hash_result = true end
+end
+equal(live_hash_result, true, "F9 checks only a recognized held weapon")
+keys[120] = false; frame(0.042)
 cells.ammo = 0; keys[1] = true
-frame(0.021)
+frame(0.063)
 equal(#inputs, 1, "runtime exhaustion sends once")
 equal(inputs[1].flags, 8, "scan-code down")
-frame(0.062)
+frame(0.104)
 equal(#inputs, 2, "scheduled up")
 equal(inputs[2].flags, 10, "scan-code up")
 frame(0.5); equal(#inputs, 2, "held fire not repeated")

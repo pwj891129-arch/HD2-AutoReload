@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.12-test"
+local VERSION = "0.3.13-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -17,6 +17,9 @@ local CatalogProbe = (function()
 end)()
 local UnitLinkProbe = (function()
 -- @UNIT_LINK_PROBE@
+end)()
+local HashTypeProbe = (function()
+-- @HASH_TYPE_PROBE@
 end)()
 local Reader = {}
 Reader.__index = Reader
@@ -185,7 +188,7 @@ end
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
         TankProbe = TankProbe, SelfProbe = SelfProbe, CatalogProbe = CatalogProbe,
-        UnitLinkProbe = UnitLinkProbe,
+        UnitLinkProbe = UnitLinkProbe, HashTypeProbe = HashTypeProbe,
         recover_identity = recover_identity,
         install_hooks = install_hooks }
 end
@@ -248,7 +251,7 @@ local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {
 if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
 local policy, state = Policy.new(), { paused = not config.enabled, keys = {} }
 local tank_probe = TankProbe.new(GS)
-local unit_link_probe = UnitLinkProbe.new(GS, sr.UnitSynchronizer, sr.Unit)
+local hash_type_probe = HashTypeProbe.new(GS, sr.IdString32)
 rawset(_G, "HD2HelperAutoReload", state)
 
 local function down(vk) return native.user32.GetAsyncKeyState(vk) < 0 end
@@ -294,9 +297,12 @@ local function tick()
     if state.release_at and (now >= state.release_at or not foreground()) then release() end
     local focused = foreground()
     local keys = { enter = down(13), escape = down(27), tab = down(9),
-        pause = down(config.pause_vk), primary = down(49),
+        pause = down(config.pause_vk), probe = down(120), primary = down(49),
         sidearm = down(50), support = down(51) }
     local previous_keys = state.keys
+    local probe_requested = focused and keys.probe and not previous_keys.probe and
+        not state.paused and not state.chat and not keys.enter and
+        not keys.escape and not keys.tab
     if focused then
         if keys.pause and not state.keys.pause then
             state.paused = not state.paused
@@ -339,7 +345,7 @@ local function tick()
         if state.context then
             tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
             state.probe_until = nil
-            unit_link_probe:reset()
+            hash_type_probe:reset()
         end
         state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
         status("no-session"); return
@@ -349,16 +355,19 @@ local function tick()
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
-        unit_link_probe:reset()
+        hash_type_probe:reset()
         state.switch, state.lean_fire_until = nil, nil
     end
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until
     local sample, reason = reader:sample(session, world, peer, allow_seated_fire)
-    local unit_ok, unit_line = pcall(unit_link_probe.read, unit_link_probe,
-        session, sample)
-    if unit_ok and unit_line then log(unit_line) end
-    if not unit_ok then log("UNIT_LINK error=" .. tostring(unit_line)) end
+    if probe_requested then
+        local equipment = sample.type_hash and
+            reader.generated.identity.equipment[sample.type_hash]
+        local probe_ok, probe_line = pcall(hash_type_probe.read, hash_type_probe,
+            session, sample, equipment and equipment.call)
+        log(probe_ok and probe_line or "HASH_TYPE error=" .. tostring(probe_line))
+    end
     local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
     local seat_hint = type(seat_mod) == "table" and seat_mod.last or nil
     if type(seat_hint) ~= "string" or seat_hint:sub(1, 5) ~= "seat:" then

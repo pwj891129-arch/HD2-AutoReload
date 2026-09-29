@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.12-test
+# HD2 Helper Auto Reload 0.3.13-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -90,27 +90,30 @@ tests remain for investigation, but they perform no live game-object reads.
 The existing automatic reload path is otherwise unchanged. Unknown weapons
 such as LAS-12 Sai still do not auto reload.
 
-## Unit Link Check
+## Game Type Hash Check
 
-This build adds one narrowly scoped read-only `UNIT_LINK` check. After the game
-has recognized an ordinary held weapon in player control, it checks whether
-Stingray's UnitSynchronizer maps that weapon's game-object ID to a live Unit and
-back to the same ID. The check runs once per session and never iterates over
-other owned objects. It does not run during the unresolved ship-entry state.
-The result determines whether a future reader can locate held weapons without
-an authored equipment list. No unknown-weapon auto reload is enabled yet.
+In 0.3.12-test the one-shot `UNIT_LINK` check returned `no-synchronizer` on a
+recognized Dagger. This build leaves that path inactive. It tests another
+route: whether a game object's type can be matched using the hashed type ID
+from the game's own `.network_config`, without the old reader's string alias.
 
-For a live check, enter a mission with LAS-12 Sai and equip a previously
-recognized sidearm such as the Dagger once. Look for `UNIT_LINK` in the log
-path below. No primary-weapon swap is needed or possible during a mission.
+In a mission, hold a weapon this version already recognizes, such as the
+Dagger, and press F9 once. The addon checks that the known string alias still
+matches, then asks `GameSession.game_object_is_type` about the same object
+using `IdString32.from_hex`. It logs one `HASH_TYPE` result per session and
+does not scan other objects or execute this check on an unrecognized weapon.
+`baseline=true hash=true` validates this type-matching step. A false/error
+result does not. Do not press F9 on ship entry; run the check after landing.
+The check does not reload unknown weapons or write game state.
 
 ## Game Catalog Research
 
 `inspect_game_catalog.cjs` reads the installed game's bundle index and locates
 the `.network_config` asset without changing game files. Its current purpose is
 diagnostic: that asset contains hashed game-object types and fields, but not the
-string call names needed by the existing reader. It is not yet a replacement
-equipment database. The standalone script does not run inside the game.
+string call names needed by the existing reader. If the F9 check succeeds,
+parsing this asset and mapping a live unknown object to its type and held slot
+are still separate work. The standalone script does not run inside the game.
 
 ## Installation
 
@@ -124,7 +127,8 @@ equipment database. The standalone script does not run inside the game.
 HD2 HUD+ does not need to be installed/enabled. The read-only modules required
 by this addon are embedded, but none of its display or startup code is included.
 
-Default keys are left mouse for fire, R for reload, and F8 for pause/resume.
+Default keys are left mouse for fire, R for reload, F8 for pause/resume, and
+F9 for the one-shot read-only type check.
 On first startup the addon creates `%APPDATA%\HD2AutoReload.ini` when possible:
 
 ```ini
