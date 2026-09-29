@@ -1,10 +1,13 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.16-test"
+local VERSION = "0.3.17-test"
 local Policy = (function()
 -- @POLICY@
 end)()
 local Native = (function()
 -- @NATIVE@
+end)()
+local NativeReader = (function()
+-- @NATIVE_READER@
 end)()
 local TankProbe = (function()
 -- @TANK_PROBE@
@@ -35,7 +38,7 @@ local function valid_count(value)
         value < math.huge and value == math.floor(value)
 end
 
-function Reader.new(parts, fragment)
+function Reader.new(parts, fragment, native_reader)
     local generated = {}
     for key, value in pairs(parts.GeneratedCommon) do generated[key] = value end
     for _, name in ipairs({ "snapshot", "signals", "role_tables", "authored_base",
@@ -52,12 +55,55 @@ function Reader.new(parts, fragment)
     end
     return setmetatable({ generated = generated,
         identity = parts.IdentityCore.new(generated.identity),
-        provider = parts.Provider.new(generated) }, Reader)
+        provider = parts.Provider.new(generated), native = native_reader }, Reader)
+end
+
+function Reader:sample_native(resolved, session, allow_seated_fire)
+    if not self.native or not resolved or not resolved.avatar then
+        self.native_pending = nil
+        return nil
+    end
+    if type(resolved.grip) ~= "number" or resolved.grip == 0 or
+        resolved.grip == 40 or resolved.grip == 70 then
+        self.native_pending = nil
+        return nil
+    end
+    local ok, sample, reason = pcall(self.native.sample, self.native)
+    if not ok or not sample or sample.avatar ~= resolved.avatar.goid then
+        if self.native.disabled then
+            self.native_refusal = ok and reason or tostring(sample)
+        end
+        self.native_pending = nil
+        return nil
+    end
+    local in_control = boolean(self.identity:in_control(session, resolved.avatar))
+    local rotation_free = boolean(self.identity:rotation_free(session, resolved.avatar))
+    local seated_fire = allow_seated_fire and in_control == false and
+        rotation_free == false and resolved.grip ~= 70
+    if (in_control ~= true or rotation_free ~= true) and not seated_fire then
+        self.native_pending = nil
+        return nil
+    end
+    sample.seated_fire = seated_fire
+    sample.slot = nil
+    local empty = (sample.mode == "heat" and sample.overheated == true) or
+        (sample.mode == "ammo" and sample.ammo == 0)
+    if empty then
+        local stamp = sample.weapon .. ":" .. sample.mode .. ":" ..
+            tostring(sample.reserve) .. ":" .. tostring(sample.reloading)
+        sample.unconfirmed = self.native_pending ~= stamp
+        self.native_pending = stamp
+    else
+        self.native_pending = nil
+    end
+    return sample, reason
 end
 
 function Reader:sample(session, world, peer, allow_seated_fire)
     local resolved = self.identity:resolve(session, world, peer)
     if not resolved or not resolved.avatar or resolved.status ~= "resolved" then
+        local sample, reason = self:sample_native(resolved, session, allow_seated_fire)
+        if sample then return sample, reason end
         return { active = false, avatar = resolved and resolved.avatar and resolved.avatar.goid,
             grip = resolved and resolved.grip },
             resolved and resolved.reason or "no-avatar"
@@ -80,8 +126,14 @@ function Reader:sample(session, world, peer, allow_seated_fire)
             in_control = in_control, rotation_free = rotation_free,
             held_reason = resolved.reason }, "no-player-control"
     end
-    if not hand then return { active = true }, "no-held-weapon" end
+    if not hand then
+        local sample, reason = self:sample_native(resolved, session, allow_seated_fire)
+        if sample then return sample, reason end
+        return { active = true }, "no-held-weapon"
+    end
     if not slot then
+        local sample, reason = self:sample_native(resolved, session, allow_seated_fire)
+        if sample then return sample, reason end
         return { active = false }, "unsupported-held-item"
     end
     if resolved.underbarrel and resolved.underbarrel.goid == hand.goid then
@@ -99,6 +151,7 @@ function Reader:sample(session, world, peer, allow_seated_fire)
     end
     local weapon = tostring(hand.goid) .. ":" .. tostring(hand.type)
     if heat then
+        self.native_pending = nil
         local overheated = boolean(cells.overheated)
         return { active = true, mode = "heat", weapon = weapon,
             goid = hand.goid, type_hash = hand.type,
@@ -124,6 +177,7 @@ function Reader:sample(session, world, peer, allow_seated_fire)
         end
     end
     if not valid_count(ammo) then ammo = nil end
+    self.native_pending = nil
     return { active = true, mode = "ammo", weapon = weapon,
         goid = hand.goid, type_hash = hand.type,
         ammo = ammo, reserve = reserve, reloading = boolean(cells.reloading),
@@ -187,6 +241,7 @@ end
 
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
+        NativeReader = NativeReader,
         TankProbe = TankProbe, SelfProbe = SelfProbe, CatalogProbe = CatalogProbe,
         UnitLinkProbe = UnitLinkProbe, HashTypeProbe = HashTypeProbe,
         recover_identity = recover_identity,
@@ -200,7 +255,7 @@ end)()
 local fragment = (function()
 -- @NUMBERS@
 end)()
-local ok, reader = pcall(Reader.new, parts, fragment)
+local ok, reader = pcall(Reader.new, parts, fragment, NativeReader.new())
 local loader = rawget(_G, "CowboyBingusModLoader")
 local log_ok, log_file = pcall(function()
     return loader and loader.open_log and loader.open_log("hd2_helper_auto_reload.log")
@@ -320,7 +375,8 @@ local function tick()
         not keys.enter and not keys.escape and not keys.tab then
         for _, slot in ipairs({ "primary", "sidearm", "support" }) do
             if keys[slot] and not previous_keys[slot] then
-                state.switch = { slot = slot, ready_at = now + 1.1,
+                state.switch = { slot = slot, from_weapon = state.last_weapon,
+                    ready_at = now + 1.1,
                     until_time = now + 2.2 }
                 log("SWITCH_KEY slot=" .. slot)
             end
@@ -337,17 +393,20 @@ local function tick()
     if aim and fire then state.lean_fire_until = now + 0.8 end
     if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
         policy:reset(); state.fire_pending, state.aim_pending = nil, nil
+        reader.native_pending = nil
         state.probe_pending = nil
         state.switch, state.lean_fire_until = nil, nil
         release(); return
     end
     if state.next_read and now < state.next_read then return end
-    state.next_read = now + 0.02
+    state.next_read = now + 0.05
     local session, world, peer = scope()
     if not session then
         if state.probe_pending then log("HASH_TYPE skipped=no-session") end
         state.probe_pending = nil
         policy:reset(); reader.identity:invalidate(); state.avatar = nil
+        reader.native_pending = nil
+        state.last_weapon = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         if state.context then
             tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
@@ -360,6 +419,8 @@ local function tick()
     local context = tostring(session) .. ":" .. tostring(world) .. ":" .. tostring(peer)
     if state.context ~= context then
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
+        reader.native_pending = nil
+        state.last_weapon = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
         hash_type_probe:reset()
@@ -368,6 +429,11 @@ local function tick()
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until
     local sample, reason = reader:sample(session, world, peer, allow_seated_fire)
+    if reader.native_refusal and not state.native_refusal_logged then
+        log("NATIVE_READER unavailable=" .. reader.native_refusal)
+        state.native_refusal_logged = true
+    end
+    if sample.active and sample.weapon then state.last_weapon = sample.weapon end
     if state.probe_pending then
         state.probe_pending = nil
         local equipment = sample.type_hash and
@@ -426,7 +492,9 @@ local function tick()
         switching = nil
     end
     if switching and sample.active then
-        if now < switching.ready_at or sample.slot ~= switching.slot then
+        local switched = sample.native and switching.from_weapon ~= nil and
+            sample.weapon ~= switching.from_weapon or sample.slot == switching.slot
+        if now < switching.ready_at or not switched then
             sample.switch_wait = true
         else
             sample.switch_ready = true

@@ -5,6 +5,7 @@ local function equal(actual, expected, name)
     assert(actual == expected, (name or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual))
     count = count + 1
 end
+dofile("native_reader.test.lua")(api, equal)
 local function sample(weapon, ammo, fire)
     return { active = true, mode = "ammo", weapon = weapon, ammo = ammo, reserve = 5,
         reloading = false, fire = fire or false }
@@ -700,6 +701,7 @@ equal(source:find("pcall(catalog_probe.read", 1, true), nil,
     "hashed API check is not called in the live runtime")
 file = assert(io.open("policy.lua", "r")); local policy_source = file:read("*a"); file:close()
 file = assert(io.open("native.lua", "r")); local native_source = file:read("*a"); file:close()
+file = assert(io.open("native_reader.lua", "r")); local native_reader_source = file:read("*a"); file:close()
 file = assert(io.open("tank_probe.lua", "r")); local tank_probe_source = file:read("*a"); file:close()
 file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:read("*a"); file:close()
 file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = file:read("*a"); file:close()
@@ -708,6 +710,7 @@ file = assert(io.open("hash_type_probe.lua", "r")); local hash_type_probe_source
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
+    :gsub("%-%- @NATIVE_READER@", function() return native_reader_source end)
     :gsub("%-%- @TANK_PROBE@", function() return tank_probe_source end)
     :gsub("%-%- @SELF_PROBE@", function() return self_probe_source end)
     :gsub("%-%- @CATALOG_PROBE@", function() return catalog_probe_source end)
@@ -726,7 +729,7 @@ keys[120] = true; frame(0.005)
 equal(logs[#logs]:find("HASH_TYPE requested", 1, true) ~= nil,
     true, "F9 edge is recorded before the next reader tick")
 equal(live_type_calls, 0, "throttled frame defers the type lookup")
-frame(0.021)
+frame(0.051)
 local live_hash_result = false
 for _, line in ipairs(logs) do
     if line:find("HASH_TYPE goid=5", 1, true) and
@@ -734,28 +737,29 @@ for _, line in ipairs(logs) do
 end
 equal(live_hash_result, true, "F9 checks only a recognized held weapon")
 equal(live_type_calls, 2, "pending F9 runs exactly one comparison pair")
-keys[120] = false; frame(0.042)
+keys[120] = false; frame(0.102)
 local logs_before_f10 = #logs
-keys[121] = true; frame(0.043); frame(0.063)
+keys[121] = true; frame(0.103); frame(0.153)
 equal(#logs, logs_before_f10, "F10 no longer starts live discovery")
 equal(#inputs, 0, "disabled F10 sends no reload input")
 keys[121] = false
 cells.ammo = 0; keys[1] = true
-frame(0.084)
+frame(0.204)
 equal(#inputs, 1, "runtime exhaustion sends once")
 equal(inputs[1].flags, 8, "scan-code down")
-frame(0.125)
+frame(0.245)
 equal(#inputs, 2, "scheduled up")
 equal(inputs[2].flags, 10, "scan-code up")
 frame(0.5); equal(#inputs, 2, "held fire not repeated")
 keys[120] = true; frame(0.525)
+frame(0.551)
 equal(logs[#logs]:find("HASH_TYPE already-checked", 1, true) ~= nil,
     true, "second F9 reports the one-shot limit")
 equal(live_type_calls, 2, "second F9 makes no new game type calls")
-keys[120] = false; frame(0.54)
+keys[120] = false; frame(0.56)
 Hd2TankSeatSwitch = { last = "seat:16474112801385b6:3" }
 resolved.grip, control, keys[2] = 15, false, true
-frame(0.55)
+frame(0.61)
 equal(#inputs, 2, "seated aim diagnostic never reloads")
 local aimed = false
 for _, line in ipairs(logs) do
@@ -772,8 +776,8 @@ for _, line in ipairs(logs) do
     end
 end
 equal(held_note, true, "seated aim logs held-object evidence")
-Hd2TankSeatSwitch = nil; keys[2] = false; frame(0.57)
-keys[2] = true; frame(0.59)
+Hd2TankSeatSwitch = nil; keys[2] = false; frame(0.67)
+keys[2] = true; frame(0.74)
 local unconfirmed_aim = false
 for _, line in ipairs(logs) do
     if line:find("SEAT_AIM seat_hint=unconfirmed", 1, true) then
@@ -782,16 +786,16 @@ for _, line in ipairs(logs) do
 end
 equal(unconfirmed_aim, true, "seated aim logs without seat addon")
 resolved.grip, control, keys[2], Hd2TankSeatSwitch = nil, true, false, nil
-keys[1] = false; frame(0.6)
-frame(0.62)
+keys[1] = false; frame(0.75)
+frame(0.8)
 resolved.hand_weapon.goid = 6
-frame(0.7); equal(#inputs, 3, "runtime actual swap trigger")
-frame(0.75)
-keys[1] = true; frame(1.1)
+frame(0.9); equal(#inputs, 3, "runtime actual swap trigger")
+frame(0.95)
+keys[1] = true; frame(1.1); frame(1.26)
 equal(#inputs, 5, "runtime fresh fire attempt")
-frame(1.15)
-keys[13] = true; frame(1.2)
-keys[13], keys[1] = false, false; frame(1.25)
+frame(1.31)
+keys[13] = true; frame(1.35)
+keys[13], keys[1] = false, false; frame(1.4)
 keys[1] = true; frame(1.7)
 equal(#inputs, 6, "chat blocks empty fire")
 keys[27] = true; frame(1.75)

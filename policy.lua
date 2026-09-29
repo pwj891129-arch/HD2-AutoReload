@@ -17,6 +17,13 @@ function Policy:reset()
 end
 
 function Policy:step(sample, now)
+    if sample and sample.unconfirmed then
+        if sample.fire == true and not self.fire then
+            self.fire_wait_until = now + 0.25
+        end
+        self.fire = sample.fire == true
+        return nil
+    end
     if not sample or sample.active ~= true then
         self:reset()
         return nil
