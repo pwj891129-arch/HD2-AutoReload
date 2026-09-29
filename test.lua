@@ -181,6 +181,23 @@ equal(p:step(heat_sample("H", true), 0.1), "overheated")
 equal(p:step(heat_sample("H", false), 0.2), nil, "cooling cancels pending heat reload")
 equal(p:step(heat_sample("H", true), 0.3), "overheated", "new overheat event after cooling")
 p = api.Policy.new()
+p:step(sample("primary", 2), 0)
+local pending_switch = sample("sidearm", 0)
+pending_switch.switch_wait = true
+equal(p:step(pending_switch, 0.1), nil, "switch wait blocks early reload")
+pending_switch.switch_wait, pending_switch.switch_ready = nil, true
+equal(p:step(pending_switch, 1.2), "weapon-swapped",
+    "empty target reloads after switch delay")
+p:sent(1.2)
+equal(p:step(pending_switch, 1.3), nil, "switch repeat guard")
+p = api.Policy.new()
+p:step(sample("primary", 2), 0)
+pending_switch = sample("sidearm", 3)
+pending_switch.switch_wait = true
+equal(p:step(pending_switch, 0.1), nil)
+pending_switch.switch_wait, pending_switch.switch_ready = nil, true
+equal(p:step(pending_switch, 1.2), nil, "loaded switched weapon stays loaded")
+p = api.Policy.new()
 p:step(heat_sample("dagger", false), 0)
 local hot_reloading = heat_sample("dagger", true)
 hot_reloading.reloading = true
@@ -226,7 +243,8 @@ local parts = { GeneratedCommon = { identity = { equipment = equipment } },
     IdentityCore = { new = function() return identity end },
     Provider = { new = function() return provider end } }
 local reader = api.Reader.new(parts, { snapshot = {} })
-resolved = { status = "resolved", avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "A" } }
+resolved = { status = "resolved", reason = "wield-node-named-the-hand:first-person-node",
+    avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "A" } }
 control, rotation, declaration = true, true, ""
 cells = { ammo = 0, reserve = 2, reloading = false }
 equal(reader:sample().ammo, 0, "known empty")
@@ -235,7 +253,7 @@ equal(reader:sample().reloading, false)
 resolved.status, resolved.reason = "absent", "no-on-body-object-of-grip=15"
 equal(reader:sample().avatar, 100, "unresolved weapon retains avatar identity")
 equal(reader:sample().active, false, "unresolved weapon remains inactive")
-resolved.status, resolved.reason = "resolved", nil
+resolved.status, resolved.reason = "resolved", "wield-node-named-the-hand:first-person-node"
 equipment.A.resource = "content/fac_helldivers/equipment/sidearm_weapons/smart_pistol_missile/smart_pistol_missile"
 local missile = reader:sample()
 equal(missile.active, true, "missile pistol is a supported sidearm")
@@ -248,6 +266,20 @@ equipment.A.resource = "content/fac_helldivers/equipment/primary_weapons/test/te
 control = false
 equal(reader:sample().active, false, "non-player control")
 equal(reader:sample().in_control, false, "seated control diagnostic")
+rotation = false
+equal(reader:sample(nil, nil, nil, true).active, true,
+    "personal weapon may be read during seated fire")
+equal(reader:sample(nil, nil, nil, true).seated_fire, true,
+    "seated-fire scope is explicit")
+resolved.reason = "wield-node-named-the-hand:carried"
+equal(reader:sample(nil, nil, nil, true).active, false,
+    "carried weapon cannot authorize seated fire")
+resolved.reason = "wield-node-named-the-hand:first-person-node"
+equal(reader:sample().active, false, "seated weapon without firing stays blocked")
+resolved.grip = 70
+equal(reader:sample(nil, nil, nil, true).active, false,
+    "unresolved cannon grip never becomes a personal weapon")
+resolved.grip = nil
 control, rotation = true, false
 equal(reader:sample().active, false, "rotation gate")
 equal(reader:sample().rotation_free, false, "seated rotation diagnostic")
@@ -434,7 +466,8 @@ CowboyBingusModLoader = { open_log = function()
     return { write = function(_, text) logs[#logs+1] = text end, flush = function() end }
 end }
 equipment.A.spare_pack, equipment.A.ammo_icon = nil, nil
-resolved = { status = "resolved", avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "A" } }
+resolved = { status = "resolved", reason = "wield-node-named-the-hand:first-person-node",
+    avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "A" } }
 control, rotation, declaration = true, true, ""
 cells = { ammo = 1, reserve = 3, reloading = false }
 identity.invalidate = function() end
@@ -484,6 +517,14 @@ for _, line in ipairs(logs) do
     end
 end
 equal(aimed, true, "seated aim logs grip and control gate")
+local held_note = false
+for _, line in ipairs(logs) do
+    if line:find("SEAT_AIM", 1, true) and
+        line:find("held=wield-node-named-the-hand:first-person-node", 1, true) then
+        held_note = true
+    end
+end
+equal(held_note, true, "seated aim logs held-object evidence")
 Hd2TankSeatSwitch = nil; keys[2] = false; frame(0.57)
 keys[2] = true; frame(0.59)
 local unconfirmed_aim = false
@@ -528,9 +569,32 @@ for _, line in ipairs(logs) do
     end
 end
 equal(grip_probe, true, "unresolved grip 70 aim starts a bounded tank probe")
+local input_marker = false
+for _, line in ipairs(logs) do
+    if line:find("PROBE_INPUT", 1, true) and line:find("grip=70", 1, true) then
+        input_marker = true
+    end
+end
+equal(input_marker, true, "tank probe records input timing")
+resolved.status, resolved.reason, resolved.grip = "resolved", nil, nil
+resolved.hand_weapon.goid = 7
+keys[2], keys[49] = false, true
+frame(2.6)
+equal(#inputs, 8, "digit switch waits for the draw animation")
+keys[49] = false
+frame(3.5)
+equal(#inputs, 8, "digit switch does not reload before 1.1 seconds")
+frame(3.8)
+equal(#inputs, 9, "digit switch reloads an empty drawn weapon")
+resolved.reason, resolved.grip = "wield-node-named-the-hand:first-person-node", 1
+control, rotation, cells.ammo, keys[2], keys[1] = false, false, 1, true, true
+frame(4.0)
+equal(#inputs, 10, "seated lean reads a loaded personal weapon")
+cells.ammo = 0; frame(4.05); frame(4.2)
+equal(#inputs, 11, "seated lean reloads exhausted personal weapon")
 shutdown()
-equal(#inputs, 8, "shutdown releases outstanding key")
-equal(inputs[8].flags, 10)
+equal(#inputs, 12, "shutdown releases outstanding key")
+equal(inputs[12].flags, 10)
 require, os.getenv = original_require, original_getenv
 dofile("compatibility.test.lua")(api, equal)
 print("PASS " .. count .. " assertions; actual LuaJIT, no game inputs sent")

@@ -46,6 +46,10 @@ function Policy:step(sample, now)
     local exhausted = self.weapon == weapon and self.mode == mode and
         self.empty == false and empty
     self.weapon, self.mode, self.empty, self.seen_at = weapon, mode, empty, now
+    if sample.switch_wait then
+        self.pending, self.fire_wait_until = nil, nil
+        return nil
+    end
     if not empty then
         self.pending, self.fire_wait_until = nil, nil
         return nil
@@ -55,10 +59,12 @@ function Policy:step(sample, now)
         now > self.pending.until_time) then self.pending = nil end
     local reason = exhausted and (mode == "heat" and "overheated" or "ammo-exhausted") or
         swapped and "weapon-swapped" or
+        sample.switch_ready and "weapon-swapped" or
         (fire_edge or (self.fire_wait_until and now <= self.fire_wait_until))
             and "fire-attempt" or nil
     self.fire_wait_until = nil
-    if reason then
+    if reason and not (self.pending and self.pending.weapon == weapon and
+        self.pending.mode == mode and self.pending.reason == reason) then
         self.pending = { weapon = weapon, mode = mode, reason = reason,
             since = now, reserve = sample.reserve, until_time = now + 0.35 }
     end

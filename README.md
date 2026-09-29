@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.7-test
+# HD2 Helper Auto Reload 0.3.8-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -40,10 +40,16 @@ Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 - Heat weapons: the game's explicit overheat flag changes from false to true.
 - The actual held weapon changes to an empty or overheated weapon.
 - A new fire-key press attempts to fire an empty or overheated weapon.
+- Number-row 1, 2, or 3 selects a known primary, sidearm, or support weapon.
+  The addon waits 1.1 seconds, then rereads the requested weapon and its
+  ammunition before attempting reload. Numpad keys are separate.
 
 Requests require known zero ammo for magazine weapons or an explicit true
 overheat flag for heat weapons, a known positive reserve, an unambiguous local
-held weapon, and player movement/rotation control. A known idle reload state
+held weapon, and player movement/rotation control. The seated-passenger
+exception requires right-click aim, recent fire, and an ordinary personal
+weapon confirmed at the hand node. It does not apply to the cannon or a
+merely carried weapon. A known idle reload state
 is normally required. When a heat weapon's reload flag turns true with the
 overheat flag, one attempt is allowed after 150 ms of persistent overheat and
 unchanged reserve; a manual R press or reserve change cancels that attempt.
@@ -67,6 +73,8 @@ If the overheat flag or spare heat sink count is unavailable, no reload is sent.
 Underbarrels, throwables, melee, vehicle and mounted weapons remain excluded.
 Unknown data never counts as empty or overheated. The reader
 is derived from HD2 HUD+ 0.1.2 with credit and its packaged reuse permission.
+LAS-12 Sai is newer than this reader's equipment identity table and remains
+unsupported until its runtime type and field mapping can be verified.
 Its compatibility with the current game needs a live mission test. Schema checks
 and Lua errors disable action instead of guessing. This does not certify that
 mod use is accepted by the game or its anti-cheat.
@@ -107,7 +115,8 @@ RELOAD means an input was accepted by Windows, not confirmed completion by the
 game. INPUT_FAILED or DISABLED means no further guessed action is taken.
 For heat weapons, status lines also show the observed overheat flag, spare
 count, reload flag and a heat-gauge snapshot. `SEAT_AIM` records the weapon
-grip and control gates when aiming from a suspected tank seat. These are
+grip, control gates, and hand-node evidence when aiming from a suspected tank
+seat. These are
 read-only diagnostics and do not bypass an unknown safety condition.
 
 ## Tank Cannon Diagnostic
@@ -121,6 +130,9 @@ grip 70 alone confirms a tank or authorizes reload input. The probe rotates thro
 locally owned objects per 250 ms and logs only the first or changed bounded
 small integer and boolean fields on each page, up to 120 lines per session.
 It does not send a reload input from those snapshots.
+PROBE_INPUT marks aim and fire edges so the rotating snapshots can be compared
+against the actual shot. Repeated edges during one capture do not restart the
+page rotation.
 
 For field mapping, sit in the Bastion gunner seat with one shell loaded, fire
 to show `0/1`, then manually reload to show `1/1`. Hold each state for at least
@@ -141,7 +153,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.7-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.7-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.8-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.8-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

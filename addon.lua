@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.7-test"
+local VERSION = "0.3.8-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -43,7 +43,7 @@ function Reader.new(parts, fragment)
         provider = parts.Provider.new(generated) }, Reader)
 end
 
-function Reader:sample(session, world, peer)
+function Reader:sample(session, world, peer, allow_seated_fire)
     local resolved = self.identity:resolve(session, world, peer)
     if not resolved or not resolved.avatar or resolved.status ~= "resolved" then
         return { active = false, avatar = resolved and resolved.avatar and resolved.avatar.goid,
@@ -52,17 +52,24 @@ function Reader:sample(session, world, peer)
     end
     local in_control = boolean(self.identity:in_control(session, resolved.avatar))
     local rotation_free = boolean(self.identity:rotation_free(session, resolved.avatar))
-    if in_control ~= true or rotation_free ~= true then
-        return { active = false, avatar = resolved.avatar.goid, grip = resolved.grip,
-            in_control = in_control, rotation_free = rotation_free }, "no-player-control"
-    end
     local hand = resolved.hand_weapon
-    if not hand then return { active = true }, "no-held-weapon" end
-    local spec = self.generated.identity.equipment[hand.type]
+    local spec = hand and self.generated.identity.equipment[hand.type]
     local resource = spec and spec.resource or ""
-    if not string.find(resource, "/equipment/primary_weapons/", 1, true) and
-        not string.find(resource, "/equipment/sidearm_weapons/", 1, true) and
-        not string.find(resource, "/equipment/support_weapons/", 1, true) then
+    local slot = string.find(resource, "/equipment/primary_weapons/", 1, true) and "primary" or
+        string.find(resource, "/equipment/sidearm_weapons/", 1, true) and "sidearm" or
+        string.find(resource, "/equipment/support_weapons/", 1, true) and "support" or nil
+    local held_in_hand = type(resolved.reason) == "string" and
+        (resolved.reason:find("wield%-node%-named%-the%-hand:narrowed") ~= nil or
+            resolved.reason:find("wield%-node%-named%-the%-hand:first%-person%-node") ~= nil)
+    local seated_fire = allow_seated_fire and in_control == false and
+        rotation_free == false and slot ~= nil and resolved.grip ~= 70 and held_in_hand
+    if (in_control ~= true or rotation_free ~= true) and not seated_fire then
+        return { active = false, avatar = resolved.avatar.goid, grip = resolved.grip,
+            in_control = in_control, rotation_free = rotation_free,
+            held_reason = resolved.reason }, "no-player-control"
+    end
+    if not hand then return { active = true }, "no-held-weapon" end
+    if not slot then
         return { active = false }, "unsupported-held-item"
     end
     if resolved.underbarrel and resolved.underbarrel.goid == hand.goid then
@@ -84,7 +91,8 @@ function Reader:sample(session, world, peer)
         return { active = true, mode = "heat", weapon = weapon,
             overheated = overheated, reserve = reserve,
             heat_shown = cells.heat_shown, heat_max = cells.heat_max,
-            reloading = boolean(cells.reloading), avatar = resolved.avatar.goid },
+            reloading = boolean(cells.reloading), avatar = resolved.avatar.goid,
+            slot = slot, seated_fire = seated_fire },
             overheated == nil and "overheat-unavailable" or "ready"
     end
     local ammo = cells.ammo
@@ -105,7 +113,8 @@ function Reader:sample(session, world, peer)
     if not valid_count(ammo) then ammo = nil end
     return { active = true, mode = "ammo", weapon = weapon,
         ammo = ammo, reserve = reserve, reloading = boolean(cells.reloading),
-        avatar = resolved.avatar.goid }, ammo == nil and "ammo-unavailable" or "ready"
+        avatar = resolved.avatar.goid, slot = slot, seated_fire = seated_fire },
+        ammo == nil and "ammo-unavailable" or "ready"
 end
 
 local function recover_identity(identity, state, sample, reason, now)
@@ -251,7 +260,9 @@ local function scope()
 end
 local function status(reason, sample)
     local label = tostring(reason) .. " weapon=" .. tostring(sample and sample.weapon) ..
-        " mode=" .. tostring(sample and sample.mode)
+        " mode=" .. tostring(sample and sample.mode) ..
+        " slot=" .. tostring(sample and sample.slot) ..
+        " seated_fire=" .. tostring(sample and sample.seated_fire)
     if sample and sample.mode == "heat" then
         label = label .. " overheat=" .. tostring(sample.overheated) ..
             " reserve=" .. tostring(sample.reserve) ..
@@ -268,7 +279,10 @@ local function tick()
     if type(now) ~= "number" then return end
     if state.release_at and (now >= state.release_at or not foreground()) then release() end
     local focused = foreground()
-    local keys = { enter = down(13), escape = down(27), tab = down(9), pause = down(config.pause_vk) }
+    local keys = { enter = down(13), escape = down(27), tab = down(9),
+        pause = down(config.pause_vk), primary = down(49),
+        sidearm = down(50), support = down(51) }
+    local previous_keys = state.keys
     if focused then
         if keys.pause and not state.keys.pause then
             state.paused = not state.paused
@@ -278,6 +292,16 @@ local function tick()
         if keys.enter and not state.keys.enter then state.chat = not state.chat end
         if keys.escape and not state.keys.escape then state.chat = false end
     end
+    if focused and not state.paused and not state.chat and
+        not keys.enter and not keys.escape and not keys.tab then
+        for _, slot in ipairs({ "primary", "sidearm", "support" }) do
+            if keys[slot] and not previous_keys[slot] then
+                state.switch = { slot = slot, ready_at = now + 1.1,
+                    until_time = now + 2.2 }
+                log("SWITCH_KEY slot=" .. slot)
+            end
+        end
+    end
     state.keys = keys
     local fire = focused and down(config.fire_vk)
     local aim = focused and down(2)
@@ -286,8 +310,11 @@ local function tick()
     if aim_edge then state.aim_pending = true end
     if fire and not state.fire then state.fire_pending = true end
     state.fire = fire
+    if aim and fire then state.lean_fire_until = now + 0.8 end
     if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
-        policy:reset(); state.fire_pending, state.aim_pending = nil, nil; release(); return
+        policy:reset(); state.fire_pending, state.aim_pending = nil, nil
+        state.switch, state.lean_fire_until = nil, nil
+        release(); return
     end
     if state.next_read and now < state.next_read then return end
     state.next_read = now + 0.02
@@ -297,16 +324,21 @@ local function tick()
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         if state.context then
             tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
+            state.probe_until = nil
         end
-        state.fire_pending = nil; status("no-session"); return
+        state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
+        status("no-session"); return
     end
     local context = tostring(session) .. ":" .. tostring(world) .. ":" .. tostring(peer)
     if state.context ~= context then
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
-        tank_probe:reset(); state.seat_aim_lines = nil
+        tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
+        state.switch, state.lean_fire_until = nil, nil
     end
-    local sample, reason = reader:sample(session, world, peer)
+    local allow_seated_fire = aim and state.lean_fire_until and
+        now <= state.lean_fire_until
+    local sample, reason = reader:sample(session, world, peer, allow_seated_fire)
     local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
     local seat_hint = type(seat_mod) == "table" and seat_mod.last or nil
     if type(seat_hint) ~= "string" or seat_hint:sub(1, 5) ~= "seat:" then
@@ -319,8 +351,12 @@ local function tick()
     local aim_event = state.aim_pending == true
     state.aim_pending = nil
     if unknown_grip70 and (aim_event or state.fire_pending) then
-        tank_probe:reset()
+        if not state.probe_until or now > state.probe_until then
+            tank_probe:reset()
+        end
         state.probe_until = now + 20
+        log(string.format("PROBE_INPUT t=%.1f grip=70 aim=%s fire=%s", now,
+            tostring(aim_event), tostring(state.fire_pending == true)))
     end
     if aim_event and control_blocked and (state.seat_aim_lines or 0) < 20 then
         state.seat_aim_lines = (state.seat_aim_lines or 0) + 1
@@ -328,7 +364,8 @@ local function tick()
             " reason=" .. tostring(reason) ..
             " grip=" .. tostring(sample.grip) ..
             " control=" .. tostring(sample.in_control) ..
-            " rotation=" .. tostring(sample.rotation_free))
+            " rotation=" .. tostring(sample.rotation_free) ..
+            " held=" .. tostring(sample.held_reason))
     end
     if control_blocked or (unknown_grip70 and state.probe_until and
         now <= state.probe_until) then
@@ -346,8 +383,25 @@ local function tick()
     sample.fire = fire or state.fire_pending == true
     sample.manual_reload = down(config.reload_vk) or state.release_at ~= nil
     state.fire_pending = nil
+    local switching = state.switch
+    if switching and now > switching.until_time then
+        state.switch = nil
+        switching = nil
+    end
+    if switching and sample.active then
+        if now < switching.ready_at or sample.slot ~= switching.slot then
+            sample.switch_wait = true
+        else
+            sample.switch_ready = true
+        end
+    end
     status(reason, sample)
     local trigger = policy:step(sample, now)
+    if sample.switch_ready and (trigger or
+        (sample.mode == "ammo" and type(sample.ammo) == "number" and sample.ammo > 0) or
+        (sample.mode == "heat" and sample.overheated == false)) then
+        state.switch = nil
+    end
     if trigger and not state.release_at and foreground() then
         native.input[0].value.key.flags = native.flags
         if native.user32.SendInput(1, native.input, native.size) == 1 then
