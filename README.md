@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.10-test
+# HD2 Helper Auto Reload 0.3.11-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -79,39 +79,24 @@ Its compatibility with the current game needs a live mission test. Schema checks
 and Lua errors disable action instead of guessing. This does not certify that
 mod use is accepted by the game or its anti-cheat.
 
-## Independent Field Probe
+## Experimental Diagnostics
 
-The `SELF_INPUT` and `SELF_DELTA` log entries come from a separate read-only
-probe. It scans locally owned game objects and compares their raw fields across
-fire and manual reload inputs. It does not consult the HUD+ equipment list or
-send reload input. The existing automatic reload path is unchanged while the
-field mapping is unverified. Unknown weapons such as LAS-12 Sai therefore do
-not yet auto reload. A changed field is only a candidate, not proof that it is
-the equipped weapon, ammunition, reserve, or overheat flag.
+Versions 0.3.9-test and 0.3.10-test added independent `SELF_` field scanning and
+`CATALOG_API` checks. A game exit was reported on entering the ship with
+0.3.10-test. The last addon log entry was during ship initialization, before a
+`CATALOG_API` result; that is not enough to prove the crash's exact cause. Both
+experimental diagnostics are disabled in this build. Their source and mock
+tests remain for investigation, but they perform no live game-object reads.
+The existing automatic reload path is otherwise unchanged. Unknown weapons
+such as LAS-12 Sai still do not auto reload.
 
-For a useful Sai capture, enter a mission and wait two seconds for a baseline,
-equip Sai, hold fire until it fully overheats, then manually press R once with a
-spare heat sink. The probe samples up to 24 objects per 80 ms during capture,
-then backs off to 300 ms while idle. It records at most 600 lines per session.
-Share the log below to identify the fields before
-enabling automatic action from this independent reader.
-
-## Game Catalog Check
+## Game Catalog Research
 
 `inspect_game_catalog.cjs` reads the installed game's bundle index and locates
 the `.network_config` asset without changing game files. Its current purpose is
 diagnostic: that asset contains hashed game-object types and fields, but not the
 string call names needed by the existing reader. It is not yet a replacement
-equipment database.
-
-The addon's `CATALOG_API` log entry tests whether the live Stingray API accepts
-those hashes as `IdString32` values for a known equipped weapon. It runs once
-per game session and never sends reload input. Equip a weapon already supported
-by the addon in a mission, then look for `CATALOG_API` in the log below. Test
-LAS-12 Sai separately with the independent field probe. Do not infer that a
-`CATALOG_API` result identifies Sai or authorizes automatic reload. Unknown
-weapons remain disabled until held identity, zero ammo/overheat, reserve and
-reload state are independently verified.
+equipment database. The standalone script does not run inside the game.
 
 ## Installation
 
@@ -187,7 +172,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.10-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.10-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.11-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.11-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

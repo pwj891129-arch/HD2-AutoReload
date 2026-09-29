@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.10-test"
+local VERSION = "0.3.11-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -244,8 +244,6 @@ local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {
 if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
 local policy, state = Policy.new(), { paused = not config.enabled, keys = {} }
 local tank_probe = TankProbe.new(GS)
-local self_probe = SelfProbe.new(GS)
-local catalog_probe = CatalogProbe.new(GS, Net, sr.IdString32, sr.UnitSynchronizer, sr.Unit)
 rawset(_G, "HD2HelperAutoReload", state)
 
 local function down(vk) return native.user32.GetAsyncKeyState(vk) < 0 end
@@ -336,8 +334,6 @@ local function tick()
         if state.context then
             tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
             state.probe_until = nil
-            self_probe:reset()
-            catalog_probe:reset()
         end
         state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
         status("no-session"); return
@@ -347,30 +343,11 @@ local function tick()
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
-        self_probe:reset()
-        catalog_probe:reset()
-        state.self_probe_failed = nil
         state.switch, state.lean_fire_until = nil, nil
-    end
-    if not state.self_probe_failed then
-        local probe_ok, probe_lines = pcall(self_probe.read, self_probe,
-            session, peer, now, fire,
-            down(config.reload_vk) and state.release_at == nil,
-            state.switch and state.switch.slot or "unconfirmed")
-        if probe_ok then
-            for _, line in ipairs(probe_lines) do log(line) end
-        else
-            state.self_probe_failed = true
-            log("SELF_PROBE_ERROR " .. tostring(probe_lines))
-        end
     end
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until
     local sample, reason = reader:sample(session, world, peer, allow_seated_fire)
-    local catalog_ok, catalog_line = pcall(catalog_probe.read, catalog_probe,
-        session, sample)
-    if catalog_ok and catalog_line then log(catalog_line) end
-    if not catalog_ok then log("CATALOG_API error=" .. tostring(catalog_line)) end
     local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
     local seat_hint = type(seat_mod) == "table" and seat_mod.last or nil
     if type(seat_hint) ~= "string" or seat_hint:sub(1, 5) ~= "seat:" then

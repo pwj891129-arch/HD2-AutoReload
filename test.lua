@@ -572,6 +572,10 @@ stingray = {
 TEST_READER_PARTS = parts
 HD2_AUTO_RELOAD_TEST = nil
 local file = assert(io.open("addon.lua", "r")); local source = file:read("*a"); file:close()
+equal(source:find("pcall(self_probe.read", 1, true), nil,
+    "independent field scanner is not called in the live runtime")
+equal(source:find("pcall(catalog_probe.read", 1, true), nil,
+    "hashed API check is not called in the live runtime")
 file = assert(io.open("policy.lua", "r")); local policy_source = file:read("*a"); file:close()
 file = assert(io.open("native.lua", "r")); local native_source = file:read("*a"); file:close()
 file = assert(io.open("tank_probe.lua", "r")); local tank_probe_source = file:read("*a"); file:close()
