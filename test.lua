@@ -197,7 +197,8 @@ equal(api.HashTypeProbe.new({ game_object_is_type = function() return true end }
 local discovery_reads, discovery_mode = 0, "known"
 local discovery_ids = {}
 for i = 1, 25 do discovery_ids[i] = i end
-local discovery = api.WeaponDiscoveryProbe.new({
+local Discovery = dofile("weapon_discovery_probe.lua")
+local discovery = Discovery.new({
     objects_owned_by = function() return discovery_ids end,
     game_object_field_batched = function(_, goid)
         discovery_reads = discovery_reads + 1
@@ -248,7 +249,7 @@ equal(discovery:step(1, 1.5), nil, "completed scan is one-shot")
 equal(discovery_reads, 50, "comparison reads only the second snapshot")
 discovery:reset()
 equal(discovery:step(1, 1), nil, "context reset discards discovery state")
-equal(api.WeaponDiscoveryProbe.new({}):request(1, 2, known_sample, "ready"),
+equal(Discovery.new({}):request(1, 2, known_sample, "ready"),
     "DISCOVERY skipped=api-unavailable", "missing APIs never enable a scan")
 local many_probe = api.SelfProbe.new({
     objects_owned_by = function()
@@ -704,7 +705,6 @@ file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:re
 file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = file:read("*a"); file:close()
 file = assert(io.open("unit_link_probe.lua", "r")); local unit_link_probe_source = file:read("*a"); file:close()
 file = assert(io.open("hash_type_probe.lua", "r")); local hash_type_probe_source = file:read("*a"); file:close()
-file = assert(io.open("weapon_discovery_probe.lua", "r")); local weapon_discovery_probe_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
@@ -713,7 +713,6 @@ source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @CATALOG_PROBE@", function() return catalog_probe_source end)
     :gsub("%-%- @UNIT_LINK_PROBE@", function() return unit_link_probe_source end)
     :gsub("%-%- @HASH_TYPE_PROBE@", function() return hash_type_probe_source end)
-    :gsub("%-%- @WEAPON_DISCOVERY_PROBE@", function() return weapon_discovery_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
 update = function() return 123, nil, 321 end
@@ -736,17 +735,10 @@ end
 equal(live_hash_result, true, "F9 checks only a recognized held weapon")
 equal(live_type_calls, 2, "pending F9 runs exactly one comparison pair")
 keys[120] = false; frame(0.042)
-keys[121] = true; frame(0.043)
-equal(logs[#logs]:find("DISCOVERY requested", 1, true) ~= nil,
-    true, "F10 edge is recorded before the next reader tick")
-frame(0.063)
-local live_discovery_ready = false
-for _, line in ipairs(logs) do
-    if line:find("DISCOVERY baseline-ready", 1, true) then
-        live_discovery_ready = true end
-end
-equal(live_discovery_ready, true, "F10 completes a bounded known-weapon baseline")
-equal(#inputs, 0, "F10 diagnostic never sends reload input")
+local logs_before_f10 = #logs
+keys[121] = true; frame(0.043); frame(0.063)
+equal(#logs, logs_before_f10, "F10 no longer starts live discovery")
+equal(#inputs, 0, "disabled F10 sends no reload input")
 keys[121] = false
 cells.ammo = 0; keys[1] = true
 frame(0.084)

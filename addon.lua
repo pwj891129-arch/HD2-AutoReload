@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.15-test"
+local VERSION = "0.3.16-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -20,9 +20,6 @@ local UnitLinkProbe = (function()
 end)()
 local HashTypeProbe = (function()
 -- @HASH_TYPE_PROBE@
-end)()
-local WeaponDiscoveryProbe = (function()
--- @WEAPON_DISCOVERY_PROBE@
 end)()
 local Reader = {}
 Reader.__index = Reader
@@ -192,7 +189,6 @@ if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
         TankProbe = TankProbe, SelfProbe = SelfProbe, CatalogProbe = CatalogProbe,
         UnitLinkProbe = UnitLinkProbe, HashTypeProbe = HashTypeProbe,
-        WeaponDiscoveryProbe = WeaponDiscoveryProbe,
         recover_identity = recover_identity,
         install_hooks = install_hooks }
 end
@@ -256,7 +252,6 @@ if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock 
 local policy, state = Policy.new(), { paused = not config.enabled, keys = {} }
 local tank_probe = TankProbe.new(GS)
 local hash_type_probe = HashTypeProbe.new(GS, sr.IdString32)
-local weapon_discovery_probe = WeaponDiscoveryProbe.new(GS)
 rawset(_G, "HD2HelperAutoReload", state)
 
 local function down(vk) return native.user32.GetAsyncKeyState(vk) < 0 end
@@ -302,8 +297,7 @@ local function tick()
     if state.release_at and (now >= state.release_at or not foreground()) then release() end
     local focused = foreground()
     local keys = { enter = down(13), escape = down(27), tab = down(9),
-        pause = down(config.pause_vk), probe = down(120), discovery = down(121),
-        primary = down(49),
+        pause = down(config.pause_vk), probe = down(120), primary = down(49),
         sidearm = down(50), support = down(51) }
     local previous_keys = state.keys
     local probe_requested = focused and keys.probe and not previous_keys.probe and
@@ -312,12 +306,6 @@ local function tick()
     if probe_requested then
         state.probe_pending = true
         log("HASH_TYPE requested")
-    end
-    if focused and keys.discovery and not previous_keys.discovery and
-        not state.paused and not state.chat and not keys.enter and
-        not keys.escape and not keys.tab then
-        state.discovery_pending = true
-        log("DISCOVERY requested")
     end
     if focused then
         if keys.pause and not state.keys.pause then
@@ -350,7 +338,6 @@ local function tick()
     if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
         policy:reset(); state.fire_pending, state.aim_pending = nil, nil
         state.probe_pending = nil
-        state.discovery_pending = nil
         state.switch, state.lean_fire_until = nil, nil
         release(); return
     end
@@ -360,15 +347,12 @@ local function tick()
     if not session then
         if state.probe_pending then log("HASH_TYPE skipped=no-session") end
         state.probe_pending = nil
-        if state.discovery_pending then log("DISCOVERY skipped=no-session") end
-        state.discovery_pending = nil
         policy:reset(); reader.identity:invalidate(); state.avatar = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         if state.context then
             tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
             state.probe_until = nil
             hash_type_probe:reset()
-            weapon_discovery_probe:reset()
         end
         state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
         status("no-session"); return
@@ -379,7 +363,6 @@ local function tick()
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
         hash_type_probe:reset()
-        weapon_discovery_probe:reset()
         state.switch, state.lean_fire_until = nil, nil
     end
     local allow_seated_fire = aim and state.lean_fire_until and
@@ -392,20 +375,6 @@ local function tick()
         local probe_ok, probe_line = pcall(hash_type_probe.read, hash_type_probe,
             session, sample, equipment and equipment.call)
         log(probe_ok and probe_line or "HASH_TYPE error=" .. tostring(probe_line))
-    end
-    if state.discovery_pending then
-        state.discovery_pending = nil
-        local probe_ok, probe_line = pcall(weapon_discovery_probe.request,
-            weapon_discovery_probe, session, peer, sample, reason)
-        log(probe_ok and probe_line or "DISCOVERY error=" .. tostring(probe_line))
-    end
-    local discovery_ok, discovery_lines = pcall(weapon_discovery_probe.step,
-        weapon_discovery_probe, session, now)
-    if discovery_ok and discovery_lines then
-        for _, line in ipairs(discovery_lines) do log(line) end
-    elseif not discovery_ok then
-        log("DISCOVERY error=" .. tostring(discovery_lines))
-        weapon_discovery_probe:reset()
     end
     local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
     local seat_hint = type(seat_mod) == "table" and seat_mod.last or nil
