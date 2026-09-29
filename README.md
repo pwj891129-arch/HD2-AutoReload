@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.14-test
+# HD2 Helper Auto Reload 0.3.15-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -108,6 +108,19 @@ next reader tick; `0.3.13-test` could lose the edge during its 20 ms read gap.
 result does not. Do not press F9 on ship entry; run the check after landing.
 The check does not reload unknown weapons or write game state.
 
+## Unknown Weapon Discovery
+
+This test adds an opt-in, read-only F10 comparison for finding an unregistered
+weapon's game-object ID. After landing in a mission, hold a recognized weapon
+such as the Dagger and press F10 once. Wait for `DISCOVERY baseline-ready` in
+the log. Switch to LAS-12 Sai, press F10 again, and wait for
+`DISCOVERY compare-ready`. The addon lists at most 24 changed, added, or
+removed object IDs and a few numeric/boolean field changes for each. These
+are **candidates**, not proof of weapon identity. Do not infer a type hash or
+enable auto reload from a candidate line alone. The F10 scan reads at most 512
+locally owned objects, 12 per 250 ms, only on explicit request. It does not
+scan automatically on ship entry. Do not press F10 until the mission has loaded.
+
 ## Game Catalog Research
 
 `inspect_game_catalog.cjs` reads the installed game's bundle index and locates
@@ -130,7 +143,8 @@ HD2 HUD+ does not need to be installed/enabled. The read-only modules required
 by this addon are embedded, but none of its display or startup code is included.
 
 Default keys are left mouse for fire, R for reload, F8 for pause/resume, and
-F9 for the one-shot read-only type check.
+F9 for the one-shot read-only type check, and F10 for the two-stage unknown
+weapon object comparison.
 On first startup the addon creates `%APPDATA%\HD2AutoReload.ini` when possible:
 
 ```ini
@@ -192,7 +206,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.12-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.12-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.15-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.15-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

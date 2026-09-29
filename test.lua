@@ -194,6 +194,62 @@ equal(retry_probe:read(1, known_sample, "known-call"):find(
 equal(api.HashTypeProbe.new({ game_object_is_type = function() return true end },
     {}):read(1, known_sample, "known-call"):find("hash=api-unavailable", 1, true) ~= nil,
     true, "missing hash constructor remains diagnostic")
+local discovery_reads, discovery_mode = 0, "known"
+local discovery_ids = {}
+for i = 1, 25 do discovery_ids[i] = i end
+local discovery = api.WeaponDiscoveryProbe.new({
+    objects_owned_by = function() return discovery_ids end,
+    game_object_field_batched = function(_, goid)
+        discovery_reads = discovery_reads + 1
+        if goid == 18 then return { [1] = discovery_mode == "known" and 1 or 0 } end
+        if goid == 19 then return { [1] = discovery_mode == "known" and 0 or 1,
+            [2] = { [3] = true } } end
+        return { [1] = goid }
+    end,
+})
+equal(discovery:step(1, 0), nil, "discovery is idle without F10")
+equal(discovery_reads, 0, "idle discovery does no engine reads")
+equal(discovery:request(1, 2, { active = false, grip = 70 },
+    "no-on-body-object-of-grip=70"),
+    "DISCOVERY skipped=hold-recognized-weapon-first",
+    "unknown weapon cannot establish baseline")
+equal(discovery:request(1, 2, known_sample, "ready"):find(
+    "baseline-start owned=25", 1, true) ~= nil, true,
+    "recognized weapon starts bounded baseline")
+equal(discovery:step(1, 0), nil, "first page is incomplete")
+equal(discovery_reads, 12, "first page reads twelve objects")
+equal(discovery:step(1, 0.05), nil, "page pacing prevents a burst")
+equal(discovery_reads, 12, "paced step performs no reads")
+equal(discovery:step(1, 0.25), nil, "second page is incomplete")
+local discovery_lines = discovery:step(1, 0.5)
+equal(discovery_lines[1]:find("baseline-ready objects=25", 1, true) ~= nil,
+    true, "baseline completes after every page")
+equal(discovery_reads, 25, "baseline reads each owned object once")
+equal(discovery:request(1, 2, known_sample, "ready"),
+    "DISCOVERY skipped=hold-unrecognized-grip70-weapon-second",
+    "comparison requires unknown held weapon")
+discovery_mode = "unknown"
+equal(discovery:request(1, 2, { active = false, grip = 70 },
+    "no-on-body-object-of-grip=70 owned=25"):find(
+    "compare-start owned=25", 1, true) ~= nil, true,
+    "unknown grip70 starts comparison")
+equal(discovery:step(1, 0.75), nil, "comparison is also paged")
+equal(discovery:step(1, 1.0), nil, "comparison second page")
+discovery_lines = discovery:step(1, 1.25)
+equal(discovery_lines[1]:find("compare-ready", 1, true) ~= nil, true,
+    "comparison completes")
+local found_19 = false
+for _, line in ipairs(discovery_lines) do
+    if line:find("candidate goid=19 state=changed", 1, true) and
+        line:find("1:0>1", 1, true) then found_19 = true end
+end
+equal(found_19, true, "changed unknown candidate and raw field are logged")
+equal(discovery:step(1, 1.5), nil, "completed scan is one-shot")
+equal(discovery_reads, 50, "comparison reads only the second snapshot")
+discovery:reset()
+equal(discovery:step(1, 1), nil, "context reset discards discovery state")
+equal(api.WeaponDiscoveryProbe.new({}):request(1, 2, known_sample, "ready"),
+    "DISCOVERY skipped=api-unavailable", "missing APIs never enable a scan")
 local many_probe = api.SelfProbe.new({
     objects_owned_by = function()
         local rows = {}
@@ -648,6 +704,7 @@ file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:re
 file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = file:read("*a"); file:close()
 file = assert(io.open("unit_link_probe.lua", "r")); local unit_link_probe_source = file:read("*a"); file:close()
 file = assert(io.open("hash_type_probe.lua", "r")); local hash_type_probe_source = file:read("*a"); file:close()
+file = assert(io.open("weapon_discovery_probe.lua", "r")); local weapon_discovery_probe_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
@@ -656,6 +713,7 @@ source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @CATALOG_PROBE@", function() return catalog_probe_source end)
     :gsub("%-%- @UNIT_LINK_PROBE@", function() return unit_link_probe_source end)
     :gsub("%-%- @HASH_TYPE_PROBE@", function() return hash_type_probe_source end)
+    :gsub("%-%- @WEAPON_DISCOVERY_PROBE@", function() return weapon_discovery_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
 update = function() return 123, nil, 321 end
@@ -678,11 +736,23 @@ end
 equal(live_hash_result, true, "F9 checks only a recognized held weapon")
 equal(live_type_calls, 2, "pending F9 runs exactly one comparison pair")
 keys[120] = false; frame(0.042)
-cells.ammo = 0; keys[1] = true
+keys[121] = true; frame(0.043)
+equal(logs[#logs]:find("DISCOVERY requested", 1, true) ~= nil,
+    true, "F10 edge is recorded before the next reader tick")
 frame(0.063)
+local live_discovery_ready = false
+for _, line in ipairs(logs) do
+    if line:find("DISCOVERY baseline-ready", 1, true) then
+        live_discovery_ready = true end
+end
+equal(live_discovery_ready, true, "F10 completes a bounded known-weapon baseline")
+equal(#inputs, 0, "F10 diagnostic never sends reload input")
+keys[121] = false
+cells.ammo = 0; keys[1] = true
+frame(0.084)
 equal(#inputs, 1, "runtime exhaustion sends once")
 equal(inputs[1].flags, 8, "scan-code down")
-frame(0.104)
+frame(0.125)
 equal(#inputs, 2, "scheduled up")
 equal(inputs[2].flags, 10, "scan-code up")
 frame(0.5); equal(#inputs, 2, "held fire not repeated")
