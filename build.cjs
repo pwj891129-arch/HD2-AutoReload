@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.11-test';
+const version = '0.3.12-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -85,6 +85,7 @@ const source = readSource(path.join(root, 'addon.lua'))
   .replace('-- @TANK_PROBE@', () => readSource(path.join(root, 'tank_probe.lua')))
   .replace('-- @SELF_PROBE@', () => readSource(path.join(root, 'self_probe.lua')))
   .replace('-- @CATALOG_PROBE@', () => readSource(path.join(root, 'catalog_probe.lua')))
+  .replace('-- @UNIT_LINK_PROBE@', () => readSource(path.join(root, 'unit_link_probe.lua')))
   .replace('-- @READER_CORE@', () => core)
   .replace('-- @NUMBERS@', () => compact(numbers));
 assert.equal(source.split('\n')[0], `-- HD2-Addon: ${resource}`);
@@ -123,7 +124,7 @@ fs.writeFileSync(path.join(stage, 'Addon', filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, 'Addon', filename + suffix), Buffer.alloc(0));
 const description = `Auto reload ${version}. Requires Bingus Shared Loader v15+ / API 1. ` +
   'Checks ammunition exhaustion, actual weapon swaps, and fire attempts. Uses a read-only ' +
-  'reader derived from HD2 HUD+ 0.1.2 by DDRK1NG. Experimental field and catalog probes are disabled after a ship-entry crash report. Confirmed overheated heat weapons are supported; underbarrels and vehicle weapons excluded. Live testing required.';
+  'reader derived from HD2 HUD+ 0.1.2 by DDRK1NG. Broad field and hashed API probes remain disabled. A bounded read-only unit-link check runs once on a recognized held weapon. Confirmed overheated heat weapons are supported; underbarrels and vehicle weapons excluded. Live testing required.';
 fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify({
   Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload ${version}`,
   Description: description, Options: [{ Name: 'Auto Reload', Description: description, Include: ['Addon'] }]

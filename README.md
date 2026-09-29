@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.11-test
+# HD2 Helper Auto Reload 0.3.12-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -90,6 +90,20 @@ tests remain for investigation, but they perform no live game-object reads.
 The existing automatic reload path is otherwise unchanged. Unknown weapons
 such as LAS-12 Sai still do not auto reload.
 
+## Unit Link Check
+
+This build adds one narrowly scoped read-only `UNIT_LINK` check. After the game
+has recognized an ordinary held weapon in player control, it checks whether
+Stingray's UnitSynchronizer maps that weapon's game-object ID to a live Unit and
+back to the same ID. The check runs once per session and never iterates over
+other owned objects. It does not run during the unresolved ship-entry state.
+The result determines whether a future reader can locate held weapons without
+an authored equipment list. No unknown-weapon auto reload is enabled yet.
+
+For a live check, enter a mission with LAS-12 Sai and equip a previously
+recognized sidearm such as the Dagger once. Look for `UNIT_LINK` in the log
+path below. No primary-weapon swap is needed or possible during a mission.
+
 ## Game Catalog Research
 
 `inspect_game_catalog.cjs` reads the installed game's bundle index and locates
@@ -172,7 +186,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.11-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.11-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.12-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.12-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

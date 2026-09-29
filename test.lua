@@ -137,6 +137,27 @@ equal(no_catalog:read(1, { goid = 18, type_hash = "0x2df95dfe" }),
     "CATALOG_API id32=unavailable", "missing API cannot authorize input")
 equal(api.CatalogProbe.new({}, {}, {}, {}, {}):read(1, {}), nil,
     "unresolved weapon is never guessed")
+local unit_link = api.UnitLinkProbe.new({ unit_synchronizer = function() return "sync" end },
+    { game_object_id_to_unit = function(sync, goid)
+        if sync == "sync" and goid == 18 then return "unit" end
+    end, unit_to_game_object_id = function() return 18 end },
+    { alive = function() return true end,
+        debug_name = function() return "known-weapon" end })
+equal(unit_link:read(1, { active = true, slot = "sidearm", goid = 18 })
+    :find("result=unit roundtrip=true name=known-weapon", 1, true) ~= nil,
+    true, "known held weapon can validate a unit link")
+equal(unit_link:read(1, { active = true, slot = "sidearm", goid = 18 }), nil,
+    "unit link is checked only once per session")
+unit_link:reset()
+equal(unit_link:read(1, { active = true, slot = "sidearm", goid = 18 }) ~= nil,
+    true, "unit link probe resets with session")
+equal(api.UnitLinkProbe.new({}, {}, {}):read(1,
+    { active = true, slot = "primary", goid = 18 }),
+    "UNIT_LINK known_goid=18 slot=primary result=api-unavailable",
+    "missing engine API is diagnostic only")
+equal(api.UnitLinkProbe.new({}, {}, {}):read(1,
+    { active = false, slot = "primary", goid = 18 }), nil,
+    "unresolved weapon never triggers the unit-link API")
 local many_probe = api.SelfProbe.new({
     objects_owned_by = function()
         local rows = {}
@@ -581,12 +602,14 @@ file = assert(io.open("native.lua", "r")); local native_source = file:read("*a")
 file = assert(io.open("tank_probe.lua", "r")); local tank_probe_source = file:read("*a"); file:close()
 file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:read("*a"); file:close()
 file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = file:read("*a"); file:close()
+file = assert(io.open("unit_link_probe.lua", "r")); local unit_link_probe_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
     :gsub("%-%- @TANK_PROBE@", function() return tank_probe_source end)
     :gsub("%-%- @SELF_PROBE@", function() return self_probe_source end)
     :gsub("%-%- @CATALOG_PROBE@", function() return catalog_probe_source end)
+    :gsub("%-%- @UNIT_LINK_PROBE@", function() return unit_link_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
 update = function() return 123, nil, 321 end
