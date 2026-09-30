@@ -1,4 +1,21 @@
-# HD2 Helper Auto Reload 0.3.26-test
+# HD2 Helper Auto Reload 0.3.27-test
+
+## Startup Package Fix
+
+The startup `NxStorage` log reported `0x89240007` (read beyond end of file)
+for this addon's 224-byte Arsenal option archives, as well as Stratagem Hotkeys
+options. Version 0.3.27-test allocates at least 256 bytes for each single-resource
+archive, following
+[HD2SDK's package writer](https://github.com/RaidingForPants/HD2SDK-CommunityEdition/blob/3a488b42f10669790a5fff1f9d55b9c049cb734b/__init__.py#L827).
+Only trailing zero padding is added; option Lua values and reload/charge behavior
+are unchanged. Package tests reject the old 224-byte output and check every
+shipped archive's sizes, payloads and unique resource IDs. Actual game startup
+still needs confirmation.
+
+When also using Stratagem Hotkeys, replace it with **0.1.3-test**. Close the game,
+replace both old packages in Arsenal, Purge / Deploy, and restart. Leaving an
+older option archive from either mod can preserve the startup read failure.
+Building and publishing do not modify installed game patches.
 
 ## Arsenal Options
 
@@ -284,8 +301,9 @@ game/input APIs, never attach to the game or send actual inputs.
 
 ```powershell
 node build.cjs
+node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.25-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.25-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.27-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.27-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

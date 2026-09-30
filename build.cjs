@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.26-test';
+const version = '0.3.27-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -107,7 +107,7 @@ payload.writeUInt32LE(lua.length, 0);
 payload.writeUInt32LE(2, 4);
 lua.copy(payload, 8);
 const offset = 192;
-const archive = Buffer.alloc(offset + Math.ceil(payload.length / 16) * 16);
+const archive = Buffer.alloc(Math.max(256, offset + Math.ceil(payload.length / 16) * 16));
 archive.writeUInt32LE(0xf0000011, 0);
 archive.writeUInt32LE(1, 4);
 archive.writeUInt32LE(1, 8);
@@ -139,7 +139,8 @@ const optionManifest = options.map(([name, label, help, include], index) => {
   const folder = 'Option_' + name;
   const bytes = Buffer.from('return true\n'), module = Buffer.alloc(8 + bytes.length);
   module.writeUInt32LE(bytes.length, 0); module.writeUInt32LE(2, 4); bytes.copy(module, 8);
-  const marker = Buffer.alloc(192 + Math.ceil(module.length / 16) * 16);
+  // Match HD2SDK's 256-byte minimum per resource; 224-byte flags fail native reads.
+  const marker = Buffer.alloc(Math.max(256, 192 + Math.ceil(module.length / 16) * 16));
   archive.copy(marker, 0, 0, 192);
   marker.writeBigUInt64LE(BigInt(marker.length), 32);
   marker.writeBigUInt64LE(hash64('mods/hd2_helper/autoreload_option_' + name), 104);
