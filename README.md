@@ -1,4 +1,9 @@
-# HD2 Helper Auto Reload 0.3.23-test
+# HD2 Helper Auto Reload 0.3.24-test
+
+Stratagem shortcut compatibility: Alt blocks reload checks and digit-key weapon
+switch tracking. HD2 Stratagem Hotkeys also announces command input and the
+game-configured list key through its runtime state, so a reconfigured modifier
+does not start a reload check. Existing fire-release behavior is unchanged.
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -223,7 +228,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.23-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.23-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.24-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.24-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

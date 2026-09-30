@@ -965,6 +965,18 @@ keys[1] = false; frame(11.21)
 equal(#inputs, 17, "second release rechecks the empty weapon immediately")
 frame(11.27)
 equal(#inputs, 18, "second release finishes its R pulse")
+cells.ammo = 1; frame(11.33)
+keys[164], keys[49] = true, true
+frame(11.4)
+equal(HD2HelperAutoReload.switch, nil, "Alt+number is not a weapon switch")
+cells.ammo = 0; frame(11.6)
+equal(#inputs, 18, "Alt blocks reload input")
+keys[164], keys[49] = false, false
+HD2StratagemHotkeys = {blocking_inputs = true}
+keys[50] = true; frame(11.7)
+equal(HD2HelperAutoReload.switch, nil, "configured stratagem modifier blocks switch tracking")
+equal(#inputs, 18, "command input blocks reload")
+keys[50], HD2StratagemHotkeys = false, nil
 shutdown()
 equal(#inputs, 18, "shutdown leaves released key alone")
 equal(inputs[18].flags, 10)

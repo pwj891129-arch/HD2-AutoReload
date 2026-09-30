@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.23-test"
+local VERSION = "0.3.24-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -384,9 +384,12 @@ local function tick()
     local keys = { enter = down(13), escape = down(27), tab = down(9),
         pause = down(config.pause_vk), probe = down(120), primary = down(49),
         sidearm = down(50), support = down(51) }
+    local hotkeys = rawget(_G, "HD2StratagemHotkeys")
+    keys.stratagem = down(164) or down(165) or
+        (type(hotkeys) == "table" and hotkeys.blocking_inputs == true)
     local previous_keys = state.keys
     local probe_requested = focused and keys.probe and not previous_keys.probe and
-        not state.paused and not state.chat and not keys.enter and
+        not state.paused and not state.chat and not keys.stratagem and not keys.enter and
         not keys.escape and not keys.tab
     if probe_requested then
         state.probe_pending = true
@@ -401,7 +404,7 @@ local function tick()
         if keys.enter and not state.keys.enter then state.chat = not state.chat end
         if keys.escape and not state.keys.escape then state.chat = false end
     end
-    if focused and not state.paused and not state.chat and
+    if focused and not state.paused and not state.chat and not keys.stratagem and
         not keys.enter and not keys.escape and not keys.tab then
         for _, slot in ipairs({ "primary", "sidearm", "support" }) do
             if keys[slot] and not previous_keys[slot] then
@@ -429,7 +432,7 @@ local function tick()
     end
     state.fire = fire
     if aim and fire then state.lean_fire_until = now + 0.8 end
-    if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
+    if not focused or state.paused or state.failed or state.chat or keys.stratagem or keys.enter or keys.escape or keys.tab then
         policy:reset(); state.fire_pending, state.aim_pending = nil, nil
         state.fire_attempt, state.fire_released_at = nil, nil
         state.fire_cycle, state.fire_release_pending = nil, nil
