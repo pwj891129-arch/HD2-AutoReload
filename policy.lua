@@ -17,6 +17,10 @@ function Policy:reset()
 end
 
 function Policy:step(sample, now)
+    -- The game ignores reload while firing; inspect only the initial press until release.
+    if sample and sample.fire_held == true and sample.fire_pressed ~= true then
+        return nil
+    end
     if sample and sample.active == true and sample.mode == "ammo" and
         sample.reloading == true then
         self.weapon, self.mode, self.seen_at = sample.weapon, sample.mode, now
@@ -72,17 +76,22 @@ function Policy:step(sample, now)
     end
     if mode == "heat" and self.heat_sent_weapon == weapon then return nil end
     if self.pending and (self.pending.weapon ~= weapon or self.pending.mode ~= mode or
-        now > self.pending.until_time) then self.pending = nil end
+        now > self.pending.until_time or
+        (self.pending.fire_release and sample.fire_released ~= true)) then
+        self.pending = nil
+    end
     local reason = exhausted and (mode == "heat" and "overheated" or "ammo-exhausted") or
         swapped and "weapon-swapped" or
         sample.switch_ready and "weapon-swapped" or
+        sample.fire_released and "fire-released" or
         (fire_edge or (self.fire_wait_until and now <= self.fire_wait_until))
             and "fire-attempt" or nil
     self.fire_wait_until = nil
     if reason and not (self.pending and self.pending.weapon == weapon and
         self.pending.mode == mode and self.pending.reason == reason) then
         self.pending = { weapon = weapon, mode = mode, reason = reason,
-            since = now, reserve = sample.reserve, until_time = now + 0.35 }
+            since = now, reserve = sample.reserve, until_time = now + 0.35,
+            fire_release = sample.fire_released == true }
     end
     if not self.pending then return nil end
     if sample.manual_reload then
@@ -99,6 +108,7 @@ function Policy:step(sample, now)
     if sample.reloading == nil or not finite(sample.reserve) or
         sample.reserve <= 0 or
         now - self.last_sent < 0.35 then return nil end
+    if sample.fire_held == true then return nil end
     return self.pending.reason
 end
 

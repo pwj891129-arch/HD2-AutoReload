@@ -350,6 +350,43 @@ p:reset()
 equal(p:step(sample("A", 0), 0.1), nil, "reset removes pending fire")
 
 p = api.Policy.new()
+p:step(sample("A", 2), 0)
+local held_fire = sample("A", 0, true)
+held_fire.fire_held, held_fire.fire_pressed = true, true
+equal(p:step(held_fire, 0.1), nil, "empty press waits for fire release")
+held_fire.fire_pressed = false
+equal(p:step(held_fire, 2), nil, "long fire hold never requests reload")
+held_fire.fire_held, held_fire.fire_released = false, true
+equal(p:step(held_fire, 2.01), "fire-released", "release rereads a still-empty weapon")
+p:sent(2.01)
+held_fire.fire, held_fire.fire_released = false, false
+equal(p:step(held_fire, 2.5), nil, "consumed release does not repeat")
+p = api.Policy.new()
+local release_wait = sample("A", 0, true)
+release_wait.fire_released, release_wait.reserve = true, nil
+equal(p:step(release_wait, 0), nil, "release waits for complete reserve data")
+equal(p:step(release_wait, 0.95), nil, "release can keep waiting within its window")
+release_wait.fire, release_wait.fire_released, release_wait.reserve = false, false, 2
+equal(p:step(release_wait, 1.01), nil, "expired release does not send a late request")
+p = api.Policy.new()
+p:step(sample("A", 1), 0)
+release_wait = sample("A", 0, true)
+release_wait.fire_released, release_wait.reserve = true, nil
+equal(p:step(release_wait, 0.95), nil, "release exhaustion waits for reserve data")
+release_wait.fire, release_wait.fire_released, release_wait.reserve = false, false, 2
+equal(p:step(release_wait, 1.01), nil, "release exhaustion also ends with the window")
+p = api.Policy.new()
+p:step(heat_sample("H", false), 0)
+local held_heat = heat_sample("H", true, true)
+held_heat.fire_held, held_heat.fire_pressed, held_heat.reloading = true, true, true
+equal(p:step(held_heat, 0.1), nil, "overheated press waits for fire release")
+held_heat.fire_pressed = false
+equal(p:step(held_heat, 2), nil, "overheated hold never requests reload")
+held_heat.fire_held, held_heat.fire_released = false, true
+equal(p:step(held_heat, 2.01), nil, "heat dwell starts with the released trigger")
+equal(p:step(held_heat, 2.17), "fire-released", "released overheat can reload after dwell")
+
+p = api.Policy.new()
 equal(p:step(heat_sample("H", false), 0), nil, "heat weapon baseline")
 equal(p:step(heat_sample("H", false, true), 0.1), nil, "empty ammo does not imply overheat")
 local hot = heat_sample("H", true, true)
@@ -660,7 +697,8 @@ local user32 = {
     MapVirtualKeyW = function() return 0x13 end,
     SendInput = function(_, input, size)
         equal(size, 40, "runtime ABI")
-        inputs[#inputs+1] = { flags = input[0].value.key.flags, scan = input[0].value.key.scan, time = now }
+        inputs[#inputs+1] = { flags = input[0].value.key.flags,
+            scan = input[0].value.key.scan, time = now, fire_held = keys[1] == true }
         return 1
     end,
 }
@@ -771,21 +809,25 @@ cells.ammo = 0; keys[1] = true
 frame(0.204)
 equal(#inputs, 0, "first native empty reading is unconfirmed")
 frame(0.255)
-equal(#inputs, 1, "runtime exhaustion sends once")
-equal(inputs[1].flags, 8, "scan-code down")
+equal(#inputs, 0, "held fire sends no reload key")
 frame(0.3)
+equal(#inputs, 0, "held fire keeps reload deferred")
+frame(0.5); equal(#inputs, 0, "long held fire sends no reload key")
+keys[1] = false; frame(0.51)
+equal(#inputs, 1, "release immediately reloads a confirmed empty weapon")
+equal(inputs[1].flags, 8, "scan-code down")
+keys[120] = true; frame(0.525)
+frame(0.561)
 equal(#inputs, 2, "scheduled up")
 equal(inputs[2].flags, 10, "scan-code up")
-frame(0.5); equal(#inputs, 2, "held fire not repeated")
-keys[120] = true; frame(0.525)
-frame(0.551)
 equal(logs[#logs]:find("HASH_TYPE already-checked", 1, true) ~= nil,
     true, "second F9 reports the one-shot limit")
 equal(live_type_calls, 2, "second F9 makes no new game type calls")
-keys[120] = false; frame(0.56)
+keys[120] = false; frame(0.57)
 Hd2TankSeatSwitch = { last = "seat:16474112801385b6:3" }
 resolved.grip, control, keys[2] = 15, false, true
 frame(0.61)
+frame(0.612)
 equal(#inputs, 2, "seated aim diagnostic never reloads")
 local aimed = false
 for _, line in ipairs(logs) do
@@ -820,7 +862,9 @@ frame(0.9); equal(#inputs, 2, "new native weapon requires a second empty reading
 frame(0.96); equal(#inputs, 3, "runtime actual swap trigger")
 frame(1.02)
 keys[1] = true; frame(1.1); frame(1.26); frame(1.32)
-equal(#inputs, 5, "runtime fresh fire attempt")
+equal(#inputs, 4, "empty fire press waits without sending R")
+keys[1] = false; frame(1.33)
+equal(#inputs, 5, "empty fire press reloads on release")
 keys[13] = true; frame(1.35)
 keys[13], keys[1] = false, false; frame(1.4)
 keys[1] = true; frame(1.7)
@@ -871,7 +915,9 @@ control, rotation, cells.ammo, keys[2], keys[1] = false, false, 1, true, true
 frame(4.0)
 equal(#inputs, 10, "seated lean reads a loaded personal weapon")
 cells.ammo = 0; frame(4.05); frame(4.2); frame(4.3)
-equal(#inputs, 11, "seated lean reloads exhausted personal weapon")
+equal(#inputs, 10, "seated lean never reloads while fire is held")
+keys[1] = false; frame(4.31)
+equal(#inputs, 11, "seated lean reloads the personal weapon on release")
 keys[1], keys[2], control, rotation, cells.ammo = false, false, true, true, 1
 frame(4.4)
 equal(#inputs, 12, "seated reload key is released")
@@ -897,12 +943,36 @@ frame(10.1)
 cells.ammo = 0; frame(10.16)
 equal(#inputs, 14, "empty reading during long fire hold is unconfirmed")
 frame(10.22)
-equal(#inputs, 15, "held fire keeps checking beyond one second")
+equal(#inputs, 14, "long held fire cannot consume a reload attempt")
 keys[1] = false; frame(10.28)
+equal(#inputs, 15, "long held fire reloads only after release")
+frame(10.34)
 equal(#inputs, 16, "reload key is released after long fire hold")
+cells.ammo = 1; frame(10.4)
+keys[1] = true; frame(10.45)
+cells.ammo, cells.reloading = 0, true; frame(10.5)
+keys[1] = false; frame(10.56)
+equal(#inputs, 16, "release does not interrupt an active magazine reload")
+cells.reloading = false; frame(10.62); frame(10.68)
+equal(#inputs, 16, "active reload discarded the release request")
+cells.ammo = 1; frame(10.74)
+keys[1] = true; frame(10.8)
+keys[1], cells.ammo = false, 0; frame(10.81)
+equal(#inputs, 16, "fast release waits for the second empty reading")
+keys[1] = true; frame(10.82); frame(11.2)
+equal(#inputs, 16, "repress pauses the release check before it sends R")
+keys[1] = false; frame(11.21)
+equal(#inputs, 17, "second release rechecks the empty weapon immediately")
+frame(11.27)
+equal(#inputs, 18, "second release finishes its R pulse")
 shutdown()
-equal(#inputs, 16, "shutdown leaves released key alone")
-equal(inputs[16].flags, 10)
+equal(#inputs, 18, "shutdown leaves released key alone")
+equal(inputs[18].flags, 10)
+for _, input in ipairs(inputs) do
+    if input.flags == 8 then
+        equal(input.fire_held, false, "every reload down has the physical fire key up")
+    end
+end
 require, os.getenv = original_require, original_getenv
 dofile("compatibility.test.lua")(api, equal)
 print("PASS " .. count .. " assertions; actual LuaJIT, no game inputs sent")

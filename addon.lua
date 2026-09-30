@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.22-test"
+local VERSION = "0.3.23-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -420,7 +420,10 @@ local function tick()
     if aim_edge then state.aim_pending = true end
     if fire and not state.fire then
         state.fire_pending, state.fire_released_at = true, nil
-    elseif not fire and state.fire then
+        state.fire_cycle, state.fire_release_pending, state.fire_attempt = true, nil, nil
+    elseif not fire and state.fire and
+        (state.fire_cycle or state.fire_attempt or state.fire_pending) then
+        state.fire_cycle, state.fire_release_pending = nil, true
         state.fire_released_at = now
         if state.fire_attempt then state.fire_attempt.until_time = now + 1.0 end
     end
@@ -429,12 +432,14 @@ local function tick()
     if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
         policy:reset(); state.fire_pending, state.aim_pending = nil, nil
         state.fire_attempt, state.fire_released_at = nil, nil
+        state.fire_cycle, state.fire_release_pending = nil, nil
         reader.native_pending = nil
         state.probe_pending = nil
         state.switch, state.lean_fire_until = nil, nil
         release(); return
     end
-    if state.next_read and now < state.next_read then return end
+    if state.next_read and now < state.next_read and
+        not state.fire_pending and not state.fire_release_pending then return end
     state.next_read = now + 0.05
     local session, world, peer = scope()
     if not session then
@@ -452,6 +457,7 @@ local function tick()
         end
         state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
         state.fire_attempt, state.fire_released_at = nil, nil
+        state.fire_cycle, state.fire_release_pending = nil, nil
         status("no-session"); return
     end
     local context = tostring(session) .. ":" .. tostring(world) .. ":" .. tostring(peer)
@@ -465,6 +471,7 @@ local function tick()
         hash_type_probe:reset()
         state.switch, state.lean_fire_until = nil, nil
         state.fire_attempt, state.fire_released_at = nil, nil
+        state.fire_cycle, state.fire_release_pending = nil, nil
     end
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until
@@ -490,7 +497,8 @@ local function tick()
     if sample.active and sample.weapon then
         state.last_weapon, state.last_weapon_at = sample.weapon, now
     end
-    if state.fire_pending and state.last_weapon and state.last_weapon_at and
+    if (state.fire_pending or state.fire_release_pending) and
+        state.last_weapon and state.last_weapon_at and
         now - state.last_weapon_at <= 0.25 then
         state.fire_attempt = { weapon = state.last_weapon,
             until_time = not fire and (state.fire_released_at or now) + 1.0 or nil }
@@ -545,6 +553,7 @@ local function tick()
             " raw_owned=" .. tostring(raw_owned))
         policy:reset(); state.fire_pending, state.fire_attempt = nil, nil
         state.fire_released_at = nil
+        state.fire_cycle, state.fire_release_pending = nil, nil
         status("identity-recovery", sample); return
     end
     local attempt = state.fire_attempt
@@ -554,12 +563,15 @@ local function tick()
     end
     if sample.mode == "ammo" and sample.reloading == true then
         state.fire_attempt, attempt = nil, nil
+        state.fire_cycle = nil
     end
-    sample.fire = fire or state.fire_pending == true or
-        (attempt ~= nil and sample.weapon == attempt.weapon)
+    sample.fire_held, sample.fire_pressed = fire, state.fire_pending == true
+    sample.fire_released = not fire and attempt ~= nil and
+        attempt.until_time ~= nil and sample.weapon == attempt.weapon
+    sample.fire = sample.fire_pressed or sample.fire_released
     sample.manual_reload = down(config.reload_vk) or state.release_at ~= nil
-    if sample.manual_reload then state.fire_attempt = nil end
-    state.fire_pending = nil
+    if sample.manual_reload then state.fire_attempt, state.fire_cycle = nil, nil end
+    state.fire_pending, state.fire_release_pending = nil, nil
     local switching = state.switch
     if switching and now > switching.until_time then
         state.switch = nil
@@ -581,13 +593,15 @@ local function tick()
         (sample.mode == "heat" and sample.overheated == false)) then
         state.switch = nil
     end
-    if trigger and not state.release_at and foreground() then
+    if trigger and not fire and not state.release_at and foreground() and
+        not down(config.fire_vk) then
         state.fire_attempt = nil
         native.input[0].value.key.flags = native.flags
         if native.user32.SendInput(1, native.input, native.size) == 1 then
             state.release_at = now + 0.04
             policy:sent(now)
-            log("RELOAD " .. trigger .. " " .. tostring(sample.weapon))
+            log(string.format("RELOAD %s %s t=%.3f fire_held=false", trigger,
+                tostring(sample.weapon), now))
         else
             log("INPUT_FAILED " .. trigger)
             policy:sent(now)

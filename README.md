@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.22-test
+# HD2 Helper Auto Reload 0.3.23-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -41,10 +41,11 @@ Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 - Magazine weapons: usable ammunition changes from a positive count to zero.
 - Heat weapons: the game's explicit overheat flag changes from false to true.
 - The actual held weapon changes to an empty or overheated weapon.
-- A new fire-key press attempts to fire an empty or overheated weapon.
-- A fire-key press remains bound to that held weapon for the entire time the
-  key is held, then for one second after release. Reads continue every 50 ms
-  in both periods, so a brief unavailable reading does not lose the attempt.
+- A new fire-key press checks for an empty or overheated weapon once. Any
+  needed reload waits for release; no reload input is sent while fire is held.
+- Further reload checks pause while fire is held. Release immediately rereads
+  the current held weapon and starts a one-second confirmation window, with
+  another read every 50 ms. A new press pauses that window again.
 - Number-row 1, 2, or 3 selects a primary, sidearm, or support weapon. The
   addon waits 1.1 seconds, then rereads the held weapon and its ammunition
   before attempting reload. Numpad keys are separate.
@@ -75,6 +76,7 @@ The addon checks at most every 50 ms, plus game-frame scheduling. A 40 ms
 reload-key pulse is sent through Windows SendInput. It does not write ammunition
 or alter game state. An initial empty reading alone does not trigger a reload.
 An event can wait up to 350 ms for complete data, with a 350 ms repeat guard.
+The fire-release check can wait for complete data within its one-second window.
 
 Heat weapons are identified by the native heat component on the held weapon.
 A red/near-full heat gauge and zero ammo alone do not trigger reload.
@@ -89,10 +91,9 @@ The native reader is restricted to the pinned September 24 game binaries;
 it refuses an unknown game build. A zero-ammo or overheated reading must be
 observed twice before it can trigger reload. Failed component, chamber, reserve,
 avatar or control checks block input. The log records `NATIVE_SOURCE` with the
-selected feed for each held weapon. Sai has been seen as `ammo=1` without a
-held heat component, so its automatic overheat reload is not yet confirmed.
-This version allows controlled `grip=70` weapons to reach the native reader,
-but Sai still needs a live overheat check before it can be called fixed.
+selected feed for each held weapon. The user confirmed LAS-12 Sai's automatic
+reload in a live game after controlled `grip=70` weapons were allowed to reach
+the native reader.
 Version 0.3.19-test reads chamber count directly from the verified component;
 the optional instance map is not required to confirm an empty chamber. This
 does not certify that mod use is accepted by the game or its anti-cheat.
@@ -177,7 +178,9 @@ actual game behavior must be tested. F8 is an emergency pause/resume toggle.
 Diagnostics are written through the Bingus loader to
 `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`.
 Look for START, ready, RELOAD followed by
-one of ammo-exhausted / overheated / weapon-swapped / fire-attempt, or a blocking reason.
+one of ammo-exhausted / overheated / weapon-swapped / fire-attempt /
+fire-released, or a blocking reason. Reload input lines also record time and
+confirm that the fire key was released before sending R.
 RELOAD means an input was accepted by Windows, not confirmed completion by the
 game. INPUT_FAILED or DISABLED means no further guessed action is taken.
 For heat weapons, status lines also show the observed overheat flag, spare
@@ -220,7 +223,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.22-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.22-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.23-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.23-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.
