@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.19-test"
+local VERSION = "0.3.20-test"
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -64,7 +64,7 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
         return nil, "no-avatar"
     end
     if type(resolved.grip) ~= "number" or resolved.grip == 0 or
-        resolved.grip == 40 or resolved.grip == 70 then
+        resolved.grip == 40 then
         self.native_pending = nil
         return nil, "unsupported-grip"
     end
@@ -87,6 +87,7 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
             rotation_free = rotation_free, held_reason = resolved.reason }
     end
     sample.seated_fire = seated_fire
+    sample.grip = resolved.grip
     sample.slot = nil
     local empty = (sample.mode == "heat" and sample.overheated == true) or
         (sample.mode == "ammo" and sample.ammo == 0)
@@ -422,6 +423,7 @@ local function tick()
     if aim and fire then state.lean_fire_until = now + 0.8 end
     if not focused or state.paused or state.failed or state.chat or keys.enter or keys.escape or keys.tab then
         policy:reset(); state.fire_pending, state.aim_pending = nil, nil
+        state.fire_attempt = nil
         reader.native_pending = nil
         state.probe_pending = nil
         state.switch, state.lean_fire_until = nil, nil
@@ -436,6 +438,7 @@ local function tick()
         policy:reset(); reader.identity:invalidate(); state.avatar = nil
         reader.native_pending = nil
         state.last_weapon = nil
+        state.last_weapon_at = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         if state.context then
             tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
@@ -443,6 +446,7 @@ local function tick()
             hash_type_probe:reset()
         end
         state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
+        state.fire_attempt = nil
         status("no-session"); return
     end
     local context = tostring(session) .. ":" .. tostring(world) .. ":" .. tostring(peer)
@@ -450,10 +454,12 @@ local function tick()
         policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
         reader.native_pending = nil
         state.last_weapon = nil
+        state.last_weapon_at = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
         tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
         hash_type_probe:reset()
         state.switch, state.lean_fire_until = nil, nil
+        state.fire_attempt = nil
     end
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until
@@ -467,6 +473,7 @@ local function tick()
         if state.native_source ~= source then
             log("NATIVE_SOURCE weapon=" .. sample.weapon ..
                 " feed=" .. tostring(sample.feed) ..
+                " grip=" .. tostring(sample.grip) ..
                 " ammo=" .. tostring(sample.ammo) ..
                 " overheat=" .. tostring(sample.overheated) ..
                 " reserve=" .. tostring(sample.reserve))
@@ -475,7 +482,13 @@ local function tick()
     else
         state.native_source = nil
     end
-    if sample.active and sample.weapon then state.last_weapon = sample.weapon end
+    if sample.active and sample.weapon then
+        state.last_weapon, state.last_weapon_at = sample.weapon, now
+    end
+    if state.fire_pending and state.last_weapon and state.last_weapon_at and
+        now - state.last_weapon_at <= 0.25 then
+        state.fire_attempt = { weapon = state.last_weapon, until_time = now + 1.5 }
+    end
     if state.probe_pending then
         state.probe_pending = nil
         local diagnostic = reader:sample_legacy(session, world, peer, allow_seated_fire)
@@ -524,10 +537,18 @@ local function tick()
         local raw_owned = reader.identity.counters and reader.identity.counters.owned_seen
         log("IDENTITY_RECOVERY reason=" .. tostring(reason) ..
             " raw_owned=" .. tostring(raw_owned))
-        policy:reset(); state.fire_pending = nil; status("identity-recovery", sample); return
+        policy:reset(); state.fire_pending, state.fire_attempt = nil, nil
+        status("identity-recovery", sample); return
     end
-    sample.fire = fire or state.fire_pending == true
+    local attempt = state.fire_attempt
+    if attempt and (now > attempt.until_time or
+        (sample.active and sample.weapon ~= attempt.weapon)) then
+        state.fire_attempt, attempt = nil, nil
+    end
+    sample.fire = fire or state.fire_pending == true or
+        (attempt ~= nil and sample.weapon == attempt.weapon)
     sample.manual_reload = down(config.reload_vk) or state.release_at ~= nil
+    if sample.manual_reload then state.fire_attempt = nil end
     state.fire_pending = nil
     local switching = state.switch
     if switching and now > switching.until_time then
@@ -551,6 +572,7 @@ local function tick()
         state.switch = nil
     end
     if trigger and not state.release_at and foreground() then
+        state.fire_attempt = nil
         native.input[0].value.key.flags = native.flags
         if native.user32.SendInput(1, native.input, native.size) == 1 then
             state.release_at = now + 0.04

@@ -117,12 +117,13 @@ return function(api, equal)
     end }
     local known = false
     local underbarrel = false
+    local grip, control = 15, true
     local identity = { resolve = function()
         return { status = known and "resolved" or "unknown",
-            avatar = { goid = 100 }, grip = 15,
+            avatar = { goid = 100 }, grip = grip,
             underbarrel = underbarrel and { goid = 900 } or nil,
             hand_weapon = known and { goid = 900, type = "known-weapon" } or nil }
-    end, in_control = function() return true end,
+    end, in_control = function() return control end,
         rotation_free = function() return true end }
     local parts = { GeneratedCommon = { identity = { equipment = {} } },
         IdentityCore = { new = function() return identity end },
@@ -151,6 +152,17 @@ return function(api, equal)
     local listed = adapter:sample()
     equal(listed.native, true, "registered weapons also use the held-object reader")
     equal(listed.ammo, 4, "registered weapon ammunition comes from the held object")
+    grip, known = 70, false
+    local unlisted_grip70 = adapter:sample()
+    equal(unlisted_grip70.active, true, "unlisted grip 70 weapon is read while controlled")
+    equal(unlisted_grip70.grip, 70, "native sample retains the observed grip")
+    known = true
+    equal(adapter:sample().active, true, "listed grip 70 weapon is read while controlled")
+    control = false
+    local blocked_grip70, blocked_control = adapter:sample()
+    equal(blocked_grip70.active, false, "grip 70 without player control stays blocked")
+    equal(blocked_control, "no-player-control", "grip 70 control gate is explicit")
+    grip, control = 15, true
     underbarrel = true
     local blocked, blocked_reason = adapter:sample()
     equal(blocked.active, false, "underbarrel remains excluded after native switch")

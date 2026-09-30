@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.19-test
+# HD2 Helper Auto Reload 0.3.20-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -42,6 +42,8 @@ Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 - Heat weapons: the game's explicit overheat flag changes from false to true.
 - The actual held weapon changes to an empty or overheated weapon.
 - A new fire-key press attempts to fire an empty or overheated weapon.
+- A fire-key press remains bound to that held weapon for up to 1.5 seconds,
+  so a brief unavailable reading immediately after a shot does not lose the attempt.
 - Number-row 1, 2, or 3 selects a primary, sidearm, or support weapon. The
   addon waits 1.1 seconds, then rereads the held weapon and its ammunition
   before attempting reload. Numpad keys are separate.
@@ -58,6 +60,9 @@ Only one input is sent per observed overheat episode, including across brief
 weapon-recognition gaps. Cooling or a confirmed weapon change clears the guard.
 Primary, sidearm (including the missile pistol), and support weapon classes
 are supported.
+The on-foot `grip=70` animation is used by personal weapons as well as
+unresolved mounted contexts. The addon now accepts it only when the local
+avatar has movement and rotation control; seated exceptions remain blocked.
 After a new game or respawn, the addon refreshes its local weapon identity
 cache when the avatar returns. A persistent missing weapon also triggers a
 throttled cache refresh; a brief swap animation does not. It never reloads
@@ -83,6 +88,8 @@ observed twice before it can trigger reload. Failed component, chamber, reserve,
 avatar or control checks block input. The log records `NATIVE_SOURCE` with the
 selected feed for each held weapon. Sai has been seen as `ammo=1` without a
 held heat component, so its automatic overheat reload is not yet confirmed.
+This version allows controlled `grip=70` weapons to reach the native reader,
+but Sai still needs a live overheat check before it can be called fixed.
 Version 0.3.19-test reads chamber count directly from the verified component;
 the optional instance map is not required to confirm an empty chamber. This
 does not certify that mod use is accepted by the game or its anti-cheat.
@@ -210,7 +217,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.19-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.19-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.20-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.20-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.
