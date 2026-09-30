@@ -2,12 +2,12 @@ param(
     [Parameter(Mandatory)][string]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.20-test'
+    [string]$Tag = 'auto-reload-0.3.21-test'
 )
 $ErrorActionPreference = 'Stop'
 $AssetPath = (Resolve-Path -LiteralPath $AssetPath).Path
 $assetName = [IO.Path]::GetFileName($AssetPath)
-if ($assetName -ne 'HD2-AutoReload-0.3.20-test.zip') { throw 'Unexpected addon package name.' }
+if ($assetName -ne 'HD2-AutoReload-0.3.21-test.zip') { throw 'Unexpected addon package name.' }
 if ($Commit -notmatch '^[0-9a-f]{40}$') { throw 'A full source commit hash is required.' }
 if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Invalid repository name.' }
 $credentialLines = "protocol=https`nhost=github.com`n`n" | git -c "safe.directory=$PSScriptRoot" credential fill
@@ -22,26 +22,26 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload 0.3.20-test
+## HD2 Auto Reload 0.3.21-test
 
-미사일권총의 발사 직후 판독이 잠깐 끊겨도 같은 무기에 대한 발사 시도를 최대 1.5초 보존해, 빈 탄창이 확인되면 자동장전을 시도합니다.
+미사일권총을 포함한 모든 개인 화기에서 발사키를 누르는 동안과 뗀 뒤 1초 동안 같은 무기의 빈 탄창·과열 판독을 계속 확인합니다.
 
-- `grip=70`이 실제 주무기·보조무기에도 쓰이는 것을 확인했습니다. 보행 중 조작권이 있는 무기는 차단하지 않고 현재 손에 든 무기 객체를 확인합니다.
-- 조작권이 없거나 탑승 중인 `grip=70` 상황은 계속 차단합니다. 탱크 주포 자동장전은 비활성입니다.
-- 탄창·약실·과열·여분탄 값을 확인할 수 없으면 장전하지 않습니다.
+- 재장전 플래그가 켜진 일반 탄창식 무기에서는 새 장전 시도를 중단하고 대기 중인 발사 시도도 지웁니다.
+- 과열식 무기는 게임이 완전 과열만으로도 재장전 플래그를 켜는 경우가 있어 기존의 150ms 확인 및 1회 입력 제한을 유지합니다.
+- 판독되지 않는 탄창·약실·과열·여분탄 값으로는 장전하지 않습니다. 탱크 주포 자동장전은 비활성입니다.
 
 ### 설치
 
 게임을 종료한 상태에서 이전 테스트 버전을 제거하고 이 ZIP으로 교체한 뒤 Bingus Shared Loader와 함께 배포하세요. 기존 헬퍼 자동장전 및 이전 Auto Reload 보조 스크립트는 꺼서 중복 입력을 막으세요.
 로그: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`
 
-모의 메모리 검사는 통과했지만 실제 게임에서 미사일권총의 발사 직후 장전과 LAS-12 사이의 과열 판독은 아직 검증되지 않았습니다. 사이의 이전 로그는 `ammo=1`이었으므로 이번 버전에서 `NATIVE_SOURCE`가 과열 컴포넌트로 바뀌는지 확인이 필요합니다. 문제가 생기면 F8로 자동장전을 일시 정지하고 로그를 확인하세요.
+모의 검사는 통과했지만 실제 게임에서 긴 발사 유지 후 장전과 LAS-12 사이의 과열 판독은 아직 검증되지 않았습니다. 문제가 생기면 F8로 자동장전을 일시 정지하고 로그를 확인하세요.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload 0.3.20-test (grip 70 and post-shot reload)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload 0.3.21-test (one second after fire release)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.20-test
+# HD2 Helper Auto Reload 0.3.21-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -42,8 +42,9 @@ Do not turn off HD2 HUD; only disable other automatic-reload implementations.
 - Heat weapons: the game's explicit overheat flag changes from false to true.
 - The actual held weapon changes to an empty or overheated weapon.
 - A new fire-key press attempts to fire an empty or overheated weapon.
-- A fire-key press remains bound to that held weapon for up to 1.5 seconds,
-  so a brief unavailable reading immediately after a shot does not lose the attempt.
+- A fire-key press remains bound to that held weapon while pressed and for
+  one second after release, so a brief unavailable reading does not lose the
+  attempt.
 - Number-row 1, 2, or 3 selects a primary, sidearm, or support weapon. The
   addon waits 1.1 seconds, then rereads the held weapon and its ammunition
   before attempting reload. Numpad keys are separate.
@@ -53,8 +54,10 @@ overheat flag for heat weapons, a known positive reserve, an unambiguous local
 held weapon, and player movement/rotation control. The seated-passenger
 exception requires right-click aim, recent fire, and a personal held weapon.
 It does not apply to the cannon or a merely carried weapon. A known idle reload state
-is normally required. When a heat weapon's reload flag turns true with the
-overheat flag, one attempt is allowed after 150 ms of persistent overheat and
+is normally required. Magazine weapons stop reload detection while the game's
+reload flag is true and discard the pending fire attempt. When a heat weapon's
+reload flag turns true with the overheat flag, one attempt is allowed after
+150 ms of persistent overheat and
 unchanged reserve; a manual R press or reserve change cancels that attempt.
 Only one input is sent per observed overheat episode, including across brief
 weapon-recognition gaps. Cooling or a confirmed weapon change clears the guard.
@@ -217,7 +220,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.20-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.20-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.21-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.21-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

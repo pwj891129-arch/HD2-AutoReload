@@ -299,6 +299,20 @@ local reloading = sample("A", 0)
 reloading.reloading = true
 equal(p:step(reloading, 0.1), nil, "already reloading")
 equal(p:step(sample("A", 0), 0.5), nil, "no duplicate after reload state")
+p = api.Policy.new()
+p:step(sample("A", 1), 0)
+reloading = sample("A", 0, true)
+reloading.reloading, reloading.unconfirmed = true, true
+equal(p:step(reloading, 0.1), nil, "active reload blocks unconfirmed fire attempt")
+reloading.reloading, reloading.unconfirmed, reloading.fire = false, nil, false
+equal(p:step(reloading, 0.2), nil, "active reload clears pending fire attempt")
+p = api.Policy.new()
+reloading = sample("A", 1)
+reloading.reloading = true
+equal(p:step(reloading, 0), nil, "loaded weapon does not reload while busy")
+equal(p.empty, false, "known loaded state stays false while reloading")
+equal(p:step(sample("A", 0), 0.2), "ammo-exhausted",
+    "new exhaustion can be detected after reload finishes")
 for _, reserve in ipairs({ 0, -1, math.huge, 0/0 }) do
     p = api.Policy.new()
     local s = sample("A", 0, true); s.reserve = reserve
@@ -864,10 +878,17 @@ equal(#inputs, 12, "seated reload key is released")
 keys[1] = true; frame(4.5)
 control, keys[1] = false, false; frame(4.56)
 control, cells.ammo = true, 0
-frame(4.7)
-equal(#inputs, 12, "first post-shot empty reading is unconfirmed")
-frame(4.76)
-equal(#inputs, 13, "buffered fire attempt reloads after a transient read gap")
+frame(5.62); frame(5.68)
+equal(#inputs, 12, "fire attempt expires one second after release")
+cells.ammo = 1; frame(5.8)
+keys[1] = true; frame(5.9)
+frame(7.5)
+control, keys[1] = false, false; frame(7.56)
+control, cells.ammo = true, 0
+frame(8.3)
+equal(#inputs, 12, "first post-release empty reading is unconfirmed")
+frame(8.36)
+equal(#inputs, 13, "held fire remains eligible for one second after release")
 shutdown()
 equal(#inputs, 14, "shutdown releases outstanding key")
 equal(inputs[14].flags, 10)

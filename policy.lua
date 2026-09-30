@@ -17,6 +17,15 @@ function Policy:reset()
 end
 
 function Policy:step(sample, now)
+    if sample and sample.active == true and sample.mode == "ammo" and
+        sample.reloading == true then
+        self.weapon, self.mode, self.seen_at = sample.weapon, sample.mode, now
+        self.empty = nil
+        if finite(sample.ammo) then self.empty = sample.ammo == 0 end
+        self.pending, self.fire_wait_until = nil, nil
+        self.fire = sample.fire == true
+        return nil
+    end
     if sample and sample.unconfirmed then
         if sample.fire == true and not self.fire then
             self.fire_wait_until = now + 0.25
