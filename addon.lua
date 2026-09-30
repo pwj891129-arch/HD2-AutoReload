@@ -1,5 +1,8 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.24-test"
+local VERSION = "0.3.25-test"
+local Options = (function()
+-- @OPTIONS@
+end)()
 local Policy = (function()
 -- @POLICY@
 end)()
@@ -270,7 +273,7 @@ local function install_hooks(env, tick, stop, on_error)
 end
 
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
-    return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean,
+    return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean, Options = Options,
         NativeReader = NativeReader,
         TankProbe = TankProbe, SelfProbe = SelfProbe, CatalogProbe = CatalogProbe,
         UnitLinkProbe = UnitLinkProbe, HashTypeProbe = HashTypeProbe,
@@ -296,7 +299,11 @@ local function log(line)
 end
 if not ok then log("DISABLED reader initialization: " .. tostring(reader)); return end
 
-local config = { fire_vk = 1, reload_vk = 82, pause_vk = 119, enabled = true }
+local sr = rawget(_G, "stingray") or {}
+local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {}
+local config = Options.read(App, require)
+if not config.enabled then log("DISABLED Arsenal option off"); return end
+config.fire_vk, config.reload_vk, config.pause_vk = 1, 82, 119
 local appdata = os.getenv("APPDATA")
 local config_path = appdata and (appdata .. "\\HD2AutoReload.ini")
 if config_path then
@@ -304,8 +311,7 @@ if config_path then
     if file then
         for line in file:lines() do
             local key, value = line:match("^%s*([%w_]+)%s*=%s*([^;]+)")
-            if key == "enabled" then config.enabled = value:match("^%s*true%s*$") ~= nil
-            elseif key and key:match("_vk$") and config[key] ~= nil then
+            if key and key:match("_vk$") and config[key] ~= nil then
                 local number = tonumber(value)
                 if number and number >= 1 and number <= 254 and number == math.floor(number) then
                     config[key] = number
@@ -313,13 +319,6 @@ if config_path then
             end
         end
         file:close()
-    else
-        file = io.open(config_path, "w")
-        if file then
-            file:write("; Windows virtual-key codes. F8 pauses/resumes.\n",
-                "enabled=true\nfire_vk=1\nreload_vk=82\npause_vk=119\n")
-            file:close()
-        end
     end
 end
 if config.reload_vk <= 6 or config.reload_vk == config.fire_vk or
@@ -331,10 +330,8 @@ if not ffi_ok then log("DISABLED LuaJIT FFI unavailable"); return end
 local native_ok, native = pcall(Native.create, ffi, config)
 if not native_ok then log("DISABLED input initialization: " .. tostring(native)); return end
 
-local sr = rawget(_G, "stingray") or {}
-local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {}
 if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
-local policy, state = Policy.new(), { paused = not config.enabled, keys = {} }
+local policy, state = Policy.new(), { paused = false, keys = {}, config = config }
 local tank_probe = TankProbe.new(GS)
 local hash_type_probe = HashTypeProbe.new(GS, sr.IdString32)
 rawset(_G, "HD2HelperAutoReload", state)
@@ -388,7 +385,7 @@ local function tick()
     keys.stratagem = down(164) or down(165) or
         (type(hotkeys) == "table" and hotkeys.blocking_inputs == true)
     local previous_keys = state.keys
-    local probe_requested = focused and keys.probe and not previous_keys.probe and
+    local probe_requested = config.diagnostics and focused and keys.probe and not previous_keys.probe and
         not state.paused and not state.chat and not keys.stratagem and not keys.enter and
         not keys.escape and not keys.tab
     if probe_requested then
@@ -590,6 +587,7 @@ local function tick()
         end
     end
     status(reason, sample)
+    if not Options.allow(config, sample) then sample.active = false end
     local trigger = policy:step(sample, now)
     if sample.switch_ready and (trigger or
         (sample.mode == "ammo" and type(sample.ammo) == "number" and sample.ammo > 0) or
@@ -621,4 +619,6 @@ end
 if not install_hooks(_G, guarded_tick, function() pcall(release) end) then
     log("DISABLED update callback unavailable"); rawset(_G, "HD2HelperAutoReload", nil); return
 end
-log("START " .. VERSION .. " fire_vk=" .. config.fire_vk .. " reload_vk=" .. config.reload_vk)
+log("START " .. VERSION .. " Arsenal-only options ammo=" .. tostring(config.ammo) ..
+    " heat=" .. tostring(config.heat) .. " diagnostics=" .. tostring(config.diagnostics) ..
+    " fire_vk=" .. config.fire_vk .. " reload_vk=" .. config.reload_vk)

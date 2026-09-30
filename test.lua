@@ -6,6 +6,26 @@ local function equal(actual, expected, name)
     count = count + 1
 end
 dofile("native_reader.test.lua")(api, equal)
+local flags = {}
+local option_app = {can_get = function(_, resource) return flags[resource:match("autoreload_option_(.+)$")] ~= nil end}
+local function load_option(resource) return flags[resource:match("autoreload_option_(.+)$")] end
+equal(api.Options.read(option_app, load_option).enabled, false, "Arsenal master off")
+flags.enabled = true
+local arsenal = api.Options.read(option_app, load_option)
+equal(arsenal.enabled, true); equal(arsenal.ammo, true); equal(arsenal.heat, true)
+equal(arsenal.diagnostics, false, "diagnostics opt in")
+flags.heat_off, flags.ammo_off, flags.diagnostics = true, true, true
+arsenal = api.Options.read(option_app, load_option)
+equal(arsenal.ammo, false); equal(arsenal.heat, false); equal(arsenal.diagnostics, true)
+equal(api.Options.allow(arsenal, {mode = "ammo"}), false, "ammo option enforced")
+equal(api.Options.allow(arsenal, {mode = "heat"}), false, "heat option enforced")
+flags.heat_off, flags.ammo_off = nil, nil
+arsenal = api.Options.read(option_app, load_option)
+equal(api.Options.allow(arsenal, {mode = "ammo"}), true)
+equal(api.Options.allow(arsenal, {mode = "heat"}), true)
+equal(api.Options.allow(arsenal, {mode = "unknown"}), false)
+equal(api.Options.read({can_get = function() error("unavailable") end}, load_option).enabled, false,
+    "option errors fail closed")
 local function sample(weapon, ammo, fire)
     return { active = true, mode = "ammo", weapon = weapon, ammo = ammo, reserve = 5,
         reloading = false, fire = fire or false }
@@ -767,8 +787,10 @@ file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:re
 file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = file:read("*a"); file:close()
 file = assert(io.open("unit_link_probe.lua", "r")); local unit_link_probe_source = file:read("*a"); file:close()
 file = assert(io.open("hash_type_probe.lua", "r")); local hash_type_probe_source = file:read("*a"); file:close()
+file = assert(io.open("options.lua", "r")); local options_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
+    :gsub("%-%- @OPTIONS@", function() return options_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
     :gsub("%-%- @NATIVE_READER@", function() return native_reader_source end)
     :gsub("%-%- @TANK_PROBE@", function() return tank_probe_source end)

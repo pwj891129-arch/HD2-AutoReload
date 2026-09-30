@@ -1,4 +1,20 @@
-# HD2 Helper Auto Reload 0.3.24-test
+# HD2 Helper Auto Reload 0.3.25-test
+
+## Arsenal Options
+
+Feature options are configured only in Arsenal. No in-game MODS settings menu
+is registered, and Mod Options Menu / Mod Bindings Menu are not dependencies.
+Review checkbox states after importing; close the game, Purge / Deploy and
+restart after changes.
+
+- `자동재장전 ON/OFF`: checked activates auto reload; unchecked omits the runtime.
+- `실탄 무기 자동재장전 OFF`: checked disables ammunition-based reloads.
+- `과열 무기 자동재장전 OFF`: checked disables overheat-based reloads.
+- `F9 진단 활성화`: checked enables the optional read-only diagnostic; otherwise F9 does nothing.
+
+Leave both OFF exclusions unchecked to retain existing behavior for all personal
+weapons. Existing timing, fire-release, reserve checks and vehicle exclusions
+are unchanged. F8 remains a temporary emergency pause, not a saved setting.
 
 Stratagem shortcut compatibility: Alt blocks reload checks and digit-key weapon
 switch tracking. HD2 Stratagem Hotkeys also announces command input and the
@@ -164,11 +180,12 @@ HD2 HUD+ does not need to be installed/enabled. The read-only modules required
 by this addon are embedded, but none of its display or startup code is included.
 
 Default keys are left mouse for fire, R for reload, F8 for pause/resume, and
-F9 for the one-shot read-only type check. F10 has no addon function.
-On first startup the addon creates `%APPDATA%\HD2AutoReload.ini` when possible:
+F9 for the one-shot read-only type check when enabled in Arsenal. F10 has no addon function.
+An existing `%APPDATA%\HD2AutoReload.ini` is read only for legacy custom key
+compatibility. Feature settings, including ON/OFF, come exclusively from Arsenal.
+The addon no longer creates this file. Existing key entries remain supported:
 
 ```ini
-enabled=true
 fire_vk=1
 reload_vk=82
 pause_vk=119
@@ -228,7 +245,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.24-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.24-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.25-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.25-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.

@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.24-test';
+const version = '0.3.25-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -80,6 +80,7 @@ fs.copyFileSync(path.join(sourceFolder, 'README.txt'), path.join(vendor, 'HD2-HU
   numbers = readSource(path.join(vendor, 'numbers.lua'));
 }
 const source = readSource(path.join(root, 'addon.lua'))
+  .replace('-- @OPTIONS@', () => readSource(path.join(root, 'options.lua')))
   .replace('-- @POLICY@', () => readSource(path.join(root, 'policy.lua')))
   .replace('-- @NATIVE@', () => readSource(path.join(root, 'native.lua')))
   .replace('-- @NATIVE_READER@', () => readSource(path.join(root, 'native_reader.lua')))
@@ -126,9 +127,30 @@ fs.writeFileSync(path.join(stage, 'Addon', filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, 'Addon', filename + suffix), Buffer.alloc(0));
 const description = `Auto reload ${version}. Requires Bingus Shared Loader v15+ / API 1. ` +
   'Checks ammunition exhaustion, actual weapon swaps, and fire attempts. All personal weapons use a build-pinned, read-only held-object component reader at 50 ms intervals. Ambiguous readings, underbarrel, and vehicle weapons remain excluded. Live testing required.';
+const options = [
+  ['enabled', '자동재장전 ON/OFF', '체크하면 자동재장전 활성화, 미체크하면 모드를 실행하지 않습니다.', ['Addon']],
+  ['ammo_off', '실탄 무기 자동재장전 OFF', '체크하면 실탄 무기의 자동재장전을 끕니다. 미체크하면 기존 동작을 유지합니다.', []],
+  ['heat_off', '과열 무기 자동재장전 OFF', '체크하면 과열 무기의 자동재장전을 끕니다. 미체크하면 완전 과열시에만 작동합니다.', []],
+  ['diagnostics', 'F9 진단 활성화', '체크시에만 F9 읽기 전용 진단을 실행합니다. 일반 자동재장전에는 필요하지 않습니다.', []],
+];
+const optionManifest = options.map(([name, label, help, include], index) => {
+  const folder = 'Option_' + name;
+  const bytes = Buffer.from('return true\n'), module = Buffer.alloc(8 + bytes.length);
+  module.writeUInt32LE(bytes.length, 0); module.writeUInt32LE(2, 4); bytes.copy(module, 8);
+  const marker = Buffer.alloc(192 + Math.ceil(module.length / 16) * 16);
+  archive.copy(marker, 0, 0, 192);
+  marker.writeBigUInt64LE(BigInt(marker.length), 32);
+  marker.writeBigUInt64LE(hash64('mods/hd2_helper/autoreload_option_' + name), 104);
+  marker.writeUInt32LE(module.length, 160); module.copy(marker, 192);
+  fs.mkdirSync(path.join(stage, folder), {recursive: true});
+  const patch = `9ba626afa44a3aa3.patch_${index + 1}`;
+  fs.writeFileSync(path.join(stage, folder, patch), marker);
+  for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, folder, patch + suffix), Buffer.alloc(0));
+  return {Name: label, Description: help, Include: [...include, folder]};
+});
 fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify({
   Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload ${version}`,
-  Description: description, Options: [{ Name: 'Auto Reload', Description: description, Include: ['Addon'] }]
+  Description: description + ' Feature options are configured in Arsenal only; Purge / Deploy and restart to apply.', Options: optionManifest
 }, null, 2));
 const report = { version, resource, resourceHash: hash64(resource).toString(16),
   archiveBytes: archive.length, sourceBytes: lua.length, stage,
