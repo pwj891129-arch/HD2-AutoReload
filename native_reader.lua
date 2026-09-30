@@ -199,20 +199,15 @@ end
 
 function Reader:chambered(component, kind)
     local spec = kind == "magazine" and
-        { map = 96, rows = 160, stride = 160, flag = 156,
-            chamber_rows = 72, chamber_stride = 16, chamber_offset = 8 } or
-        { map = 104, rows = 168, stride = 136, flag = 104,
-            chamber_rows = 80, chamber_stride = 24, chamber_offset = 16 }
-    local seat = self:lookup(component.manager + spec.map, component.entity)
-    local rows = self:ptr(component.manager + spec.rows)
-    if not seat or seat == 0xffffffff or seat > 1000000 or not rows then return nil end
-    local flag = self:read(rows + seat * spec.stride + spec.flag, 1)
-    if not flag or (flag:byte(1) ~= 0 and flag:byte(1) ~= 1) then return nil end
-    if flag:byte(1) == 0 then return false end
-    local chambers = self:ptr(component.manager + spec.chamber_rows)
-    local loaded = chambers and self:word(chambers + component.index *
-        spec.chamber_stride + spec.chamber_offset)
-    if not count(loaded) then return nil end
+        { rows = 72, stride = 16, offset = 8 } or
+        { rows = 80, stride = 24, offset = 16 }
+    -- The optional instance map is absent on some weapons; the component's
+    -- chamber count is still indexed by the verified held-weapon component.
+    local chambers = self:ptr(component.manager + spec.rows)
+    if not chambers then return nil, "chamber-array-unavailable" end
+    local loaded = self:word(chambers + component.index *
+        spec.stride + spec.offset)
+    if not count(loaded) then return nil, "chamber-count-unavailable" end
     return loaded > 0
 end
 
@@ -265,8 +260,6 @@ function Reader:sample()
     local rounds, rounds_fault = self:component("rounds", held, record)
     if mag_fault or rounds_fault then return nil, "stale-ammo-component" end
     if magazine and rounds then return nil, "ambiguous-feed" end
-    if magazine then magazine.entity = held end
-    if rounds then rounds.entity = held end
     local raw = magazine and self:field(magazine, 0, 8) or
         rounds and self:field(rounds, 0, 16)
     local reserve, ammo = u32(raw, 0), u32(raw, 4)
@@ -282,9 +275,9 @@ function Reader:sample()
     end
     if not count(reserve) or not count(ammo) then return nil, "ammo-unavailable" end
     if ammo == 0 then
-        local chamber = self:chambered(magazine or rounds,
+        local chamber, chamber_reason = self:chambered(magazine or rounds,
             magazine and "magazine" or "rounds")
-        if chamber == nil then return nil, "chamber-unavailable" end
+        if chamber == nil then return nil, chamber_reason end
         if chamber then ammo = 1 end
     end
     return { active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,

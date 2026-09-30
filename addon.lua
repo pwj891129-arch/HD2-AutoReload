@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.18-test"
+local VERSION = "0.3.19-test"
 local Policy = (function()
 -- @POLICY@
 end)()

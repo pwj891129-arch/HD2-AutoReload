@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.18-test
+# HD2 Helper Auto Reload 0.3.19-test
 
 Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
 boot script, the shared loader, or an installed HD2 Helper executable.
@@ -83,8 +83,9 @@ observed twice before it can trigger reload. Failed component, chamber, reserve,
 avatar or control checks block input. The log records `NATIVE_SOURCE` with the
 selected feed for each held weapon. Sai has been seen as `ammo=1` without a
 held heat component, so its automatic overheat reload is not yet confirmed.
-This does not certify that mod use is
-accepted by the game or its anti-cheat.
+Version 0.3.19-test reads chamber count directly from the verified component;
+the optional instance map is not required to confirm an empty chamber. This
+does not certify that mod use is accepted by the game or its anti-cheat.
 
 ## Experimental Diagnostics
 
@@ -209,7 +210,7 @@ game/input APIs, never attach to the game or send actual inputs.
 ```powershell
 node build.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.18-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.18-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.19-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.19-test.zip'
 ```
 
 The credited reader sources and original permission README are in `vendor/`.
