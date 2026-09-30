@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.25-test';
+const version = '0.3.26-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -82,6 +82,7 @@ fs.copyFileSync(path.join(sourceFolder, 'README.txt'), path.join(vendor, 'HD2-HU
 const source = readSource(path.join(root, 'addon.lua'))
   .replace('-- @OPTIONS@', () => readSource(path.join(root, 'options.lua')))
   .replace('-- @POLICY@', () => readSource(path.join(root, 'policy.lua')))
+  .replace('-- @CHARGE@', () => readSource(path.join(root, 'charge_policy.lua')))
   .replace('-- @NATIVE@', () => readSource(path.join(root, 'native.lua')))
   .replace('-- @NATIVE_READER@', () => readSource(path.join(root, 'native_reader.lua')))
   .replace('-- @TANK_PROBE@', () => readSource(path.join(root, 'tank_probe.lua')))
@@ -126,12 +127,13 @@ const filename = '9ba626afa44a3aa3.patch_0';
 fs.writeFileSync(path.join(stage, 'Addon', filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, 'Addon', filename + suffix), Buffer.alloc(0));
 const description = `Auto reload ${version}. Requires Bingus Shared Loader v15+ / API 1. ` +
-  'Checks ammunition exhaustion, actual weapon swaps, and fire attempts. All personal weapons use a build-pinned, read-only held-object component reader at 50 ms intervals. Ambiguous readings, underbarrel, and vehicle weapons remain excluded. Live testing required.';
+  'Checks ammunition exhaustion, actual weapon swaps, and fire attempts. Optional Railgun / Epoch left-mouse release at 90% of the full charge gauge. Build-pinned, read-only held-object component reader at 50 ms intervals. Ambiguous readings, underbarrel, and vehicle weapons remain excluded. Live testing required.';
 const options = [
-  ['enabled', '자동재장전 ON/OFF', '체크하면 자동재장전 활성화, 미체크하면 모드를 실행하지 않습니다.', ['Addon']],
+  ['enabled', '자동재장전 ON/OFF', '체크하면 자동재장전을 활성화합니다. 90% 충전 자동발사 옵션과는 독립적입니다.', ['Addon']],
   ['ammo_off', '실탄 무기 자동재장전 OFF', '체크하면 실탄 무기의 자동재장전을 끕니다. 미체크하면 기존 동작을 유지합니다.', []],
   ['heat_off', '과열 무기 자동재장전 OFF', '체크하면 과열 무기의 자동재장전을 끕니다. 미체크하면 완전 과열시에만 작동합니다.', []],
   ['diagnostics', 'F9 진단 활성화', '체크시에만 F9 읽기 전용 진단을 실행합니다. 일반 자동재장전에는 필요하지 않습니다.', []],
+  ['charge90', '레일건·에포크 90% 충전 자동발사 ON', '기본 OFF. 전체 위험 게이지 90% 이상에서 좌클릭을 한 번 해제합니다. 발사키는 좌클릭이어야 하며, 조준과 다음 충전은 수동입니다.', ['Addon']],
 ];
 const optionManifest = options.map(([name, label, help, include], index) => {
   const folder = 'Option_' + name;

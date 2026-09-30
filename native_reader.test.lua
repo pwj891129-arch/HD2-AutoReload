@@ -111,6 +111,67 @@ return function(api, equal)
     put(avatars + 5495040 + 2948, word(501))
     equal(reader:sample(), nil, "avatar identity mismatch fails closed")
 
+    put(avatars + 5495040 + 2948, word(500))
+    local ffi = require("ffi")
+    local function float(n) return ffi.string(ffi.new("float[1]", n), 4) end
+    local charge = 0x870000
+    local rail = word(0x48b09e60) .. word(0x2e9d0bdc)
+    local epoch = word(0xd7780e54) .. word(0xe8d5f49a)
+    local function set_type(bytes)
+        put(weapon_record, bytes .. word(900) .. word(0) .. word(123) .. word(0))
+    end
+    local function config(limit, explodes)
+        return float(0.1) .. zero:rep(20) .. float(0.5) .. zero:rep(20) ..
+            float(limit) .. zero:rep(133) .. string.char(explodes or 1) .. zero:rep(30)
+    end
+    local function charging(elapsed, flag)
+        put(0xd00200, float(0.5) .. float(elapsed) .. zero:rep(4) ..
+            string.char(flag or 1) .. zero:rep(27))
+    end
+    set_type(rail)
+    put(fake.base + 53636128, pointer(charge))
+    map(charge + 32, 900, 0, 0xa00200)
+    put(charge + 56, pointer(0xa00220)); put(0xa00220, pointer(weapon_record))
+    put(charge + 12, word(1)); put(charge + 64, pointer(0xd00200))
+    map(charge + 80, 900, 0, 0xa00240)
+    put(charge + 136, word(1)); put(charge + 144, pointer(0xe00000))
+    put(0xe00000, config(3)); charging(2.7)
+    equal(reader:sample().charge_elapsed, nil, "charge reader is opt in")
+    reader.charge_enabled = true
+    local charged = reader:sample()
+    equal(charged.charge_kind, "railgun", "railgun native resource hash")
+    equal(math.abs(charged.charge_elapsed - 2.7) < 0.00001, true, "runtime elapsed float decoded")
+    equal(charged.charge_limit, 3, "explosion limit is not full-damage charge time")
+    equal(charged.charge_source, "instance"); equal(charged.charging, true)
+    set_type(epoch)
+    equal(reader:sample().charge_kind, "epoch", "epoch native resource hash")
+    charging(2.7, 0)
+    equal(reader:sample().charging, false, "native charging flag is required")
+    charging(0 / 0)
+    equal(reader:sample().charge_elapsed, nil, "NaN charge float fails closed")
+    equal(reader:sample().ammo, 1, "invalid charge does not break ammunition reader")
+    charging(2.7); put(0xe00000, config(0))
+    equal(reader:sample().charge_limit, nil, "zero explosion limit rejected")
+    put(0xe00000, config(3, 0))
+    equal(reader:sample().charge_limit, nil, "nonexplosive charge is not a danger gauge")
+    put(0xe00000, config(3))
+    put(0xa00220, pointer(0x900100))
+    equal(reader:sample().charge_elapsed, nil, "stale charge component rejected")
+    put(0xa00220, pointer(weapon_record))
+    map(charge + 80, 900, 0xffffffff, 0xa00240)
+    put(owner + 0xf12ad8, pointer(0xe01000))
+    put(0xe01000, zero:rep(320))
+    local seed = (0xe8d5f49a % 20 * 16 + 0xd7780e54 % 20) % 20
+    put(0xe01000 + seed * 16, epoch .. word(0) .. word(0))
+    put(0xe01000 + 320, config(4))
+    charged = reader:sample()
+    equal(charged.charge_limit, 4, "authored game registry fallback supplies the limit")
+    equal(charged.charge_source, "authored")
+    put(0xe01000 + seed * 16, epoch .. word(99) .. word(0))
+    equal(reader:sample().charge_elapsed, nil, "authored record index bounded")
+    set_type(zero:rep(8))
+    equal(reader:sample().charge_kind, nil, "unrelated weapons are never charged automatically")
+
     local native = { sample = function()
         return { active = true, native = true, avatar = 100, weapon = "native:500:900",
             mode = "heat", overheated = true, reserve = 2, reloading = false }

@@ -10,6 +10,7 @@ local RVA = {
     players = 53634152, owner = 54968216, avatars = 53636384,
     equipment = 53636544, wielder = 53634080,
     magazine = 53634632, rounds = 53636336, heat = 53636424,
+    charge = 53636128, authored = 0x346bf98,
 }
 local COMPONENTS = {
     equipment = { map = 32, back = 56 },
@@ -17,6 +18,11 @@ local COMPONENTS = {
     magazine = { map = 32, back = 56, rows = 80, stride = 12 },
     rounds = { map = 40, back = 64, rows = 88, stride = 20 },
     heat = { map = 40, back = 64, rows = 88, stride = 12 },
+    charge = { map = 32, back = 56, rows = 64, stride = 40 },
+}
+local CHARGE_WEAPONS = {
+    ["2e9d0bdc48b09e60"] = "railgun",
+    ["e8d5f49ad7780e54"] = "epoch",
 }
 
 local function u32(raw, at)
@@ -31,6 +37,22 @@ local function address(raw, at)
     local value = high * 4294967296 + low
     if value < 65536 or value >= 140737488355328 then return nil end
     return value
+end
+
+local function float(raw, at)
+    local bits = u32(raw, at)
+    if not bits then return nil end
+    local exponent = math.floor(bits / 8388608) % 256
+    if exponent == 255 then return nil end
+    local mantissa = bits % 8388608
+    local value = exponent == 0 and mantissa * 2 ^ -149 or
+        (1 + mantissa / 8388608) * 2 ^ (exponent - 127)
+    return bits >= 2147483648 and -value or value
+end
+
+local function hash64(raw)
+    local low, high = u32(raw, 0), u32(raw, 4)
+    return low and high and string.format("%08x%08x", high, low) or nil
 end
 
 local function count(value)
@@ -211,6 +233,63 @@ function Reader:chambered(component, kind)
     return loaded > 0
 end
 
+function Reader:charge_config(component, held, type_bytes)
+    local manager = component.manager
+    local index = self:lookup(manager + 80, held)
+    if index and index ~= 0xffffffff then
+        local length, rows = self:word(manager + 136), self:ptr(manager + 144)
+        if not length or not rows or index >= length or length > 1000000 then return nil end
+        return self:read(rows + index * 216, 216), "instance"
+    end
+    -- The game uses its authored type registry when no instance override exists.
+    local registry = self:root("authored")
+    local rows = registry and self:ptr(registry + 0xf12ad8)
+    local low, high = u32(type_bytes, 0), u32(type_bytes, 4)
+    if not rows or not low or not high then return nil end
+    local seed = (high % 20 * 16 + low % 20) % 20
+    for probe = 0, 19 do
+        local row = self:read(rows + ((seed + probe) % 20) * 16, 16)
+        if not row or row:sub(1, 8) == string.rep("\0", 8) then return nil end
+        if row:sub(1, 8) == type_bytes then
+            local slot = u32(row, 8)
+            if not slot or slot >= 20 then return nil end
+            return self:read(rows + 320 + slot * 216, 216), "authored"
+        end
+    end
+end
+
+function Reader:with_charge(sample, held, record, wield)
+    if not self.charge_enabled then return sample end
+    local identity = self:read(record, 24)
+    local kind = CHARGE_WEAPONS[hash64(identity)]
+    if not kind then return sample end
+    sample.charge_kind = kind
+    local component = self:component("charge", held, record)
+    local length = component and self:word(component.manager + 12)
+    local raw = component and length and component.index < length and length <= 1000000 and
+        self:field(component, 0, 40)
+    local config, source
+    if raw then config, source = self:charge_config(component, held, identity:sub(1, 8)) end
+    local elapsed, limit = float(raw, 4), float(config, 48)
+    local minimum, full = float(config, 0), float(config, 24)
+    local charging = raw and raw:byte(13)
+    if not elapsed or not limit or not minimum or not full or minimum < 0 or
+        full < minimum or full >= limit or limit < 0.1 or limit > 30 or
+        elapsed < 0 or elapsed > limit or config:byte(186) ~= 1 or
+        (charging ~= 0 and charging ~= 1) then
+        sample.charge_reason = "charge-data-unavailable"; return sample
+    end
+    if self:read(record, 24) ~= identity or u32(identity, 8) ~= held or
+        u32(self:field(wield, 0, 4), 0) ~= held or
+        self:component("charge", held, record) == nil then
+        sample.charge_reason = "charge-identity-changed"; return sample
+    end
+    sample.charge_elapsed, sample.charge_limit = elapsed, limit
+    sample.charging, sample.charge_source = charging == 1, source
+    sample.charge_reason = "ready"
+    return sample
+end
+
 function Reader:sample()
     local channel, why = self:ready()
     if not channel then return nil, why end
@@ -251,10 +330,10 @@ function Reader:sample()
         if not count(reserve) or (flag ~= 0 and flag ~= 1) then
             return nil, "heat-state-unavailable"
         end
-        return { active = true, mode = "heat", weapon = "native:" .. avatar .. ":" .. held,
+        return self:with_charge({ active = true, mode = "heat", weapon = "native:" .. avatar .. ":" .. held,
             avatar = avatar_goid, goid = goid, reserve = reserve,
             overheated = flag == 1, reloading = reloading,
-            native = true, feed = "heat" }, "ready"
+            native = true, feed = "heat" }, held, record, wield), "ready"
     end
     local magazine, mag_fault = self:component("magazine", held, record)
     local rounds, rounds_fault = self:component("rounds", held, record)
@@ -280,10 +359,10 @@ function Reader:sample()
         if chamber == nil then return nil, chamber_reason end
         if chamber then ammo = 1 end
     end
-    return { active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,
+    return self:with_charge({ active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,
         avatar = avatar_goid, goid = goid, reserve = reserve,
         ammo = ammo, reloading = reloading, native = true,
-        feed = magazine and "magazine" or "rounds" }, "ready"
+        feed = magazine and "magazine" or "rounds" }, held, record, wield), "ready"
 end
 
 return Reader

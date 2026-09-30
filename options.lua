@@ -9,7 +9,8 @@ function Options.read(app, load)
         return loaded and value == true
     end
     return {enabled = selected("enabled", true), ammo = not selected("ammo_off", false),
-        heat = not selected("heat_off", false), diagnostics = selected("diagnostics", true)}
+        heat = not selected("heat_off", false), diagnostics = selected("diagnostics", true),
+        charge90 = selected("charge90", false)}
 end
 function Options.allow(config, sample)
     return config.enabled and sample and ((sample.mode == "ammo" and config.ammo) or

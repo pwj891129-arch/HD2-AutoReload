@@ -31,8 +31,11 @@ function Native.create(ffi, config)
     local scan = library.HD2AR_MapVirtualKeyW(config.reload_vk, 4)
     assert(scan ~= 0, "reload key has no scan code")
     input[0].value.key.scan = scan % 256
+    local mouse = ffi.new("HD2AR_INPUT[1]")
+    mouse[0].type = 0
+    mouse[0].value.mouse.flags = 4
     return { user32 = user32, process = kernel.HD2AR_GetCurrentProcessId(),
-        pid = pid, input = input, size = size, flags = scan >= 256 and 9 or 8 }
+        pid = pid, input = input, mouse = mouse, size = size, flags = scan >= 256 and 9 or 8 }
 end
 
 return Native

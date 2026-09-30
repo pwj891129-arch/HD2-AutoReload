@@ -1,10 +1,13 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.25-test"
+local VERSION = "0.3.26-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
 local Policy = (function()
 -- @POLICY@
+end)()
+local Charge = (function()
+-- @CHARGE@
 end)()
 local Native = (function()
 -- @NATIVE@
@@ -273,7 +276,7 @@ local function install_hooks(env, tick, stop, on_error)
 end
 
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
-    return { Policy = Policy, Reader = Reader, Native = Native, boolean = boolean, Options = Options,
+    return { Policy = Policy, Charge = Charge, Reader = Reader, Native = Native, boolean = boolean, Options = Options,
         NativeReader = NativeReader,
         TankProbe = TankProbe, SelfProbe = SelfProbe, CatalogProbe = CatalogProbe,
         UnitLinkProbe = UnitLinkProbe, HashTypeProbe = HashTypeProbe,
@@ -302,7 +305,7 @@ if not ok then log("DISABLED reader initialization: " .. tostring(reader)); retu
 local sr = rawget(_G, "stingray") or {}
 local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {}
 local config = Options.read(App, require)
-if not config.enabled then log("DISABLED Arsenal option off"); return end
+if not config.enabled and not config.charge90 then log("DISABLED Arsenal options off"); return end
 config.fire_vk, config.reload_vk, config.pause_vk = 1, 82, 119
 local appdata = os.getenv("APPDATA")
 local config_path = appdata and (appdata .. "\\HD2AutoReload.ini")
@@ -321,6 +324,11 @@ if config_path then
         file:close()
     end
 end
+if config.charge90 and config.fire_vk ~= 1 then
+    config.charge90 = false
+    log("CHARGE_DISABLED requires left-mouse fire binding")
+end
+reader.native.charge_enabled = config.charge90
 if config.reload_vk <= 6 or config.reload_vk == config.fire_vk or
     config.reload_vk == config.pause_vk then
     log("DISABLED conflicting/unsupported reload key"); return
@@ -332,6 +340,7 @@ if not native_ok then log("DISABLED input initialization: " .. tostring(native))
 
 if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
 local policy, state = Policy.new(), { paused = false, keys = {}, config = config }
+local charge = Charge.new()
 local tank_probe = TankProbe.new(GS)
 local hash_type_probe = HashTypeProbe.new(GS, sr.IdString32)
 rawset(_G, "HD2HelperAutoReload", state)
@@ -430,7 +439,7 @@ local function tick()
     state.fire = fire
     if aim and fire then state.lean_fire_until = now + 0.8 end
     if not focused or state.paused or state.failed or state.chat or keys.stratagem or keys.enter or keys.escape or keys.tab then
-        policy:reset(); state.fire_pending, state.aim_pending = nil, nil
+        policy:reset(); charge:reset(); state.fire_pending, state.aim_pending = nil, nil
         state.fire_attempt, state.fire_released_at = nil, nil
         state.fire_cycle, state.fire_release_pending = nil, nil
         reader.native_pending = nil
@@ -445,7 +454,7 @@ local function tick()
     if not session then
         if state.probe_pending then log("HASH_TYPE skipped=no-session") end
         state.probe_pending = nil
-        policy:reset(); reader.identity:invalidate(); state.avatar = nil
+        policy:reset(); charge:reset(); reader.identity:invalidate(); state.avatar = nil
         reader.native_pending = nil
         state.last_weapon = nil
         state.last_weapon_at = nil
@@ -462,7 +471,7 @@ local function tick()
     end
     local context = tostring(session) .. ":" .. tostring(world) .. ":" .. tostring(peer)
     if state.context ~= context then
-        policy:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
+        policy:reset(); charge:reset(); reader.identity:invalidate(); state.context = context; state.avatar = nil
         reader.native_pending = nil
         state.last_weapon = nil
         state.last_weapon_at = nil
@@ -551,7 +560,7 @@ local function tick()
         local raw_owned = reader.identity.counters and reader.identity.counters.owned_seen
         log("IDENTITY_RECOVERY reason=" .. tostring(reason) ..
             " raw_owned=" .. tostring(raw_owned))
-        policy:reset(); state.fire_pending, state.fire_attempt = nil, nil
+        policy:reset(); charge:reset(); state.fire_pending, state.fire_attempt = nil, nil
         state.fire_released_at = nil
         state.fire_cycle, state.fire_release_pending = nil, nil
         status("identity-recovery", sample); return
@@ -586,6 +595,31 @@ local function tick()
             sample.switch_ready = true
         end
     end
+    if config.charge90 then
+        if sample.charge_kind then
+            local label = sample.weapon .. ":" .. tostring(sample.charge_reason)
+            if state.charge_status ~= label then
+                log("CHARGE_SOURCE kind=" .. sample.charge_kind ..
+                    " reason=" .. tostring(sample.charge_reason) ..
+                    " source=" .. tostring(sample.charge_source) ..
+                    " limit=" .. tostring(sample.charge_limit))
+                state.charge_status = label
+            end
+        else
+            state.charge_status = nil
+        end
+        if charge:step(sample, now, fire) and foreground() and down(1) then
+            local sent = native.user32.SendInput(1, native.mouse, native.size)
+            log(string.format("CHARGE_RELEASE kind=%s ratio=%.3f sent=%s t=%.3f",
+                sample.charge_kind, sample.charge_elapsed / sample.charge_limit,
+                tostring(sent == 1), now))
+            if sent == 1 then
+                state.fire, state.fire_cycle, state.fire_release_pending = false, nil, true
+                state.fire_released_at = now
+                state.fire_attempt = {weapon = sample.weapon, until_time = now + 1.0}
+            end
+        end
+    end
     status(reason, sample)
     if not Options.allow(config, sample) then sample.active = false end
     local trigger = policy:step(sample, now)
@@ -612,7 +646,7 @@ end
 local function guarded_tick()
     local success, failure = pcall(tick)
     if not success then
-        pcall(release); policy:reset(); state.failed = true
+        pcall(release); policy:reset(); charge:reset(); state.failed = true
         log("DISABLED runtime error: " .. tostring(failure))
     end
 end
@@ -620,5 +654,6 @@ if not install_hooks(_G, guarded_tick, function() pcall(release) end) then
     log("DISABLED update callback unavailable"); rawset(_G, "HD2HelperAutoReload", nil); return
 end
 log("START " .. VERSION .. " Arsenal-only options ammo=" .. tostring(config.ammo) ..
-    " heat=" .. tostring(config.heat) .. " diagnostics=" .. tostring(config.diagnostics) ..
+    " heat=" .. tostring(config.heat) .. " charge90=" .. tostring(config.charge90) ..
+    " diagnostics=" .. tostring(config.diagnostics) ..
     " fire_vk=" .. config.fire_vk .. " reload_vk=" .. config.reload_vk)

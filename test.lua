@@ -6,6 +6,7 @@ local function equal(actual, expected, name)
     count = count + 1
 end
 dofile("native_reader.test.lua")(api, equal)
+dofile("charge_policy.test.lua")(api, equal)
 local flags = {}
 local option_app = {can_get = function(_, resource) return flags[resource:match("autoreload_option_(.+)$")] ~= nil end}
 local function load_option(resource) return flags[resource:match("autoreload_option_(.+)$")] end
@@ -14,6 +15,10 @@ flags.enabled = true
 local arsenal = api.Options.read(option_app, load_option)
 equal(arsenal.enabled, true); equal(arsenal.ammo, true); equal(arsenal.heat, true)
 equal(arsenal.diagnostics, false, "diagnostics opt in")
+equal(arsenal.charge90, false, "charge release defaults off")
+flags.charge90 = true
+equal(api.Options.read(option_app, load_option).charge90, true, "Arsenal charge release opt in")
+flags.charge90 = nil
 flags.heat_off, flags.ammo_off, flags.diagnostics = true, true, true
 arsenal = api.Options.read(option_app, load_option)
 equal(arsenal.ammo, false); equal(arsenal.heat, false); equal(arsenal.diagnostics, true)
@@ -717,7 +722,8 @@ local user32 = {
     MapVirtualKeyW = function() return 0x13 end,
     SendInput = function(_, input, size)
         equal(size, 40, "runtime ABI")
-        inputs[#inputs+1] = { flags = input[0].value.key.flags,
+        inputs[#inputs+1] = { type = input[0].type, flags = input[0].value.key.flags,
+            mouse_flags = input[0].value.mouse.flags,
             scan = input[0].value.key.scan, time = now, fire_held = keys[1] == true }
         return 1
     end,
@@ -734,7 +740,7 @@ local fake_ffi = {
     abi = function() return true end,
     new = function(name)
         if name == "unsigned int[1]" then return { [0] = 0 } end
-        return { [0] = { type = 0, value = { key = {} } } }
+        return { [0] = { type = 0, value = { key = {}, mouse = {} } } }
     end,
 }
 require = function(name) if name == "ffi" then return fake_ffi end; return original_require(name) end
@@ -788,9 +794,11 @@ file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = f
 file = assert(io.open("unit_link_probe.lua", "r")); local unit_link_probe_source = file:read("*a"); file:close()
 file = assert(io.open("hash_type_probe.lua", "r")); local hash_type_probe_source = file:read("*a"); file:close()
 file = assert(io.open("options.lua", "r")); local options_source = file:read("*a"); file:close()
+file = assert(io.open("charge_policy.lua", "r")); local charge_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
 source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @OPTIONS@", function() return options_source end)
+    :gsub("%-%- @CHARGE@", function() return charge_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
     :gsub("%-%- @NATIVE_READER@", function() return native_reader_source end)
     :gsub("%-%- @TANK_PROBE@", function() return tank_probe_source end)
@@ -1007,6 +1015,85 @@ for _, input in ipairs(inputs) do
         equal(input.fire_held, false, "every reload down has the physical fire key up")
     end
 end
+inputs, keys, logs = {}, {}, {}
+HD2HelperAutoReload, shutdown = nil, nil
+update = function() return 123 end
+stingray.Application.can_get = function(_, resource)
+    return resource == "mods/hd2_helper/autoreload_option_charge90"
+end
+require = function(name)
+    if name == "ffi" then return fake_ffi end
+    if name == "mods/hd2_helper/autoreload_option_charge90" then return true end
+    return original_require(name)
+end
+local charge_sample = {active = true, native = true, avatar = 100, weapon = "native:100:8",
+    mode = "ammo", ammo = 1, reserve = 0, reloading = false, feed = "magazine",
+    charge_kind = "epoch", charge_elapsed = 2.6, charge_limit = 3, charging = true,
+    charge_reason = "ready", charge_source = "instance"}
+TEST_NATIVE_READER.sample = function()
+    local copy = {}; for key, value in pairs(charge_sample) do copy[key] = value end
+    return copy, "ready"
+end
+resolved.avatar.goid, resolved.grip, control, rotation = 100, 15, true, true
+assert(loadstring(source, "@charge-runtime-test"))()
+equal(HD2HelperAutoReload.config.enabled, false, "charge feature runs with reload off")
+equal(HD2HelperAutoReload.config.charge90, true)
+keys[1] = true; frame(20)
+equal(#inputs, 0, "initial charge reading cannot fire")
+charge_sample.charge_elapsed = 2.7; frame(20.1)
+equal(#inputs, 1, "90 percent sends a release even without spare ammo")
+equal(inputs[1].type, 0); equal(inputs[1].mouse_flags, 4, "only MOUSEEVENTF_LEFTUP sent")
+frame(20.2); frame(20.3)
+equal(#inputs, 1, "held physical button does not repeat the automatic release")
+keys[1] = false; charge_sample.charge_elapsed, charge_sample.charging = 0, false
+charge_sample.ammo = 0; frame(20.4); frame(20.5)
+equal(#inputs, 1, "charge-only option cannot send a reload key")
+charge_sample.ammo, charge_sample.charging, charge_sample.charge_elapsed = 1, true, 2.6
+keys[1], keys[164] = true, true; frame(21)
+charge_sample.charge_elapsed = 2.7; frame(21.1)
+equal(#inputs, 1, "stratagem modifier blocks charge release")
+keys[164], keys[1] = false, false
+charge_sample.charge_elapsed = 0; frame(21.2)
+keys[1] = true; charge_sample.charge_elapsed = 2.6; frame(23.8)
+focused = false; charge_sample.charge_elapsed = 2.7; frame(23.9)
+equal(#inputs, 1, "focus loss blocks charge release")
+focused, keys[1], charge_sample.charge_elapsed = true, false, 0; frame(24)
+keys[1] = true; charge_sample.charge_elapsed = 2.6; frame(26.6)
+charge_sample.reloading, charge_sample.charge_elapsed = true, 2.7; frame(26.7)
+equal(#inputs, 1, "active reload blocks charge release")
+charge_sample.reloading, charge_sample.charge_elapsed, keys[1] = false, 0, false
+frame(26.8)
+keys[1] = true; charge_sample.charge_elapsed = 2.6; frame(29.4)
+charge_sample.charge_elapsed = 2.7; frame(29.5)
+equal(#inputs, 2, "new manual charge rearms release")
+for _, input in ipairs(inputs) do
+    equal(input.type, 0, "charge-only module never sends keyboard input")
+    equal(input.mouse_flags, 4, "charge module never sends a mouse press")
+end
+keys[1], charge_sample.charge_elapsed = false, 0; frame(29.6)
+keys[13] = true; frame(30); keys[13] = false
+keys[1], charge_sample.charge_elapsed = true, 2.6; frame(32.6)
+charge_sample.charge_elapsed = 2.7; frame(32.7)
+equal(#inputs, 2, "chat blocks charge release")
+keys[27] = true; frame(32.8); keys[27], keys[1] = false, false
+charge_sample.charge_elapsed = 0; frame(32.9)
+keys[119] = true; frame(33); keys[119] = false
+keys[1], charge_sample.charge_elapsed = true, 2.6; frame(35.6)
+charge_sample.charge_elapsed = 2.7; frame(35.7)
+equal(#inputs, 2, "F8 pauses charge release")
+keys[119] = true; frame(35.8); keys[119], keys[1] = false, false
+charge_sample.charge_elapsed = 0; frame(35.9)
+HD2HelperAutoReload.config.enabled = true
+keys[1], charge_sample.charge_elapsed = true, 2.6; frame(38.5)
+charge_sample.charge_elapsed = 2.7; frame(38.6)
+equal(#inputs, 3, "charge release coexists with reload enabled")
+equal(inputs[3].mouse_flags, 4)
+keys[1], charge_sample.ammo, charge_sample.reserve, charge_sample.charge_elapsed = false, 0, 2, 0
+frame(38.61); equal(#inputs, 3, "post-charge empty reading waits for confirmation")
+frame(38.67); equal(#inputs, 4, "post-charge release keeps automatic reload working")
+equal(inputs[4].type, 1); equal(inputs[4].flags, 8)
+frame(38.72); equal(inputs[5].flags, 10, "post-charge reload key is released")
+shutdown()
 require, os.getenv = original_require, original_getenv
 dofile("compatibility.test.lua")(api, equal)
 print("PASS " .. count .. " assertions; actual LuaJIT, no game inputs sent")

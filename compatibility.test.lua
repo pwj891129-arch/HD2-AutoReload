@@ -82,4 +82,7 @@ return function(api, equal)
     equal(native.process > 0, true, "aliased GetCurrentProcessId resolves")
     equal(native.input[0].value.key.scan > 0, true, "aliased MapVirtualKeyW resolves")
     equal(type(native.user32.SendInput), "cdata", "aliased SendInput resolves without calling")
+    equal(native.mouse[0].type, 0, "separate mouse INPUT type")
+    equal(native.mouse[0].value.mouse.flags, 4, "actual left-button release flag")
+    equal(native.input[0].type, 1, "reload INPUT remains a keyboard event")
 end

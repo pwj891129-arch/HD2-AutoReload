@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload 0.3.25-test
+# HD2 Helper Auto Reload 0.3.26-test
 
 ## Arsenal Options
 
@@ -7,14 +7,54 @@ is registered, and Mod Options Menu / Mod Bindings Menu are not dependencies.
 Review checkbox states after importing; close the game, Purge / Deploy and
 restart after changes.
 
-- `자동재장전 ON/OFF`: checked activates auto reload; unchecked omits the runtime.
+- `자동재장전 ON/OFF`: checked activates auto reload, independently of charge release.
 - `실탄 무기 자동재장전 OFF`: checked disables ammunition-based reloads.
 - `과열 무기 자동재장전 OFF`: checked disables overheat-based reloads.
 - `F9 진단 활성화`: checked enables the optional read-only diagnostic; otherwise F9 does nothing.
+- `레일건·에포크 90% 충전 자동발사 ON`: explicitly check to enable charge release.
+  Without its option module this feature is off. Arsenal controls import checkbox
+  states, so review the checkbox before deploying.
 
 Leave both OFF exclusions unchecked to retain existing behavior for all personal
 weapons. Existing timing, fire-release, reserve checks and vehicle exclusions
-are unchanged. F8 remains a temporary emergency pause, not a saved setting.
+are unchanged. F8 temporarily pauses both features; it is not a saved setting.
+
+## Experimental 90% Charge Release
+
+For RS-422 Railgun and PLAS-45 Epoch only, read the held weapon's native
+WeaponChargeComponent elapsed charge and the game's configured explosion limit.
+Use the instance override when present, otherwise the game's authored type
+registry. This does not use HUD+ weapon lists, ordinary heat values, OCR or a
+fixed hold timer. No additional mod is required beyond the shared loader.
+
+The threshold is 90% of the entire gauge from zero to the explosion limit,
+not 90% of only the red section. Two coherent reads are required. Once at or
+above the threshold and still charging with usable ammunition, send exactly one
+Windows `MOUSEEVENTF_LEFTUP`. No mouse press, repeated firing or aiming is sent.
+Release the physical button and click again to start the next shot. Railgun
+safe mode, which caps below this threshold, remains manual.
+
+Enable this independently of automatic reload through Arsenal, then Purge /
+Deploy with the game closed and restart. Fire must be bound to left mouse;
+legacy non-left-mouse fire bindings disable this feature. Chat, menus, missing
+player control, stratagem command/radial input, active/manual reload, weapon
+draw waits, unreadable charge data and unsupported game binaries block release.
+The existing post-release reload check remains available when auto reload is on.
+Remaining reserve ammunition is not required to fire the last loaded shot.
+
+Reads retain the 50 ms interval, plus frame/input scheduling. This releases on
+the first eligible observed threshold crossing, not at an exact real-time 90%.
+Lag, frame stalls or input rejection can still allow overcharge; this is not an
+explosion-prevention guarantee. Actual Railgun/Epoch gameplay is unverified.
+Logs include `CHARGE_SOURCE` (read status/limit) and `CHARGE_RELEASE` (ratio and
+SendInput result). A successful SendInput result alone does not prove the game
+accepted the release.
+
+Native layout research was cross-checked against the pinned game code and
+[FileDiver's WeaponChargeComponent definition](https://github.com/xypwn/filediver/blob/master/datalibrary/weapon_charge_component.go).
+The two resource paths were checked against
+[FileDiver's hash names](https://github.com/xypwn/filediver/blob/master/hashes/hashes.txt).
+No latest HUD+ source, textures or runtime dependency were added.
 
 Stratagem shortcut compatibility: Alt blocks reload checks and digit-key weapon
 switch tracking. HD2 Stratagem Hotkeys also announces command input and the

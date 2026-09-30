@@ -2,12 +2,12 @@ param(
     [Parameter(Mandatory)][string]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.25-test'
+    [string]$Tag = 'auto-reload-0.3.26-test'
 )
 $ErrorActionPreference = 'Stop'
 $AssetPath = (Resolve-Path -LiteralPath $AssetPath).Path
 $assetName = [IO.Path]::GetFileName($AssetPath)
-if ($assetName -ne 'HD2-AutoReload-0.3.25-test.zip') { throw 'Unexpected addon package name.' }
+if ($assetName -ne 'HD2-AutoReload-0.3.26-test.zip') { throw 'Unexpected addon package name.' }
 if ($Commit -notmatch '^[0-9a-f]{40}$') { throw 'A full source commit hash is required.' }
 if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Invalid repository name.' }
 $credentialLines = "protocol=https`nhost=github.com`n`n" | git -c "safe.directory=$PSScriptRoot" credential fill
@@ -22,17 +22,18 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload 0.3.25-test
+## HD2 Auto Reload 0.3.26-test
 
-아스날 전용 자동재장전 옵션을 추가했습니다.
+레일건과 에포크의 90% 충전 자동발사 테스트 기능을 추가했습니다.
 
-- 아스날에서 자동재장전을 켜고 끌 수 있습니다.
-- 실탄 무기와 과열 무기의 자동재장전을 각각 제외할 수 있습니다. 두 OFF 항목을 체크하지 않으면 기존 동작을 유지합니다.
-- F9 읽기 전용 진단은 아스날에서 활성화했을 때에만 작동합니다.
-- 인게임 설정 메뉴는 추가하지 않았습니다. Mod Options Menu와 Mod Bindings Menu는 필요하지 않습니다.
-- 기존 INI의 사용자 지정 키는 호환을 위해 읽지만 기능 ON/OFF는 아스날 설정만 적용합니다.
-- 원형 스트라타젬 메뉴 및 커맨드 입력 중에는 장전 검사를 보류하는 기존 호환 처리를 유지했습니다.
-- 발사 버튼을 놓은 뒤 1초 동안 50ms 간격으로 확인하는 기존 장전 동작은 유지합니다.
+- 아스날의 `레일건·에포크 90% 충전 자동발사 ON`을 체크하여 활성화합니다. 옵션 모듈이 없으면 OFF이며, 가져오기 직후 체크 상태를 확인하세요.
+- 게임의 손에 든 무기객체에서 충전 경과값과 폭발 한계값을 직접 읽습니다. HUD+의 무기목록이나 일반 발열량에 의존하지 않습니다.
+- 전체 게이지의 0~폭발 한계 구간에서 90% 이상이 확인되면 좌클릭 해제 신호를 한 번 보내 발사하도록 합니다. 빨간 구간만의 90%가 아닙니다.
+- 발사키가 좌클릭이어야 합니다. 자동으로 좌클릭을 다시 누르지 않으며 다음 사격은 버튼을 놓고 다시 눌러 시작하세요. 조준은 수동입니다.
+- 레일건 안전 모드처럼 90%까지 충전되지 않는 경우에는 기존 수동 사격을 유지합니다.
+- 채팅·메뉴·스트라타젬 입력 중, 장전 중, 무기 전환 대기 중, 창 포커스 이탈 또는 판독 실패 시에는 발사 해제 신호를 보내지 않습니다.
+- 자동재장전과 독립적으로 켤 수 있습니다. 기존 자동재장전 및 발사 버튼 해제 후 1초 확인 동작을 유지합니다.
+- F8은 두 기능을 함께 일시정지합니다. 인게임 설정 메뉴나 추가 설정 메뉴 모드는 필요하지 않습니다.
 - 탱크 주포 자동장전은 기존과 같이 비활성입니다.
 
 ### 설치
@@ -40,13 +41,13 @@ $notes = @'
 게임을 종료하고 Arsenal에 ZIP을 가져온 뒤 체크박스를 확인하여 Bingus Shared Loader와 함께 Purge / Deploy 하세요. 옵션을 바꾼 후에도 재배포와 게임 재시작이 필요합니다. 기존 헬퍼 자동장전 및 이전 Auto Reload 보조 스크립트는 꺼서 중복 입력을 막으세요.
 로그: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`
 
-옵션과 기존 동작은 LuaJIT 모의 검사로 검증했습니다. 실제 게임의 동작 확인은 별도로 필요합니다. F8은 저장되지 않는 긴급 일시정지로 유지했습니다. 실행 중인 게임에는 자동 설치하지 않았습니다.
+669개 LuaJIT 모의 검사를 통과했습니다. 실제 레일건·에포크 게임 검증은 아직 하지 않았습니다. 50ms 판독과 프레임·입력 지연으로 실제 해제 시점은 90%를 넘을 수 있으며, 심한 지연이나 게임의 입력 거부 시 폭발 방지를 보장하지 않습니다. 로그의 `CHARGE_SOURCE`와 `CHARGE_RELEASE`로 판독 여부와 입력 결과를 확인할 수 있습니다. 설치된 모드 파일은 자동으로 변경하지 않았습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload 0.3.25-test (Arsenal options)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload 0.3.26-test (90% charge release)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }
