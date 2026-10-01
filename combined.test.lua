@@ -183,7 +183,25 @@ for _, event in ipairs(f.events) do
     equal(event.vk ~= 1, true, "combined selection never injects a fire/throw click")
 end
 equal(directions, 4, "combined click enters one command")
-equal(list_events, 4, "combined click closes and reopens List once")
+equal(list_events, 5, "combined click releases stale input, closes and reopens List once")
+f.env.shutdown()
+
+f = fixture(nil, 6, nil, nil, "toggle"); f.step(0.06)
+f.latch(true); f.step(0.02); f.keys[2] = true
+f.shot.ammo, f.shot.charge_kind, f.shot.charging = 0, "epoch", true
+f.shot.charge_limit, f.shot.charge_elapsed, f.shot.charge_max = 2.7, 2.7, 2.8
+f.step(0.2); f.step(0.2)
+equal(#f.events, 0, "held right cancellation blocks reload and charge automation")
+equal(f.env.HD2StratagemHotkeys.blocking_inputs, true, "right cancel retains the combined input gate")
+f.shot.ammo, f.shot.charging = 1, false
+f.keys[2] = false; f.step(0.02); finish(f)
+equal(#f.events, 3, "right cancel releases stale input and closes List without reopening")
+for _, event in ipairs(f.events) do
+    equal(event.route, "list", "right cancel sends no directions or weapon input")
+    equal(event.vk, 6, "right cancel sends only the configured List binding")
+end
+equal(f.env.TEST_MENU.menu_active(), false, "right cancel closes the actual native toggle in the combined mod")
+equal(f.env.HD2StratagemHotkeys.blocking_inputs, false, "right cancel releases the combined gate after native closure")
 f.env.shutdown()
 
 for _, kind in ipairs({"railgun", "epoch"}) do

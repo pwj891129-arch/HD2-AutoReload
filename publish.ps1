@@ -2,10 +2,10 @@ param(
     [Parameter(Mandatory)][string[]]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.38-test'
+    [string]$Tag = 'auto-reload-0.3.39-test'
 )
 $ErrorActionPreference = 'Stop'
-$expectedNames = @('HD2-AutoReload-0.3.38-test-en.zip', 'HD2-AutoReload-0.3.38-test-ko.zip')
+$expectedNames = @('HD2-AutoReload-0.3.39-test-en.zip', 'HD2-AutoReload-0.3.39-test-ko.zip')
 $assets = @($AssetPath | ForEach-Object {
     $resolved = (Resolve-Path -LiteralPath $_).Path
     [ordered]@{
@@ -32,17 +32,17 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.38-test
+## HD2 Auto Reload + Stratagems 0.3.39-test
 
-개별 옵션을 직접 체크하는 방식으로 바꾸고 토글 휠의 좌클릭 선택을 추가했습니다.
+토글 휠의 좌클릭 선택이 목록 키를 한 번 더 눌러야 진행되던 문제를 수정하고 우클릭 취소를 추가했습니다.
 
-- 공용·임무 개별 표시와 자동재장전·충전 자동발사·원형 메뉴·숫자 핫키 등 39개 ON/OFF 옵션의 하위 메뉴를 없앴습니다. 체크하면 ON, 해제하면 OFF입니다.
-- 예전에는 상위 옵션을 체크해도 하위 기본값 OFF가 적용되어 개인 스트라타젬 4개만 보일 수 있었습니다. 이제 개별 체크값이 바로 표시 여부가 됩니다. 임무에 없는 항목을 새로 만들어 표시하지는 않습니다.
-- 체크 해제 시 설정 파일이 없더라도 자동재장전·자동발사·원형 메뉴·핫키가 기본 ON으로 돌아가지 않도록 수정했습니다.
-- 토글 방식에서는 항목을 가리킨 뒤 좌클릭으로 선택할 수 있습니다. 기존 목록 키 재입력도 유지합니다. 좌클릭을 놓은 뒤 커맨드를 시작하고 중앙 클릭은 취소합니다. 좌클릭/투척 입력은 자동 전송하지 않습니다.
-- 선택 중 자동재장전과 충전 자동발사를 차단하며, 커맨드 전송 전 현재 캐릭터·장착 목록·쿨다운·키 설정을 다시 확인합니다.
-- 메뉴 크기와 전체 표시 모드는 다중 선택을 유지합니다. 커맨드 입력 간격은 15ms(기본)/30ms로 직접 표시합니다. 옵션 위치와 게임 아이콘은 유지합니다.
-- 영어판 `HD2-AutoReload-0.3.38-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.38-test-ko.zip` 중 하나만 설치하세요.
+- 목록 키의 해제 입력이 커서 캡처 중 누락되어도 먼저 해제 상태를 맞춘 뒤 닫기 입력을 한 번 전송합니다. 실제 게임 목록이 닫힌 것을 확인하고 선택 커맨드를 시작합니다.
+- 게임의 목록 갱신이 늦어지는 상황과 키보드·마우스 엄지버튼의 토글 입력을 처리하도록 닫기/열기 확인 과정을 보완했습니다.
+- 토글 휠이 열린 상태에서 우클릭하면 선택을 취소하고, 마우스 버튼을 놓으면 게임의 스트라타젬 목록 토글도 닫습니다. 이미 좌클릭으로 선택한 항목이 있어도 우클릭 취소가 우선합니다.
+- 중앙 좌클릭 취소도 휠만 숨기지 않고 실제 게임 목록을 닫습니다. 취소 시 목록을 다시 열거나 커맨드를 전송하지 않습니다.
+- 좌클릭 선택은 클릭을 놓은 뒤 진행합니다. 마우스 버튼을 누르고 있는 동안 자동재장전과 충전 자동발사를 차단하며, 발사·조준·투척 클릭은 자동 전송하지 않습니다.
+- Hold 방식, 직접 체크하는 Arsenal 옵션, 아이콘, 표시 순서와 방향 커맨드 입력 간격은 유지합니다.
+- 영어판 `HD2-AutoReload-0.3.39-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.39-test-ko.zip` 중 하나만 설치하세요.
 
 ### 설치
 
@@ -54,21 +54,21 @@ Arsenal은 새 옵션을 처음 가져올 때 체크합니다. 이제 체크된 
 
 ### English
 
-Replaces 39 two-level ON/OFF options with direct checkboxes: checked means ON, unchecked means OFF. This includes individual shared/mission visibility and reload/charge/radial/hotkey features. Missing markers no longer silently re-enable unchecked features. Existing positions, native previews and ON resource paths are retained.
+Fixes Toggle click selection waiting for an extra physical List press. Synchronizes a possibly lost List release before sending a single close pulse, observes stable native closure and permits delayed menu activation when reopening for the command. Supports keyboard and mouse-thumb bindings.
 
-Toggle wheels accept left-click selection in addition to a second List press. The sector is captured on click-down, but command input waits for physical release. Center clicks cancel. No fire/throw click is synthesized; aim and throw manually. Held clicks block weapon automation and selection is revalidated before input. Hold behavior is unchanged. Size and bulk modes retain their choices; the interval selector now explicitly shows 15 ms (default) / 30 ms.
+Right-click cancels an open Toggle wheel, overriding a pending left-click selection. Right-click and center-click cancellation close the actual game's List toggle once the mouse buttons are released, without reopening or sending directions. No fire/aim/throw click is synthesized. Held clicks block weapon automation; focus, binding and ownership checks remain. Hold behavior, direct checkboxes, icons and direction input intervals are unchanged.
 
 Install **one** ZIP: `-en.zip` or `-ko.zip`. Arsenal initially checks new options, so review checkbox states and uncheck unwanted calls. Use Individual Settings in the bulk controls to honor individual checks. Replace the previous version, then Purge / Deploy and restart with the game closed and Bingus Shared Loader v18 / API 1. At least one setting must be selected.
 
 ### 검증
 
-30,265개 LuaJIT 모의 검사와 언어판별 5,067가지 배포 시나리오를 통과했습니다. 실제 ON 마커 및 체크 해제 시 미배포 상태, 좌클릭 유지/해제·취소·캐릭터/장착 목록 변경·키보드/엄지버튼·자동재장전/충전과의 입력 차단을 검사했습니다. 44개 미리보기와 기존 게임 아이콘 대응도 확인했습니다. 실제 Arsenal UI 및 게임 테스트는 추가 확인이 필요하며 설치된 모드·게임 상태는 변경하지 않았습니다.
+30,564개 LuaJIT 모의 검사와 언어판별 5,067가지 배포 시나리오를 통과했습니다. 목록 해제 입력 누락, 지연된 게임 목록 갱신, 입력 실패, 키보드/엄지버튼, 좌클릭 선택, 중앙/우클릭 취소, 양쪽 클릭의 해제 순서, 실제 목록 닫힘 확인 및 자동재장전/충전과의 입력 차단을 검사했습니다. 44개 미리보기와 기존 게임 아이콘 대응도 확인했습니다. 실제 Arsenal UI 및 게임 테스트는 추가 확인이 필요하며 설치된 모드·게임 상태는 변경하지 않았습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.38-test (Direct toggles and click selection)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.39-test (Toggle click fix and right-click cancel)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

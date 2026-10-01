@@ -21,7 +21,7 @@
       },
       "radial": {
         "Name": "Stratagem Radial Menu",
-        "Description": "Checked: ON. Unchecked: OFF. Follows the game's Stratagem List menu. Hold: move toward a sector and release. Toggle: select with left click or press the List button again. A selection click must be released before command input starts. Center cancels. Supports keyboard and mouse thumb bindings. Commands only; aim and throw manually."
+        "Description": "Checked: ON. Unchecked: OFF. Follows the game's Stratagem List menu. Hold: move toward a sector and release. Toggle: select with left click or press the List button again. Right click or center click cancels and closes the game's List toggle after the mouse buttons are released. Selection also waits for click release before command input. Supports keyboard and mouse thumb bindings. Commands only; aim and throw manually."
       },
       "hotkeys": {
         "Name": "Stratagem Number Hotkeys",
@@ -75,7 +75,7 @@
       },
       "radial": {
         "Name": "스트라타젬 원형 오버레이",
-        "Description": "체크하면 ON, 해제하면 OFF입니다. 게임의 스트라타젬 목록과 함께 열고 닫습니다. Hold는 항목을 가리킨 뒤 버튼을 놓습니다. 토글은 좌클릭 또는 목록 버튼 재입력으로 선택하며, 좌클릭을 놓은 뒤 커맨드를 시작합니다. 중앙은 취소입니다. 키보드와 마우스 엄지버튼을 지원하며 조준·투척은 수동입니다."
+        "Description": "체크하면 ON, 해제하면 OFF입니다. 게임의 스트라타젬 목록과 함께 열고 닫습니다. Hold는 항목을 가리킨 뒤 버튼을 놓습니다. 토글은 좌클릭 또는 목록 버튼 재입력으로 선택합니다. 우클릭이나 중앙 클릭은 취소이며, 마우스 버튼을 놓으면 게임의 목록 토글도 닫습니다. 선택 커맨드도 클릭을 놓은 뒤 시작합니다. 키보드와 마우스 엄지버튼을 지원하며 조준·투척은 수동입니다."
       },
       "hotkeys": {
         "Name": "스트라타젬 숫자 핫키",

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const optionModel = require('./arsenal-options.cjs');
 
 const root = __dirname;
-const version = '0.3.38-test';
+const version = '0.3.39-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;

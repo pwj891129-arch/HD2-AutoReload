@@ -1,4 +1,29 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.38-test
+# HD2 Helper Auto Reload + Stratagems 0.3.39-test
+
+## Toggle Click Selection And Cancellation
+
+0.3.39-test repairs Toggle List synchronization after cursor capture. Runtime
+logs showed click selection waiting for native closure until timeout, with a
+second physical List press needed to continue. A mock reproduces that symptom
+when the original List key-up is lost: another DOWN alone has no fresh edge.
+Selection now releases stale List input, waits 60 ms, and sends one 60 ms
+close pulse only if the actual game menu is still open. Commands wait for
+observed, stable native closure before reopening the menu. Reopening also
+allows delayed native activation. Direction input intervals remain unchanged.
+
+While a Toggle wheel is open, right-click cancels even over a ready sector.
+It overrides an outstanding left-click selection. Center left-click also
+cancels. Both cancel the wheel and the actual game List toggle after the
+mouse buttons are released; neither reopens the menu or sends a command.
+No fire/aim clicks are synthesized. Holding either click blocks reload/charge
+automation. Hold mode, direct Arsenal checkboxes, icons and option positions
+are unchanged. Focus/chat/ownership/binding checks and bounded timeouts remain.
+
+Offline tests cover swallowed List release, delayed native updates, failed
+input, keyboard/thumb bindings, mixed-click priority and native closure.
+Live Arsenal/game verification still requires replacing the package and
+Purge / Deploy with the game closed. Build/publication does not change
+installed mods or game inputs.
 
 ## Direct Checkboxes And Toggle Click Selection
 
@@ -22,7 +47,8 @@ than disguising the interval as another ON/OFF menu.
 With a Toggle List binding, left-click a wheel sector to confirm it, or press
 the List key again as before. The sector is captured at mouse-down; command
 input waits until physical left-mouse release before closing/reopening the
-native menu. Center clicks cancel. No left-mouse down/up is synthesized, and
+native menu. Center clicks cancel; 0.3.39-test also adds right-click cancellation.
+No left-mouse down/up is synthesized, and
 aim/throw remain manual. Hold-mode behavior is unchanged. Readiness, loadout,
 character ownership, bindings and direction input are revalidated; focus/chat
 loss, a changed character, a second List press or a 10-second unreleased click
@@ -177,8 +203,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.38-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.38-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.39-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.39-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
@@ -268,7 +294,9 @@ not a saved setting.
 Hold the game's configured Stratagem List button, move toward an icon sector,
 then release to enter the command. Release at the center to cancel. With Toggle,
 press to open, choose a sector and left-click (then release) or press List again
-to close and enter its command; choosing the center cancels. Keyboard and front/back mouse thumb Hold and
+to close and enter its command. Center left-click or right-click cancels and
+closes the actual game List toggle after both mouse buttons are released.
+Keyboard and front/back mouse thumb Hold and
 Press/Toggle bindings are supported; direction bindings are read from the game.
 Wheel, long-press and controller mappings are not supported. Aim and throw
 manually. While List is open, number-row 1-4 matches the personal
@@ -428,8 +456,8 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.38-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.38-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.38-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.38-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.39-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.39-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.39-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.39-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

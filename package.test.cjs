@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.38-test';
+const version = '0.3.39-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -123,7 +123,7 @@ function checkPackage(language) {
   assert(fs.readFileSync(path.join(stage, 'GAME-ARTWORK.txt')).equals(
     fs.readFileSync(path.join(__dirname, 'GAME-ARTWORK.txt'))), 'Native artwork notice ships');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(stage, 'GAME-ICON-SOURCES.json'), 'utf8')), nativeIcons);
-  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.37-test-${language}`);
+  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.38-test-${language}`);
   if (fs.existsSync(path.join(previousStage, 'manifest.json'))) {
     const previous = JSON.parse(fs.readFileSync(path.join(previousStage, 'manifest.json'), 'utf8'));
     assert.equal(previous.Options.length, 44);
@@ -134,7 +134,7 @@ function checkPackage(language) {
       }
       if (definitions[i].toggle) {
         assert.deepEqual(manifest.Options[i].Include,
-          previous.Options[i].SubOptions.find(variant => variant.Include.some(folder => folder.endsWith('_on'))).Include,
+          previous.Options[i].Include,
           'Direct checkbox preserves the previous ON resource path');
       } else {
         assert.deepEqual(manifest.Options[i].SubOptions.map(variant => variant.Include),
@@ -169,6 +169,8 @@ function checkPackage(language) {
       assert(source.includes('sample.charge_kind == "epoch" and 1 or 0.9'));
       assert(source.includes('binding.start_mode == "toggle"'));
       assert(source.includes('INPUT toggle-close-replayed vk='));
+      assert(source.includes('INPUT toggle-close-release-synced vk='));
+      assert(source.includes('INPUT toggle-close-observed vk='));
       assert(source.includes(`local VERSION = "${version}"`));
       assert(source.includes('start_feature("stratagem", function()'));
       assert(source.includes('start_feature("autoreload", function()'));
@@ -177,7 +179,9 @@ function checkPackage(language) {
       assert(source.includes('radial = option("radial", false), hotkeys = option("hotkeys", false)'));
       assert(source.includes('local fire_pressed = fire and not state.fire'));
       assert(source.includes('OVERLAY click center'));
-      assert(source.includes('not fire then\n            -- Keep capture'));
+      assert(source.includes('OVERLAY right-click cancel'));
+      assert(source.includes('local right_pressed = right and not state.right'));
+      assert(source.includes('not fire and not right then\n            -- Keep capture'));
       assert(source.includes('HD2StratagemHotkeys'));
       assert(source.includes('state.mouse_release or native_active'));
       assert(source.includes('INPUT mouse-release-replayed'));

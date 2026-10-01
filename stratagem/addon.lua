@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.38-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.39-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -73,9 +73,9 @@ local policy = Policy.new(channel.command_key, function(binding) return reader:c
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
 if not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.38-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.39-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.38-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.39-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("CONFIG radial=" .. tostring(config.radial) .. " hotkeys=" .. tostring(config.hotkeys))
@@ -170,8 +170,10 @@ local function tick()
         return
     end
     local escape, enter, fire = channel.down(27), channel.down(13), channel.down(1)
+    local right = channel.down(2)
     local fire_pressed = fire and not state.fire
-    state.fire = fire
+    local right_pressed = right and not state.right
+    state.fire, state.right = fire, right
     if focused then
         if enter and not state.enter then state.chat = not state.chat end
         if escape and not state.escape then state.chat = false end
@@ -221,8 +223,11 @@ local function tick()
     local click_pressed = fire_pressed and toggle and radial_was_open and radial.opened and native_active and
         not modifier_pressed and not state.pending and not policy.job and not state.toggle_close and
         same_binding(binding, state.radial_binding) and game.token == state.radial_menu_token
+    local cancel_pressed = right_pressed and toggle and radial_was_open and radial.opened and native_active and
+        not state.pending and not policy.job and not state.toggle_close and
+        same_binding(binding, state.radial_binding) and game.token == state.radial_menu_token
     local allowed = focused and binding and not state.chat and not escape and not enter and
-        (not fire or click_pressed or state.click_selection ~= nil) and reader:idle()
+        (not fire or click_pressed or cancel_pressed or state.click_selection ~= nil) and reader:idle()
     if not allowed then
         local was_open, was_pending = radial.opened,
             state.pending ~= nil or state.open_pending ~= nil or state.toggle_close ~= nil or state.click_selection ~= nil
@@ -235,7 +240,11 @@ local function tick()
         state.blocking_inputs = (focused and (modifier or native_active)) or state.mouse_release ~= nil
         return
     end
-    if click_pressed and not state.click_selection then
+    if cancel_pressed then
+        state.click_selection = {binding = binding, token = radial.inventory.token,
+            menu_token = state.radial_menu_token, expires = now + 10}
+        log("OVERLAY right-click cancel")
+    elseif click_pressed and not state.click_selection then
         if not radial:draw(radial.inventory) then
             stop(); note("OVERLAY cancelled surface-unavailable")
             state.blocking_inputs = modifier or native_active or state.mouse_release ~= nil
@@ -259,9 +268,9 @@ local function tick()
             stop(); note("OVERLAY cancelled click-release-timeout-or-list-key")
             state.blocking_inputs = modifier or native_active or state.mouse_release ~= nil
             return
-        elseif not fire then
-            -- Keep capture and the native menu open until the selection click is released.
-            -- Only List/direction keys are replayed; this click must never throw the call-in.
+        elseif not fire and not right then
+            -- Keep capture until both mouse buttons are released. Right-click overrides selection.
+            -- Only List/direction keys are replayed; clicks must never throw or trigger aim.
             close_toggle_selection(waiting.row, waiting.binding, waiting.token, waiting.menu_token, now)
         else
             state.blocking_inputs = true
@@ -331,15 +340,25 @@ local function tick()
             stop(); note("OVERLAY cancelled toggle-close-timeout")
         elseif not modifier and now >= waiting.due and not state.owned_start then
             if native_active then
-                if not waiting.replayed then
+                waiting.closed_at = nil
+                if not waiting.released then
+                    -- Capture may swallow the original List key-up. DOWN alone then has no fresh edge.
+                    if channel.key(binding.start_vk, false) then
+                        waiting.released, waiting.due = true, now + 0.06
+                        log("INPUT toggle-close-release-synced vk=" .. binding.start_vk)
+                    else stop(); note("SKIP toggle-close-release-failed") end
+                elseif not waiting.replayed then
                     waiting.replayed = true
                     if channel.key(binding.start_vk, true) then
-                        state.owned_start, state.release_due = binding.start_vk, now + 0.03
+                        state.owned_start, state.release_due = binding.start_vk, now + 0.06
                         log("INPUT toggle-close-replayed vk=" .. binding.start_vk)
                     else stop(); note("SKIP toggle-close-key-failed") end
                 end
-            else
+            elseif not waiting.closed_at then
+                waiting.closed_at = now + 0.03
+            elseif now >= waiting.closed_at then
                 state.toggle_close = nil
+                log("INPUT toggle-close-observed vk=" .. binding.start_vk)
                 local row = waiting.row
                 if row and row.ready then
                     local request, why = reader:request_kind(row.kind, config.shared)
@@ -415,14 +434,15 @@ local function tick()
                         state.owned_start = binding.start_vk
                         if toggle then
                             state.toggle_suppressed = true
-                            state.release_due = now + 0.03
+                            state.release_due = now + 0.06
                         end
                         pending.stage, pending.due, pending.expires = "menu", now + 0.05, now + 0.5
                         log("INPUT list-key-acquired vk=" .. binding.start_vk)
                     else stop(); note("SKIP stratagem-start-key-failed") end
                 else stop(); note("SKIP " .. (why or "loadout-binding-or-direction-changed")) end
             end
-        elseif not modifier and not state.owned_start and not (toggle and native_active) then
+        elseif not modifier and not state.owned_start and not (toggle and native_active) and
+            not (toggle and pending.stage == "menu") then
             stop(); note("SKIP stratagem-menu-not-active")
         elseif native_active and reader:menu_active(binding) then
             if pending.stage == "menu" and not pending.menu_ready then
