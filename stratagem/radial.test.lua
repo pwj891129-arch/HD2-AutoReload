@@ -64,7 +64,12 @@ return function(equal, read_file, source)
     equal(resolutions, 2, "opening and drawing both query back buffer without a GUI argument")
     local labels, bitmaps = 0, 0
     for _, shape in pairs(shapes) do
-        if shape[1] == "text" and shape[3] == "ITEM" then labels = labels + 1 end
+        if shape[1] == "text" and shape[3] == "ITEM" and shape[8][2] > 0 then
+            labels = labels + 1
+            equal(shape[8][1], 255, "ready and cooldown names are fully opaque")
+            equal(shape[8][2] >= 219, true, "cooldown names stay bright instead of inheriting dim icon ink")
+            equal(shape[7].z, 13, "names are above their dark shadows")
+        end
         if shape[1] == "bitmap" then bitmaps = bitmaps + 1 end
     end
     equal(labels, 4, "text fallback displays each equipped name")
@@ -165,7 +170,7 @@ return function(equal, read_file, source)
                 local drawn = next_id
                 equal(sized:draw(items), true)
                 equal(sized.selected, 1, "scaled sector hit testing")
-                local radius = count > 8 and 210 or 165
+                local radius = count > 8 and 235 or 190
                 local effective = math.min(scale, height / (2 * (radius + 104)), width / (2 * (radius + 76)))
                 local geometry = width .. ":" .. height .. ":" .. count .. ":" .. effective
                 if geometry ~= previous_geometry then equal(next_id > drawn, true, "size changes redraw retained geometry") end

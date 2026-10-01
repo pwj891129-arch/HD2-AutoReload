@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.44-test';
+const version = '0.3.45-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -185,7 +185,11 @@ function checkPackage(language) {
       assert(source.includes('content/fonts/core_sans') && source.includes('e007454455e2d2bb'));
       assert(source.includes('font = resource, material = FONT_MATERIAL'), 'Native text uses the bound GUI-local resource, not the instance pointer');
       assert(source.includes('renderer=resource-text') && source.includes('renderer=mask-bitmap'), 'Native and raster routes are distinguishable');
-      assert(source.includes('72 * unit, 14 * unit, 12 * unit, 4 * unit'));
+      assert(source.includes('84 * unit, 24 * unit, 16 * unit, 4 * unit'));
+      assert(source.includes('draw(sr.Color(255, 0, 0, 0), shadow, -shadow, 12)'));
+      assert(source.includes('draw(colour, 0, 0, 13)'));
+      assert(source.includes('sr.Color(255, 219, 224, 230)'), 'Cooldown names stay bright and opaque');
+      assert(source.includes('local reserved = row.slot and 20 * icon_size / 84 or 0'));
       assert(source.includes('sample.reload_allow_move, sample.reload_source = allow == 1, source'));
       assert(source.includes('action == "release-fire"'));
       assert(source.includes('policy:released_fire(now)'));

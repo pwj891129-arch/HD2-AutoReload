@@ -1,10 +1,35 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.44-test
+# HD2 Helper Auto Reload + Stratagems 0.3.45-test
+
+## Readable Wheel Labels
+
+0.3.44's user screenshot now shows Korean names and its runtime log records
+native resource-text rendering without bitmap fallback. The names were too small
+and cooldown names were unnecessarily dim. 0.3.45 raises the nominal name height
+from 14px to 24px, status height from 12px to 16px and center-label height from
+16px to 20px. Actual sizes still adapt to sector count, resolution, menu scale
+and long names. Names remain fully opaque and bright even during cooldown;
+icons retain their existing ready/unavailable tint.
+
+Native Korean, English and fallback glyphs receive an opaque dark offset shadow.
+The foreground and shadow are fitted together inside the reserved text bounds.
+Native/bitmap failures remove both partial layers before fallback. Slot numbers
+move beside the status rather than reducing the name's available width. Each
+sector reserves two name lines, an icon up to 84px and separate status space.
+The base radius grows by 25px to accommodate the larger content; viewport clamps
+and menu scaling are retained. The normal nine-sector layout reserves at least
+18px nominal name height without shrinking its icons below 63px at 100% scale.
+
+Geometry checks cover 1-16 rows, five resolutions and all menu scales, including
+native Korean bearings, actual fallback glyphs and shadows. The offline preview
+is an illustration of the actual Lua layout through the bitmap fallback, not a
+live game screenshot. The new size/contrast needs gameplay confirmation. Input,
+reload, visibility, option defaults and installed mods are not changed.
 
 ## Korean Font Resource Routing
 
-The available gameplay log is from 0.3.42: Korean names and the matching native
-font/atlas were available, but the screenshot showed no Korean text. 0.3.43's
-raster route has not yet been tested in game. Neither outcome is assumed here.
+In 0.3.42, Korean names and the matching native font/atlas were available, but
+the screenshot showed no Korean text. 0.3.43's raster route was not tested live
+before 0.3.44 restored visible native Korean labels in the user's test.
 
 Review found that 0.3.42 bound an owned GUI's font material, then passed the
 Material instance pointer to Gui.text. Icons and English text instead draw by
@@ -29,8 +54,8 @@ are guarded. English rendering, icons, inputs, settings and reload remain unchan
 
 Regression tests distinguish a resource handle from a Material instance, cover
 both native pairs, reuse/cleanup, missing glyphs/resources, failures and recovery,
-and the actual raster fallback. A 0.3.44 Korean ZIP gameplay check is required to
-confirm whether this change resolves the native-font problem. No installed mod,
+and the actual raster fallback. The user later confirmed visible Korean labels
+and 0.3.44 logs used native resource-text without fallback. No installed mod,
 game state or input was changed during development.
 
 ## Korean Raster Glyphs And Larger Icons
@@ -45,7 +70,7 @@ shader, and does not depend on Korean game UI resources. English text keeps its 
 debug-font renderer. Missing glyphs/resources or failed draws fall back to English;
 partial glyph draws are cleaned up. Only owned GUI material instances are changed.
 
-Icons now grow to 72px at 100% scale where space permits, rather than being capped
+In 0.3.43 icons grew to 72px at 100% scale where space permits, rather than being capped
 at 44px. A cached geometric search fits taller content blocks inside each actual
 polygonal sector, allowing larger icons without enlarging the wheel or overlapping
 names, status or slot numbers. Icons adapt for dense wheels/small screens. Long labels are
@@ -335,8 +360,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.44-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.44-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.45-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.45-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -593,8 +618,8 @@ node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
 node tools/reload-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.44-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.44-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.44-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.44-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.45-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.45-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.45-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.45-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

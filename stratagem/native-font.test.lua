@@ -12,7 +12,7 @@ return function(equal)
         if not handles[id] then handles[id] = {resource = id} end
         return handles[id]
     end
-    local sr = {Vector2 = vector, Vector3 = vector, IdString64 = {from_hex = handle},
+    local sr = {Vector2 = vector, Vector3 = vector, Color = function(...) return {...} end, IdString64 = {from_hex = handle},
         Application = {worlds = function() return {2} end, can_get = function(kind, resource)
             if resource == debug then return true end
             if not loaded then return false end
@@ -42,18 +42,20 @@ return function(equal)
             end
             local count = 0; for _ in text:gmatch("[\1-\127\194-\244][\128-\191]*") do count = count + 1 end
             return vector(-size * 0.2, -size * 0.3), vector((count - 0.2) * size, size * 0.7)
-        end, text = function(gui, text, resource, size, material, position)
+        end, text = function(gui, text, resource, size, material, position, colour)
             if resource ~= debug then
                 equal(material, template, "draw resolves the bound GUI-local resource, never a Material pointer")
                 local instance = assert(surfaces[gui])
                 local index = resource.resource == fonts[1] and 1 or 2
                 equal(instance.atlas, handle(atlases[index]), "font and atlas stay paired")
                 if failure == "draw" then return nil end
+                if failure == "foreground" and position.z == 13 then return nil end
+                if failure == "shadow" and position.z == 12 then return nil end
                 if failure == "second-line" and text:find("공중", 1, true) then return nil end
                 if failure == "throw" then error("text failed") end
             else equal(gui, 1); equal(material, debug) end
             next_id = next_id + 1; shapes[next_id] = {gui = gui, position = position}
-            drawn[#drawn + 1] = {text = text, font = resource, size = size, position = position}; return next_id
+            drawn[#drawn + 1] = {text = text, font = resource, size = size, position = position, colour = colour}; return next_id
         end, destroy_text = function(gui, id) equal(shapes[id].gui, gui); shapes[id] = nil end},
     }
     local radial = Radial.new(sr, {}, 1, function(line) traces[#traces + 1] = line end)
@@ -102,4 +104,23 @@ return function(equal)
     failure = nil
     radial:text("증원", 360, 200, 20, {}, 120, "REINFORCEMENT")
     equal(drawn[#drawn].font, handle(fonts[1])); close()
+    radial:text("증원", 360, 200, 24, {255, 255, 255, 245}, 100, "REINFORCEMENT", 24, 1.5)
+    equal(#radial.ids, 2, "native name owns a shadow and foreground text primitive")
+    local shadow, foreground = drawn[#drawn - 1], drawn[#drawn]
+    equal(shadow.position.z, 12); equal(foreground.position.z, 13)
+    equal(table.concat(shadow.colour, ","), "255,0,0,0", "opaque dark shadow")
+    equal(shadow.position.x - foreground.position.x, 1.5)
+    equal(foreground.position.y - shadow.position.y, 1.5)
+    equal(shadow.font, handle(fonts[1])); equal(foreground.font, handle(fonts[1]))
+    equal(math.abs(foreground.size - 22.5) < 0.001, true, "shadow padding fits inside the requested text height")
+    close()
+    for _, reason in ipairs({"foreground", "shadow"}) do
+        failure = reason
+        radial:text("증원", 360, 200, 24, {255, 255, 255, 245}, 100, "REINFORCEMENT", 24, 1.5)
+        equal(radial.native_font_failed, true)
+        equal(#radial.ids, 2, "failed native shadow pair is removed before a complete English pair")
+        for _, shape in pairs(shapes) do equal(shape.gui, 1, "no orphan native shadow survives fallback") end
+        close()
+    end
+    failure = nil
 end

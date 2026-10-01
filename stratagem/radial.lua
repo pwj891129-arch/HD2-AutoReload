@@ -347,11 +347,12 @@ function Radial:measure(style, size)
         width > 100000 or height > 100000 then error("font-extents-invalid") end
     return lo, hi, width, height
 end
-function Radial:text(text, x, y, size, colour, maximum_width, fallback, maximum_height)
+function Radial:text(text, x, y, size, colour, maximum_width, fallback, maximum_height, shadow)
     local sr, style = self.sr, self:text_style(text, fallback)
+    shadow = shadow or 0
     if (not style.bitmap and not sr.Application.can_get("font", style.font)) or
         not sr.Gui.text or not sr.Gui.text_extents then return end
-    local limit = math.min(self.width - 40, maximum_width or self.width)
+    local limit = math.min(self.width - 40, maximum_width or self.width) - shadow
     local good, lo, hi, width, height = pcall(self.measure, self, style, size)
     if not good then
         if style.font == "core/performance_hud/debug" then return end
@@ -361,13 +362,13 @@ function Radial:text(text, x, y, size, colour, maximum_width, fallback, maximum_
         end
         if style.native then
             self.native_font_failed = true
-            return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height)
+            return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height, shadow)
         end
         style = self:text_style(fallback or "STRATAGEM")
         good, lo, hi, width, height = pcall(self.measure, self, style, size)
         if not good then return end
     end
-    local ratio = math.min(1, limit / width, (maximum_height or math.huge) / height)
+    local ratio = math.min(1, limit / width, ((maximum_height or math.huge) - shadow) / height)
     if ratio < 1 then
         size = size * ratio
         good, lo, hi, width, height = pcall(self.measure, self, style, size)
@@ -375,46 +376,60 @@ function Radial:text(text, x, y, size, colour, maximum_width, fallback, maximum_
             if style.native then
                 self.native_font_failed = true
                 if self.trace then self.trace("OVERLAY native-font-measure-failed " .. tostring(lo):gsub("[\r\n]", " ")) end
-                return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height)
+                return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height, shadow)
             end
             return
         end
     end
-    local px, py = x - width / 2 - lo.x, y - lo.y
+    local px, py = x - width / 2 - lo.x - shadow / 2, y - lo.y + shadow
+    local function draw(draw_colour, offset_x, offset_y, layer)
+        if not style.bitmap then
+            self:shape_on(style.gui, "text", style.text, style.font, size, style.material,
+                sr.Vector3(px + offset_x, py + offset_y, layer), draw_colour)
+            return
+        end
+        local data, factor, pen = Radial.Glyphs, size / Radial.Glyphs.base, 0
+        for char in style.text:gmatch("[\1-\127\194-\244][\128-\191]*") do
+            local g = data.glyphs[char]
+            if g[3] > 0 and g[4] > 0 then
+                self:shape_on(style.gui, "bitmap_uv", style.material,
+                    sr.Vector2(g[1] / data.width, g[2] / data.height),
+                    sr.Vector2((g[1] + g[3]) / data.width, (g[2] + g[4]) / data.height),
+                    sr.Vector3(px + offset_x + (pen + g[5]) * factor, py + offset_y + g[6] * factor, layer),
+                    sr.Vector2(g[3] * factor, g[4] * factor), draw_colour)
+            end
+            pen = pen + g[7]
+        end
+    end
+    local function draw_pair()
+        if shadow > 0 then draw(sr.Color(255, 0, 0, 0), shadow, -shadow, 12) end
+        draw(colour, 0, 0, 13)
+    end
+    local start = #self.ids
+    local function rollback()
+        for index = #self.ids, start + 1, -1 do
+            local shape = self.ids[index]
+            sr.Gui["destroy_" .. shape[1]](shape[3], shape[2]); self.ids[index] = nil
+        end
+    end
     if style.bitmap then
-        local start = #self.ids
-        local good, why = pcall(function()
-            local data, factor, pen = Radial.Glyphs, size / Radial.Glyphs.base, 0
-            for char in style.text:gmatch("[\1-\127\194-\244][\128-\191]*") do
-                local g = data.glyphs[char]
-                if g[3] > 0 and g[4] > 0 then
-                    self:shape_on(style.gui, "bitmap_uv", style.material,
-                        sr.Vector2(g[1] / data.width, g[2] / data.height),
-                        sr.Vector2((g[1] + g[3]) / data.width, (g[2] + g[4]) / data.height),
-                        sr.Vector3(px + (pen + g[5]) * factor, py + g[6] * factor, 12),
-                        sr.Vector2(g[3] * factor, g[4] * factor), colour)
-                end
-                pen = pen + g[7]
-            end
-        end)
+        local good, why = pcall(draw_pair)
         if not good then
-            for index = #self.ids, start + 1, -1 do
-                sr.Gui.destroy_bitmap(style.gui, self.ids[index][2]); self.ids[index] = nil
-            end
+            rollback()
             self.glyph_failed = true
             if self.trace then self.trace("OVERLAY glyph-draw-failed " .. tostring(why):gsub("[\r\n]", " ")) end
-            self:text(fallback or "STRATAGEM", x, y, size, colour, maximum_width, nil, maximum_height)
+            self:text(fallback or "STRATAGEM", x, y, size, colour, maximum_width, nil, maximum_height, shadow)
         elseif self.fonts.glyphs and not self.fonts.glyphs.draw_report then
             self.fonts.glyphs.draw_report = true
             if self.trace then self.trace(string.format("OVERLAY glyph-drawn count=%d size=%.1f bounds=%.1fx%.1f", #self.ids - start, size, width, height)) end
         end
     elseif style.native then
-        local good, why = pcall(self.shape_on, self, style.gui, "text", style.text, style.font, size,
-            style.material, sr.Vector3(px, py, 12), colour)
+        local good, why = pcall(draw_pair)
         if not good then
+            rollback()
             self.native_font_failed = true
             if self.trace then self.trace("OVERLAY native-font-draw-failed " .. tostring(why):gsub("[\r\n]", " ")) end
-            return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height)
+            return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height, shadow)
         end
         local font = self.fonts[style.native.font]
         if not font.draw_report and self.trace then
@@ -424,14 +439,15 @@ function Radial:text(text, x, y, size, colour, maximum_width, fallback, maximum_
                 px + lo.x, py + lo.y, px + hi.x, py + hi.y, tostring(self.ids[#self.ids][2])))
         end
     else
-        self:shape_on(style.gui, "text", style.text, style.font, size, style.material, sr.Vector3(px, py, 12), colour)
+        draw_pair()
     end
 end
-function Radial:label(text, x, top, size, colour, width, fallback)
+function Radial:label(text, x, top, size, colour, width, fallback, shadow)
+    shadow = shadow or 0
     local style = self:text_style(text, fallback)
     local good, _, _, measured = pcall(self.measure, self, style, size)
-    if not good or measured <= width then
-        self:text(text, x, top - size, size, colour, width, fallback, size)
+    if not good or measured <= width - shadow then
+        self:text(text, x, top - size, size, colour, width, fallback, size, shadow)
         return
     end
     local chars = {}; for char in style.text:gmatch("[\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = char end
@@ -447,29 +463,29 @@ function Radial:label(text, x, top, size, colour, width, fallback)
                 local ok_a, _, _, wa = pcall(self.measure, self, a, size)
                 local ok_b, _, _, wb = pcall(self.measure, self, b, size)
                 if not ok_a or not ok_b then
-                    self:text(text, x, top - size, size, colour, width, fallback, size); return
+                    self:text(text, x, top - size, size, colour, width, fallback, size, shadow); return
                 end
                 local value = math.max(wa, wb)
                 if value < score then split, score = {left, right}, value end
             end
         end
     end
-    if not split then self:text(style.text, x, top - size, size, colour, width, fallback, size); return end
+    if not split then self:text(style.text, x, top - size, size, colour, width, fallback, size, shadow); return end
     local original_size, start = size, #self.ids
-    size = size * math.min(1, width / score)
+    size = size * math.min(1, (width - shadow) / score)
     for index, line in ipairs(split) do
-        self:text(line, x, top - index * size, size, colour, width, fallback, size)
+        self:text(line, x, top - index * size, size, colour, width, fallback, size, shadow)
         if style.native and self.native_font_failed or style.bitmap and self.glyph_failed then
             for item = #self.ids, start + 1, -1 do
                 local shape = self.ids[item]
                 self.sr.Gui["destroy_" .. shape[1]](shape[3], shape[2]); self.ids[item] = nil
             end
-            self:label(text, x, top, original_size, colour, width, fallback); return
+            self:label(text, x, top, original_size, colour, width, fallback, shadow); return
         end
     end
 end
 function Radial.content(count, inner, outer, angle, scale)
-    scale = scale or outer / (count > 8 and 274 or 229)
+    scale = scale or outer / (count > 8 and 299 or 254)
     local half, step = math.pi / count - 0.02, (math.pi / count - 0.02) / 3
     local function fits(x, y, width, height)
         local mx, my = math.max(0, math.abs(x) - width / 2), math.max(0, math.abs(y) - height / 2)
@@ -488,11 +504,11 @@ function Radial.content(count, inner, outer, angle, scale)
     -- Search only when geometry changes; content and selection stay independent.
     for reduction = 0, 95 do
         local unit = scale * (1 - reduction / 100)
-        local width, height = 98 * unit, 120 * unit
+        local width, height = 110 * unit, 156 * unit
         for sample = 1, 63 do
             local radius = inner + (outer - inner) * sample / 64
             local x, y = radius * math.cos(angle), radius * math.sin(angle)
-            if fits(x, y, width, height) then return x, y, width, height, 72 * unit, 14 * unit, 12 * unit, 4 * unit end
+            if fits(x, y, width, height) then return x, y, width, height, 84 * unit, 24 * unit, 16 * unit, 4 * unit end
         end
     end
     error("overlay-layout-unavailable")
@@ -505,7 +521,7 @@ function Radial:draw(inventory)
         not sr.Application.can_get("font", "core/performance_hud/debug") or
         not sr.Application.can_get("material", "core/performance_hud/debug") then return false end
     self.width, self.height = w, h
-    local base_radius = #rows > 8 and 210 or 165
+    local base_radius = #rows > 8 and 235 or 190
     scale = math.min(scale, h / (2 * (base_radius + 104)), w / (2 * (base_radius + 76)))
     local nx, ny = self.channel.cursor()
     if not nx then return false end
@@ -553,6 +569,8 @@ function Radial:draw(inventory)
         local dx, dy, width, height, icon_size, name_size, status_size, gap = unpack(block)
         local x, y = cx + dx, cy + dy
         local ink = row.ready and sr.Color(255, 255, 255, 240) or sr.Color(190, 125, 128, 130)
+        local name_ink = row.ready and sr.Color(255, 255, 255, 245) or sr.Color(255, 219, 224, 230)
+        local status_ink = row.ready and sr.Color(255, 229, 236, 220) or sr.Color(255, 200, 210, 220)
         local top = y + height / 2
         local shown, why = self:icon(index, pictures[index], x, top - icon_size / 2, icon_size, ink)
         if shown then drawn_icons = drawn_icons + 1 end
@@ -574,15 +592,17 @@ function Radial:draw(inventory)
         end
         self.icon_reasons[index] = report
         local name_top = top - icon_size - gap
-        local reserved = row.slot and 16 * icon_size / 72 or 0
-        self:label(row.name or ("STRATAGEM " .. row.kind), x - reserved / 2, name_top,
-            name_size, ink, width - reserved, row.name_english)
+        local shadow = name_size / 14
+        self:label(row.name or ("STRATAGEM " .. row.kind), x, name_top,
+            name_size, name_ink, width, row.name_english, shadow)
+        local reserved = row.slot and 20 * icon_size / 84 or 0
         if row.slot then
-            local slot_size = 12 * icon_size / 72
-            self:text(tostring(row.slot), x + width / 2 - slot_size / 2, name_top - slot_size,
-                slot_size, ink, slot_size, nil, slot_size)
+            local slot_size = 16 * icon_size / 84
+            self:text(tostring(row.slot), x + width / 2 - slot_size / 2, y - height / 2,
+                slot_size, name_ink, slot_size, nil, slot_size, shadow)
         end
-        self:text(row.status, x, y - height / 2, status_size, ink, width, nil, status_size)
+        self:text(row.status, x - reserved / 2, y - height / 2, status_size, status_ink,
+            width - reserved, nil, status_size, shadow)
     end
     local report = drawn_icons .. "/" .. #rows
     if report ~= self.icon_report then
@@ -591,8 +611,8 @@ function Radial:draw(inventory)
     end
     if self.selected then
         local row = rows[self.selected]
-        self:label(row.name or tostring(row.kind), cx, cy + 16 * scale, 16 * scale,
-            sr.Color(255, 245, 240, 210), inner * 1.3, row.name_english)
+        self:label(row.name or tostring(row.kind), cx, cy + 20 * scale, 20 * scale,
+            sr.Color(255, 255, 255, 245), inner * 1.3, row.name_english, 1.5 * scale)
     end
     self.signature = signature
     return true

@@ -5,7 +5,8 @@ return function(equal)
     local loaded, fail, created, bound, counter, bitmap_calls = true, false, 0, 0, 0, 0
     local surfaces, shapes, messages, english = {}, {}, {}, nil
     local function vector(x, y, z, w) return {x = x, y = y, z = z, w = w} end
-    local sr = {Vector2 = vector, Vector3 = vector, Vector4 = vector, IdString64 = {from_hex = function(id) return id end},
+    local sr = {Vector2 = vector, Vector3 = vector, Vector4 = vector, Color = function(...) return {...} end,
+        IdString64 = {from_hex = function(id) return id end},
         Application = {can_get = function(kind, name)
             if kind == "font" then equal(name, debug, "Korean names never ask for a native font"); return true end
             return name == debug or kind == "texture" and name == data.texture and loaded or
@@ -37,7 +38,7 @@ return function(equal)
             equal(table.concat(surface["28723f4d00000000"], ","), "1,1,1,1")
             equal(table.concat(surface["851fd4fd00000000"], ","), "0,0,0,0")
             equal(lo.x >= 0 and lo.y >= 0 and hi.x <= 1 and hi.y <= 1, true)
-            equal(position.z, 12); equal(size.x > 0 and size.y > 0, true)
+            equal(position.z == 12 or position.z == 13, true); equal(size.x > 0 and size.y > 0, true)
             counter = counter + 1; shapes[counter] = {gui = gui, position = position, size = size}; return counter
         end, destroy_bitmap = function(gui, id) assert(shapes[id] and shapes[id].gui == gui); shapes[id] = nil end,
         destroy_text = function(gui) equal(gui, 123) end},
@@ -82,6 +83,16 @@ return function(equal)
     fail = false
     radial:text("증원", 360, 200, 20, {}, 120, "REINFORCEMENT")
     equal(#radial.ids, 2); radial:close(); equal(next(shapes), nil)
+    radial:text("증원", 360, 200, 24, {}, 100, "REINFORCEMENT", 24, 1.5)
+    equal(#radial.ids, 4, "bitmap fallback retains both shadow and foreground glyphs")
+    equal(shapes[radial.ids[1][2]].position.z, 12)
+    equal(shapes[radial.ids[3][2]].position.z, 13)
+    radial:close(); equal(next(shapes), nil)
+    fail, bitmap_calls = "draw", 0
+    radial:text("증원", 360, 200, 24, {}, 100, "REINFORCEMENT", 24, 1.5)
+    equal(next(shapes), nil, "partial shadow glyphs are removed before English fallback")
+    equal(#radial.ids, 2, "English fallback keeps a complete shadow pair")
+    radial:close(); fail = false
     local can_get = sr.Application.can_get
     sr.Application.can_get = function(kind, name)
         if kind == "font" and name == "e007454455e2d2bb" or kind == "texture" and name == "8d346dcdd08459d5" or
