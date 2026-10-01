@@ -9,7 +9,7 @@ const output = path.join(root, 'assets', 'option-icons');
 const sourceFile = path.join(root, 'assets', 'option-icon-vectors.json');
 const symbols = {
   enabled: 'RefreshCw', charge90: 'Gauge', radial: 'CircleDot', hotkeys: 'Keyboard',
-  shared_other: 'LayoutGrid', large: 'Maximize2', slow: 'Timer',
+  shared_other: 'LayoutGrid', scale: 'Maximize2', slow: 'Timer',
   shared_reinforce: 'UserPlus', shared_sos: 'RadioTower', shared_resupply: 'Package',
   mission_flare: 'Sun', mission_extraction: 'LogOut', mission_flag: 'Flag',
   mission_bug_thumper: 'AudioLines', mission_seismic: 'Waves', mission_seaf: 'Crosshair',
@@ -21,7 +21,8 @@ const symbols = {
   mission_comms: 'Satellite', mission_carpet_bomb: 'Plane', mission_scrambler: 'Unplug',
   mission_immediate: 'AlarmClock', mission_seaf_squad: 'Users', mission_spire: 'TestTubeDiagonal',
   mission_destroyer: 'Ship', mission_discovery: 'Upload', mission_drilling_charge: 'Drill',
-  mission_nuke: 'Radiation'
+  mission_nuke: 'Radiation',
+  shared_all: 'Layers', mission_all: 'ListChecks', shared_mission_all: 'Combine'
 };
 
 function importVectors(asar) {

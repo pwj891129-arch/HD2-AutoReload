@@ -7,7 +7,7 @@ const sharp = require('sharp');
 async function main() {
   const folder = path.resolve(__dirname, '../assets/option-icons');
   const files = fs.readdirSync(folder).sort();
-  assert.equal(files.length, 41);
+  assert.equal(files.length, 44);
   const hashes = new Set();
   for (const file of files) {
     assert(/^[a-z0-9_]+\.png$/.test(file));
@@ -25,6 +25,6 @@ async function main() {
     hashes.add(crypto.createHash('sha256').update(bytes).digest('hex'));
   }
   assert.equal(hashes.size, files.length, 'Each option has a distinct preview');
-  console.log('PASS 41 unique previews: dimensions, nonblank pixels, contrast and thumbnail downscaling');
+  console.log('PASS 44 unique previews: dimensions, nonblank pixels, contrast and thumbnail downscaling');
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});

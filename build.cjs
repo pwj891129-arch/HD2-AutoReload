@@ -2,9 +2,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const optionModel = require('./arsenal-options.cjs');
 
 const root = __dirname;
-const version = '0.3.35-test';
+const version = '0.3.36-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -101,7 +102,7 @@ for (const filter of filters) {
   for (const language of ['en', 'ko']) assert(typeof filter[language] === 'string' && filter[language].trim(), 'Missing filter label');
 }
 const filterSource = 'return {\n' + filters.map(filter =>
-  `    {id = "${filter.id}", kinds = {${filter.kinds.join(', ')}}},`).join('\n') + '\n}\n';
+  `    {id = "${filter.id}", group = "${filter.id.startsWith('mission_') ? 'mission' : 'shared'}", kinds = {${filter.kinds.join(', ')}}},`).join('\n') + '\n}\n';
 let stratagemSource = readSource(path.join(stratagemRoot, 'addon.lua'));
 stratagemSource = stratagemSource.replace('-- @VISIBILITY@', () => filterSource);
 for (const name of ['platform', 'reader', 'policy', 'radial']) {
@@ -154,21 +155,12 @@ fs.mkdirSync(coreFolder, {recursive: true});
 fs.writeFileSync(path.join(coreFolder, filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(coreFolder, filename + suffix), Buffer.alloc(0));
 const texts = JSON.parse(readSource(path.join(root, 'arsenal-text.json')));
-const options = [
-  ['enabled', true],
-  ['charge90', true],
-  ['radial', true, 'stratagem_option_'],
-  ['hotkeys', true, 'stratagem_option_'],
-  ['shared_other', false, 'stratagem_option_'],
-  ['large', false, 'stratagem_option_'],
-  ['slow', false, 'stratagem_option_'],
-  ...filters.map(filter => [filter.id, false, 'stratagem_option_']),
-];
+const options = optionModel.definitions(filters);
 let optionIndex = 0;
-const optionManifest = options.map(([name, defaultValue, prefix = 'autoreload_setting_']) => ({
-  SubOptions: [defaultValue, !defaultValue].map(value => {
-    const folder = `Option_${name}_${value ? 'on' : 'off'}`;
-    const bytes = Buffer.from(`return ${value}\n`), module = Buffer.alloc(8 + bytes.length);
+const optionManifest = options.map(({id: name, values, prefix}) => ({
+  SubOptions: values.map(value => {
+    const folder = `Option_${name}_${optionModel.suffix(value)}`;
+    const bytes = Buffer.from(`return ${JSON.stringify(value)}\n`), module = Buffer.alloc(8 + bytes.length);
     module.writeUInt32LE(bytes.length, 0); module.writeUInt32LE(2, 4); bytes.copy(module, 8);
     // Match HD2SDK's 256-byte minimum per resource; 224-byte flags fail native reads.
     const marker = Buffer.alloc(Math.max(256, 192 + Math.ceil(module.length / 16) * 16));
@@ -185,14 +177,15 @@ const optionManifest = options.map(([name, defaultValue, prefix = 'autoreload_se
 }));
 const previewFolder = path.join(stage, 'OptionIcons');
 fs.mkdirSync(previewFolder, {recursive: true});
-for (const [name] of options) {
+for (const {id: name} of options) {
   fs.copyFileSync(path.join(root, 'assets', 'option-icons', name + '.png'), path.join(previewFolder, name + '.png'));
 }
 fs.copyFileSync(path.join(root, 'assets', 'LUCIDE-LICENSE.txt'), path.join(stage, 'LUCIDE-LICENSE.txt'));
 const stages = {};
 for (const language of ['en', 'ko']) {
   const text = texts[language];
-  for (const key of ['Description', 'Default', 'Enabled', 'Disabled', 'FilterDescription']) {
+  for (const key of ['Description', 'Default', 'Enabled', 'Disabled', 'FilterDescription',
+    'Individual', 'IndividualDescription', 'ScaleDescription']) {
     assert(typeof text[key] === 'string' && text[key].trim(), `Missing ${language} text: ${key}`);
   }
   stages[language] = path.join(root, 'dist', `HD2-AutoReload-${version}-${language}`);
@@ -205,16 +198,16 @@ for (const language of ['en', 'ko']) {
     Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload + Stratagems ${version}`,
     Description: `${version}. ${text.Description}`,
     Options: optionManifest.map((option, index) => {
-      const [name, defaultValue] = options[index];
+      const {id: name, values} = options[index];
       const localized = localizedOptions[name];
       for (const key of ['Name', 'Description']) {
         assert(typeof localized?.[key] === 'string' && localized[key].trim(), `Missing ${language} option: ${name}.${key}`);
       }
       const image = `OptionIcons/${name}.png`;
       return {...localized, Image: image, SubOptions: option.SubOptions.map((variant, i) => {
-        const value = i === 0 ? defaultValue : !defaultValue;
-        return {...variant, Image: image, Name: (value ? 'ON' : 'OFF') + (i === 0 ? ` (${text.Default})` : ''),
-          Description: value ? text.Enabled : text.Disabled};
+        const value = values[i];
+        return {...variant, Image: image, Name: optionModel.label(value, text) + (i === 0 ? ` (${text.Default})` : ''),
+          Description: optionModel.description(value, text)};
       })};
     })
   }, null, 2));

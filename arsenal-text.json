@@ -4,7 +4,10 @@
     "Default": "Default",
     "Enabled": "Enabled",
     "Disabled": "Disabled",
-    "FilterDescription": "Default OFF. ON shows this call in the radial only when it is present in your current mission. OFF hides only this call; personal slot numbers 1-4 are unchanged. Variants of the same call share one toggle.",
+    "FilterDescription": "Default OFF. Used when its group and the combined bulk control are set to Individual Settings. ON shows this call only when present in your mission. Bulk controls override visibility without erasing this choice. Personal slots 1-4 are unchanged. Variants share one toggle.",
+    "Individual": "Individual Settings",
+    "IndividualDescription": "Use saved individual choices, or group choices when this is the combined control. Does not erase any ON/OFF selection.",
+    "ScaleDescription": "Menu size: {percent}%. Automatically limited to fit the screen without clipping.",
     "Options": {
       "enabled": {
         "Name": "Automatic Reload",
@@ -24,15 +27,27 @@
       },
       "shared_other": {
         "Name": "Other Shared / Mission Calls",
-        "Description": "Default OFF. ON shows shared calls without a dedicated toggle, such as Eagle Rearm. It does not override any individually configured call or personal slots 1-4."
+        "Description": "Default OFF. Controls calls without a dedicated toggle, such as Eagle Rearm, when Shared: All and Shared + Mission: All use Individual Settings. The combined or shared bulk control overrides this visibility, not the saved choice. Personal slots 1-4 are unchanged."
       },
-      "large": {
-        "Name": "Large Radial Menu",
-        "Description": "Default OFF (100%). ON displays the radial menu at 130% size."
+      "scale": {
+        "Name": "Radial Menu Size",
+        "Description": "Choose 100% (default), 150%, 200%, 300% or 400%. Large sizes are limited to fit the screen. Apply in Arsenal, then Purge / Deploy and restart."
       },
       "slow": {
         "Name": "30 ms Command Input",
         "Description": "Default OFF (15 ms). ON uses at least 30 ms for each press and release. The next key is sent only after the game observes the previous direction input."
+      },
+      "shared_all": {
+        "Name": "Shared: All",
+        "Description": "Individual Settings (default) preserves each shared choice. ON shows all available shared calls, including Reinforce, SOS, Resupply and calls without a dedicated toggle. OFF hides them all. Shared + Mission: All takes priority. Mission and personal slots are unchanged."
+      },
+      "mission_all": {
+        "Name": "Mission: All",
+        "Description": "Individual Settings (default) preserves each mission choice. ON shows all registered mission calls present in your mission. OFF hides them all. Shared + Mission: All takes priority. Shared and personal slots are unchanged."
+      },
+      "shared_mission_all": {
+        "Name": "Shared + Mission: All",
+        "Description": "Highest priority. ON shows all available shared and mission calls together; OFF hides them together. Individual Settings (default) restores the group and individual choices without erasing them. Personal slots 1-4 are never hidden by this control."
       }
     }
   },
@@ -41,7 +56,10 @@
     "Default": "기본",
     "Enabled": "활성화",
     "Disabled": "비활성화",
-    "FilterDescription": "기본 OFF. ON이면 현재 임무에 존재하는 해당 항목만 원형 메뉴에 표시합니다. OFF이면 이 항목만 숨기며 개인 슬롯 1~4 번호는 유지합니다. 동일 항목의 변형은 같은 토글을 사용합니다.",
+    "FilterDescription": "기본 OFF. 해당 그룹과 공용·임무 전체 옵션이 ‘개별 설정 사용’일 때 적용됩니다. ON이면 현재 임무에 있는 해당 항목만 표시합니다. 전체 옵션은 표시 여부만 덮어쓰며 개별 선택값을 지우지 않습니다. 개인 슬롯 1~4는 유지하고 동일 항목의 변형은 같은 토글을 사용합니다.",
+    "Individual": "개별 설정 사용",
+    "IndividualDescription": "저장된 개별 선택값을 적용합니다. 공용·임무 전체 옵션에서는 각 그룹의 설정부터 적용하며 기존 ON/OFF 선택값을 지우지 않습니다.",
+    "ScaleDescription": "메뉴 크기 {percent}%. 화면 밖으로 잘리지 않도록 화면에 맞는 최대 크기로 제한합니다.",
     "Options": {
       "enabled": {
         "Name": "자동재장전",
@@ -61,15 +79,27 @@
       },
       "shared_other": {
         "Name": "기타 공용/임무 스트라타젬 표시",
-        "Description": "기본 OFF. ON이면 이글 재무장 등 개별 토글이 없는 공용 항목을 표시합니다. 개별 항목의 ON/OFF 설정과 개인 슬롯 1~4에는 영향을 주지 않습니다."
+        "Description": "기본 OFF. 공용 전체와 공용·임무 전체가 ‘개별 설정 사용’일 때 이글 재무장 등 개별 토글이 없는 항목을 제어합니다. 전체 옵션은 표시 여부만 덮어쓰며 이 선택값을 지우지 않습니다. 개인 슬롯 1~4는 유지합니다."
       },
-      "large": {
-        "Name": "큰 원형 메뉴",
-        "Description": "기본 OFF(100%). ON이면 원형 메뉴 크기를 130%로 표시합니다."
+      "scale": {
+        "Name": "원형 메뉴 크기",
+        "Description": "100%(기본), 150%, 200%, 300%, 400% 중 선택합니다. 큰 배율은 화면 밖으로 잘리지 않도록 제한됩니다. Arsenal에서 설정한 뒤 Purge / Deploy하고 게임을 재시작하세요."
       },
       "slow": {
         "Name": "커맨드 입력: 30ms",
         "Description": "기본 OFF(15ms). ON이면 누르기·떼기를 최소 30ms로 합니다. 게임이 방향 입력을 감지한 뒤 다음 키를 전송합니다."
+      },
+      "shared_all": {
+        "Name": "공용 스트라타젬 전체",
+        "Description": "‘개별 설정 사용’이 기본입니다. ON이면 증원·SOS·보급 및 개별 토글이 없는 공용 항목을 모두 표시하고 OFF이면 모두 숨깁니다. 공용·임무 전체가 우선 적용됩니다. 임무와 개인 슬롯은 유지하며 기존 개별 선택값은 지우지 않습니다."
+      },
+      "mission_all": {
+        "Name": "임무 스트라타젬 전체",
+        "Description": "‘개별 설정 사용’이 기본입니다. ON이면 현재 임무에 있는 등록된 임무 항목을 모두 표시하고 OFF이면 모두 숨깁니다. 공용·임무 전체가 우선 적용됩니다. 공용과 개인 슬롯은 유지하며 기존 개별 선택값은 지우지 않습니다."
+      },
+      "shared_mission_all": {
+        "Name": "공용·임무 스트라타젬 전체",
+        "Description": "가장 우선 적용됩니다. ON이면 현재 사용 가능한 공용과 임무 항목을 함께 모두 표시하고 OFF이면 함께 모두 숨깁니다. 기본인 ‘개별 설정 사용’으로 돌아가면 각 그룹과 개별 선택값을 다시 적용합니다. 개인 슬롯 1~4는 숨기지 않습니다."
       }
     }
   }

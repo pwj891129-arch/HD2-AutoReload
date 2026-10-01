@@ -1,4 +1,34 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.35-test
+# HD2 Helper Auto Reload + Stratagems 0.3.36-test
+
+## Bulk Visibility And Menu Sizes
+
+0.3.36-test adds three Arsenal controls: Shared: All, Mission: All and
+Shared + Mission: All. Each offers Individual Settings (default), ON and OFF.
+The combined control has highest priority, followed by the corresponding group
+control and then each individual setting. Bulk controls override only visibility;
+they do not erase individual choices. Return both relevant controls to Individual
+Settings to restore those choices. Omitted bulk controls also use individual
+settings. Invalid or unreadable bulk markers hide their affected group.
+
+Shared: All includes Reinforce, SOS, Resupply and unclassified shared calls such
+as Eagle Rearm. Mission: All covers the 31 registered mission types. Combined
+ON includes all shared calls, including unclassified entries; combined OFF hides
+them all. Calls still must exist in the local current mission. Personal slots
+1-4 and their hotkeys are never hidden or renumbered by these controls.
+
+Radial Menu Size replaces the old 100%/130% toggle with 100% (default), 150%,
+200%, 300% and 400%. Geometry, native icons, labels and the selection dead zone
+use the same effective scale. Large sizes are limited to fit the viewport;
+400% needs a sufficiently large display to render at the full requested size.
+The obsolete `large` marker is ignored. Review the size selection after replacing
+the package; Arsenal may retain a former size choice by its option position.
+
+Existing individual toggle positions, default variants, icons, Lua resource IDs
+and Include paths are retained. Bulk controls are appended after the existing
+calls and have distinct Lucide previews. The size selector stays in the former
+size option's position. Reload, charge-release and Hold/Toggle behavior are
+unchanged. Both language ZIPs are provided; no installed game mods are changed
+by building or publishing. Actual Arsenal/gameplay testing is still required.
 
 ## Epoch Full Charge And Toggle Menus
 
@@ -84,8 +114,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.35-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.35-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.36-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.36-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
@@ -150,12 +180,16 @@ registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 - `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: ON by default; OFF disables the radial only.
 - `Stratagem Number Hotkeys` / `스트라타젬 숫자 핫키`: ON by default; OFF disables number shortcuts only.
 - `Other Shared / Mission Calls` / `기타 공용/임무 스트라타젬 표시`: OFF by default; controls only types without an individual toggle.
-- `Large Radial Menu` / `큰 원형 메뉴`: OFF (100%) by default; ON uses 130%.
+- `Radial Menu Size` / `원형 메뉴 크기`: 100% by default; 150%, 200%, 300% or 400%, limited to fit the screen.
 - `30 ms Command Input` / `커맨드 입력: 30ms`: OFF (15 ms) by default; ON uses at least 30 ms per edge.
 - `Shared: Reinforce`, `Shared: SOS Beacon`, `Shared: Resupply` / `공용: 증원`, `공용: SOS 신호기`, `공용: 보급`: each has its own ON/OFF setting, default OFF.
 - `Mission: ...` / `임무: ...`: 31 independent type toggles, default OFF. Includes Hellbomb, SEAF artillery, flag, drills, data upload, extraction variants and other native mission calls. Unavailable mission calls are never invented by enabling an option.
+- `Shared: All` / `공용 스트라타젬 전체`: Individual Settings (default), ON or OFF for all shared calls, including other shared calls.
+- `Mission: All` / `임무 스트라타젬 전체`: Individual Settings (default), ON or OFF for all registered mission calls.
+- `Shared + Mission: All` / `공용·임무 스트라타젬 전체`: Individual Settings (default), ON or OFF for both categories together; takes priority over the two group controls.
 
-Each option's ON/OFF variants are mutually exclusive. Review the choices after
+Each option's variants are mutually exclusive. Bulk controls do not erase saved
+individual settings; restore Individual Settings to use them again. Review choices after
 importing, especially if Arsenal automatically enables new options. Close the
 game, replace the previous package, Purge / Deploy, and restart after changes.
 Old deployed option files must not be left behind. Building and publishing
@@ -295,18 +329,23 @@ and research hotkeys have been removed.
 Requires Node.js, PowerShell and the game's `bin/lua51.dll`. Tests use mocked
 game/input APIs in a separate LuaJIT process, never attach to the game or send
 actual inputs. Package checks enforce the HD2SDK minimum of 256 bytes per
-single-resource archive. Per language, deployment checks exhaust all 729 base-control
-combinations, every pair of settings in all omitted/ON/OFF states, and all-ON,
-all-OFF and all-default configurations (8,112 scenarios).
+single-resource archive. Per language, deployment checks exhaust all 1,458 base-control
+combinations, every pair of settings in all omitted/variant states, and all-ON,
+all-OFF and all-default configurations (10,761 scenarios).
 They also verify localized text, identical option structure and byte-identical
 game payloads across the English and Korean packages. Individual kind filters,
 explicit OFF precedence, hidden command rejection, slot numbering and coherent
 shared/personal membership reads have regression coverage. The pinned native
 catalog checks all mission kinds when local reference captures are available.
-Manifest checks also confirm that every parent/ON/OFF choice has a valid PNG
-reference and that the previous option layout is unchanged when its local
-package is available. Separate image checks verify 41 unique glyphs, 256x256
+Manifest checks also confirm that every parent/variant choice has a valid PNG
+reference and that existing individual toggle positions/defaults/paths are
+unchanged when the previous local package is available. Separate image checks verify 44 unique glyphs, 256x256
 dimensions, nonblank pixels, full opacity and 32px thumbnail brightness.
+Bulk tests cover all three controls in omitted/individual/ON/OFF states, mixed
+individual choices, restoration, query/load failure and invalid values. Size
+tests check 100 viewport/count/scale combinations from 320x240 to 3840x2160:
+sector/icon/text bounds, redraw, retention and aligned hit testing. The full
+LuaJIT suite passes 30,010 assertions without sending OS input.
 Tests cover both feature runtimes, shared-VM input declarations, callback order,
 default/explicit settings, initialization isolation and input blocking/resumption.
 These are offline mocks; actual combined gameplay and Arsenal UI remain unverified.
@@ -315,8 +354,8 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.35-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.35-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.35-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.35-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.36-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.36-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.36-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.36-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

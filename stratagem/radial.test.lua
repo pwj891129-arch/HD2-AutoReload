@@ -142,6 +142,65 @@ return function(equal, read_file, source)
     radial:dispose()
     resources.material = true
 
+    -- Scale geometry uses mocked native GUI primitives, never game/OS input.
+    local sized = Radial.new(sr, channel, 1)
+    function sized:icon_data(row)
+        return {signature = tostring(row.kind), art = {texture = "ATLAS", uv = {0, 0, 1, 1}}}
+    end
+    function sized:icon(_, data, px, py, size, ink)
+        self:shape("bitmap", "ICON", v(px - size / 2, py - size / 2, 11), v(size, size), ink)
+        return true
+    end
+    local previous_geometry
+    for _, resolution in ipairs({{320, 240}, {1280, 720}, {1920, 1080}, {2560, 1440}, {3840, 2160}}) do
+        width, height = resolution[1], resolution[2]
+        for _, count in ipairs({1, 4, 8, 16}) do
+            local items = {rows = {}}
+            for index = 1, count do items.rows[index] = {kind = index, ready = true,
+                name = "LONG STRATAGEM NAME", status = "READY", slot = index <= 4 and index or nil} end
+            equal(sized:open(items), true, "scaled native GUI opens")
+            for _, scale in ipairs({1, 1.5, 2, 3, 4}) do
+                sized.scale = scale
+                x, y = 0.5, 0.95
+                local drawn = next_id
+                equal(sized:draw(items), true)
+                equal(sized.selected, 1, "scaled sector hit testing")
+                local radius = count > 8 and 210 or 165
+                local effective = math.min(scale, height / (2 * (radius + 104)), width / (2 * (radius + 76)))
+                local geometry = width .. ":" .. height .. ":" .. count .. ":" .. effective
+                if geometry ~= previous_geometry then equal(next_id > drawn, true, "size changes redraw retained geometry") end
+                previous_geometry = geometry
+                local bounds, icons, triangles, text = true, 0, 0, 0
+                local function inside(px, py, sx, sy)
+                    return px >= -0.001 and py >= -0.001 and px + sx <= width + 0.001 and py + sy <= height + 0.001
+                end
+                for _, owned in ipairs(sized.ids) do
+                    local shape = assert(shapes[owned[2]])
+                    if shape[1] == "triangle" then
+                        triangles = triangles + 1
+                        for at = 3, 5 do bounds = bounds and inside(shape[at].x, shape[at].z, 0, 0) end
+                    elseif shape[1] == "bitmap" then
+                        icons = icons + 1
+                        bounds = bounds and inside(shape[4].x, shape[4].y, shape[5].x, shape[5].y)
+                    elseif shape[1] == "text" then
+                        text = text + 1
+                        bounds = bounds and inside(shape[7].x, shape[7].y, #shape[3] * shape[5] * 0.5, shape[5])
+                    end
+                end
+                equal(bounds, true, "viewport " .. width .. "x" .. height .. " rows=" .. count .. " scale=" .. scale)
+                equal(icons, count, "all icons render at every size")
+                equal(triangles, count * 12, "all menu sectors render at every size")
+                equal(text > count, true, "labels and status render at every size")
+                equal(Radial.pick(0.5 + effective * 37 / width, 0.5, width, height, count, effective),
+                    nil, "viewport-clamped dead zone stays aligned")
+                local retained = next_id; sized:draw(items)
+                equal(next_id, retained, "unchanged size still retains GUI")
+            end
+            sized:dispose()
+        end
+    end
+    width, height = 1280, 720
+
     -- Actual addon sequencing with GUI/cursor and input adapters; no OS input.
     local current, held, events, ready, token, focused, idle, menu = 0, {}, {}, true, "TOKEN", true, true, true
     local menu_override, hover, acknowledge = nil, 1, true

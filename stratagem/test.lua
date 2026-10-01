@@ -548,6 +548,7 @@ equal(env.HD2StratagemHotkeys.blocking_inputs, false)
 
 dofile("radial.test.lua")(equal, read_file, source)
 dofile("toggle.test.lua")(equal, read_file)
+dofile("settings.test.lua")(equal, read_file)
 dofile("icons.test.lua")(equal)
 dofile("policy.test.lua")(equal)
 

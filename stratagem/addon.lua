@@ -22,42 +22,62 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.35-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.36-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
 local sr = rawget(_G, "stingray") or {}
 local app = sr.Application or {}
 if type(app.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
-local function option(name, fallback)
+local function setting(name, fallback, invalid, validate)
     if not app.can_get then return fallback end
     local resource = "mods/hd2_helper/stratagem_option_" .. name
     local good, present = pcall(app.can_get, "lua", resource)
-    if not good then return false end
+    if not good then return invalid end
     if not present then return fallback end
     local loaded, value = pcall(require, resource)
-    return loaded and value == true
+    if loaded and validate(value) then return value end
+    return invalid
 end
-local visibility = {other = option("shared_other", false)}
+local function option(name, fallback)
+    return setting(name, fallback, false, function(value) return type(value) == "boolean" end)
+end
+local function bulk(name)
+    return setting(name, "individual", false, function(value)
+        return value == "individual" or type(value) == "boolean"
+    end)
+end
+local all = bulk("shared_mission_all")
+local groups = {shared = bulk("shared_all"), mission = bulk("mission_all")}
+local function visible(group, individual)
+    if type(all) == "boolean" then return all end
+    if type(groups[group]) == "boolean" then return groups[group] end
+    return individual
+end
+local visibility = {other = visible("shared", option("shared_other", false))}
 for _, filter in ipairs(Visibility) do
-    local enabled = option(filter.id, false)
+    local enabled = visible(filter.group, option(filter.id, false))
     for _, kind in ipairs(filter.kinds) do visibility[kind] = enabled end
 end
 local config = {radial = option("radial", true), hotkeys = option("hotkeys", true),
     shared = visibility,
-    scale = option("large", false) and 1.3 or 1,
+    scale = setting("scale", 1, 1, function(value)
+        return value == 1 or value == 1.5 or value == 2 or value == 3 or value == 4
+    end),
     delay = option("slow", false) and 0.030 or 0.015}
 local reader = Reader.new(channel)
 local policy = Policy.new(channel.command_key, function(binding) return reader:command_state(binding) end)
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
 if not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.35-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.36-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.35-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.36-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("CONFIG radial=" .. tostring(config.radial) .. " hotkeys=" .. tostring(config.hotkeys))
+log("CONFIG shared-all=" .. tostring(groups.shared) .. " mission-all=" .. tostring(groups.mission) ..
+    " combined-all=" .. tostring(all) .. " scale=" .. tostring(config.scale))
 local function note(reason)
     if reason ~= state.reason then log(reason); state.reason = reason end
 end

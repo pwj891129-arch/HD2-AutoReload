@@ -229,7 +229,7 @@ function Radial:draw(inventory)
     local nx, ny = self.channel.cursor()
     if not nx then return false end
     self.selected = Radial.pick(nx, ny, w, h, #rows, scale)
-    local mark, pictures, reasons = {tostring(self.selected), tostring(w), tostring(h)}, {}, {}
+    local mark, pictures, reasons = {tostring(self.selected), tostring(w), tostring(h), tostring(scale)}, {}, {}
     for index, row in ipairs(rows) do
         pictures[index], reasons[index] = self:icon_data(row)
         mark[#mark + 1] = row.kind .. ":" .. row.status .. ":" .. tostring(row.name) .. ":" .. tostring(row.slot) ..
