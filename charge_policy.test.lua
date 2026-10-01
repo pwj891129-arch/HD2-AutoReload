@@ -2,25 +2,27 @@ return function(api, equal)
     local function sample(kind, elapsed)
         return {active = true, native = true, weapon = kind .. ":1", mode = "ammo",
             ammo = 1, reloading = false, charge_kind = kind, charging = true,
-            charge_elapsed = elapsed, charge_limit = 3}
+            charge_elapsed = elapsed, charge_limit = kind == "epoch" and 2.5 or 3,
+            charge_max = kind == "epoch" and 2.6 or 3}
     end
     for _, kind in ipairs({"railgun", "epoch"}) do
-        local policy, shot = api.Charge.new(), sample(kind, 2.6)
+        local target = kind == "epoch" and 2.5 or 2.7
+        local policy, shot = api.Charge.new(), sample(kind, target - 0.1)
         equal(policy:step(shot, 1, true), false, "first charge reading waits")
-        shot.charge_elapsed = 2.69
-        equal(policy:step(shot, 1.1, true), false, "below 90 percent stays manual")
-        shot.charge_elapsed = 2.7
-        equal(policy:step(shot, 1.15, true), true, kind .. " fires at full-gauge 90 percent")
-        shot.charge_elapsed = 2.75
+        shot.charge_elapsed = target - 0.01
+        equal(policy:step(shot, 1.1, true), false, "below weapon-specific threshold stays manual")
+        shot.charge_elapsed = target
+        equal(policy:step(shot, 1.15, true), true, kind .. " fires at its exact threshold")
+        shot.charge_elapsed = target + 0.05
         equal(policy:step(shot, 1.2, true), false, "one release per charge")
         policy:reset()
         equal(policy:step(shot, 1.25, false), false, "release does not rearm the latch")
         equal(policy:step(shot, 1.3, true), false, "injected release cannot repeat fire")
         shot.charge_elapsed = 0.05
         equal(policy:step(shot, 2, true), false, "new observed charge clears the latch")
-        shot.charge_elapsed = 2.6
+        shot.charge_elapsed = target - 0.1
         equal(policy:step(shot, 4.55, true), false, "large read gap needs confirmation")
-        shot.charge_elapsed = 2.7
+        shot.charge_elapsed = target
         equal(policy:step(shot, 4.65, true), true, "new manually initiated charge can fire")
     end
     local policy, safe = api.Charge.new(), sample("railgun", 0.5)
@@ -30,10 +32,11 @@ return function(api, equal)
         {active = false}, {native = false}, {charge_kind = "quasar"},
         {charge_limit = 0}, {charge_limit = 0 / 0}, {charge_limit = math.huge},
         {charge_elapsed = -1}, {charge_elapsed = 3}, {charge_elapsed = 0 / 0},
+        {charge_max = 0}, {charge_max = 31}, {charge_max = 0 / 0},
         {charging = false}, {reloading = true}, {reloading = "unknown"},
         {manual_reload = true}, {switch_wait = true}, {ammo = 0}, {mode = "heat"},
     }) do
-        local shot = sample("epoch", 2.7)
+        local shot = sample("epoch", 2.5)
         for key, value in pairs(change) do shot[key] = value end
         policy = api.Charge.new()
         equal(policy:step(shot, 0, true), false)
@@ -51,6 +54,23 @@ return function(api, equal)
     equal(policy:step(shot, 0.05, true), false, "swap does not reuse another weapon's reading")
     equal(policy:step(shot, 0.1, true), true)
     policy, shot = api.Charge.new(), sample("epoch", 0.5)
-    policy:step(shot, 0, true); shot.charge_elapsed = 2.7
+    policy:step(shot, 0, true); shot.charge_elapsed = 2.5
     equal(policy:step(shot, 0.05, true), false, "impossible charge jump fails closed")
+    policy, shot = api.Charge.new(), sample("epoch", 2.25)
+    policy:step(shot, 0, true)
+    equal(policy:step(shot, 0.05, true), false, "Epoch 90 percent must not fire")
+    shot.charge_elapsed = 2.499
+    equal(policy:step(shot, 0.25, true), false, "Epoch does not fire early using a tolerance")
+    shot.charge_elapsed = 2.5
+    equal(policy:step(shot, 0.30, true), true, "Epoch accepts a gauge clamped exactly to full")
+    equal(policy:step(shot, 0.35, true), false, "full-charge plateau fires once")
+    policy, shot = api.Charge.new(), sample("epoch", 2.55)
+    policy:step(shot, 0, true)
+    equal(policy:step(shot, 0.05, true), true, "Epoch delayed sample above full still fires")
+    policy, shot = api.Charge.new(), sample("railgun", 3)
+    policy:step(shot, 0, true)
+    equal(policy:step(shot, 0.05, true), false, "Railgun explosion limit is not a usable charge")
+    policy, shot = api.Charge.new(), sample("epoch", 2.5)
+    policy:step(shot, 0, true); shot.charge_max = 2.7
+    equal(policy:step(shot, 0.05, true), false, "changed charge configuration needs confirmation")
 end

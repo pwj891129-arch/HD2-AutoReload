@@ -231,7 +231,7 @@ function Reader:bindings()
     if not buckets or self:word(owner + 686808) ~= 256 then return nil, "bindings-unavailable" end
     local raw = self:read(buckets, 256 * 328)
     if not raw then return nil, "bindings-unreadable" end
-    local actions = {}
+    local actions, start_mode = {}, nil
     for index = 0, 255 do
         local at, code = index * 328, word(raw, index * 328)
         if code and code >= 0x50000 and code <= 0x50004 then
@@ -249,8 +249,12 @@ function Reader:bindings()
                         local mouse = self.channel.mouse_vk(index)
                         if mouse == 5 or mouse == 6 then vk = mouse end
                     end
-                    if vk and ((code == 0x50000 and trigger == 2) or (code ~= 0x50000 and trigger == 0)) then
-                        if not chosen then chosen = vk end
+                    if vk and ((code == 0x50000 and (trigger == 0 or trigger == 2)) or
+                        (code ~= 0x50000 and trigger == 0)) then
+                        if not chosen then
+                            chosen = vk
+                            if code == 0x50000 then start_mode = trigger == 0 and "toggle" or "hold" end
+                        end
                     end
                 end
             end
@@ -266,14 +270,19 @@ function Reader:bindings()
         seen[vk], keys[direction] = true, vk
     end
     if not actions[0x50000] then return nil, "start-binding-unavailable" end
-    return {start_vk = actions[0x50000], directions = keys, owner = owner}, "ready"
+    return {start_vk = actions[0x50000], start_mode = start_mode,
+        directions = keys, owner = owner}, "ready"
 end
 
 function Reader:idle()
     local ui = self:root("ui")
     return ui ~= nil and self:word(ui + 17032 + 12) == 0 and self:word(ui + 17032 + 40) == 0
 end
-function Reader:menu_active()
+function Reader:menu_active(binding)
+    if binding and binding.start_mode == "toggle" then
+        local game = self:game_menu()
+        return game ~= nil and game.active == true
+    end
     local owner = self:root("input")
     local active = owner and self:read(owner + ACTION_BASE, 1)
     return active ~= nil and active ~= "\0"
@@ -290,6 +299,11 @@ function Reader:command_state(binding)
         if active ~= 0 and active ~= 1 then return nil end
     end
     state.start = raw:byte(1) == 1
+    if binding.start_mode == "toggle" then
+        local game = self:game_menu()
+        if not game or self:root("input") ~= owner then return nil end
+        state.start = game.active == true
+    end
     for direction = 1, 4 do state.directions[direction] = raw:byte(ACTION[direction] * 32 + 1) == 1 end
     return state
 end

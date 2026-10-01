@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.34-test"
+local VERSION = "0.3.35-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -429,7 +429,10 @@ local function tick()
                 log("CHARGE_SOURCE kind=" .. sample.charge_kind ..
                     " reason=" .. tostring(sample.charge_reason) ..
                     " source=" .. tostring(sample.charge_source) ..
-                    " limit=" .. tostring(sample.charge_limit))
+                    " basis=" .. tostring(sample.charge_basis) ..
+                    " limit=" .. tostring(sample.charge_limit) ..
+                    " full=" .. tostring(sample.charge_full) ..
+                    " maximum=" .. tostring(sample.charge_max))
                 state.charge_status = label
             end
         else

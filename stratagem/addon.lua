@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.34-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.35-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -52,9 +52,9 @@ local policy = Policy.new(channel.command_key, function(binding) return reader:c
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
 if not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.34-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.35-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.34-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.35-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("CONFIG radial=" .. tostring(config.radial) .. " hotkeys=" .. tostring(config.hotkeys))
@@ -105,6 +105,7 @@ local function stop()
     policy:cancel()
     state.pending = nil
     state.open_pending = nil
+    state.toggle_close = nil
     state.radial_binding = nil
     state.radial_menu_token = nil
     state.highlight = nil
@@ -114,7 +115,8 @@ local function stop()
     if not good then error(why) end
 end
 local function same_binding(a, b)
-    if not a or not b or a.start_vk ~= b.start_vk or a.owner ~= b.owner then return false end
+    if not a or not b or a.start_vk ~= b.start_vk or a.owner ~= b.owner or
+        a.start_mode ~= b.start_mode then return false end
     for direction = 1, 4 do if a.directions[direction] ~= b.directions[direction] then return false end end
     return true
 end
@@ -125,6 +127,7 @@ end
 local function tick()
     local now = app.time_since_launch()
     if type(now) ~= "number" then return end
+    local radial_was_open = radial.opened
     local focused = channel.foreground()
     if state.release_due and (now >= state.release_due or not focused) then release_start() end
     if not radial.opened then radial:restore() end
@@ -144,7 +147,9 @@ local function tick()
         local bindings, why = reader:bindings()
         if bindings and not same_binding(bindings, state.bindings) then
             log("BINDING list-key vk=" .. bindings.start_vk .. " device=" ..
-                ((bindings.start_vk == 5 or bindings.start_vk == 6) and "mouse-thumb" or "keyboard"))
+                ((bindings.start_vk == 5 or bindings.start_vk == 6) and "mouse-thumb" or "keyboard") ..
+                " mode=" .. tostring(bindings.start_mode or "hold"))
+            state.toggle_suppressed = nil
             state.list_ready = not channel.down(bindings.start_vk)
             if not state.list_ready then log("WAIT list-key-release") end
         end
@@ -154,9 +159,22 @@ local function tick()
     end
     local binding = state.bindings
     local modifier = binding and channel.down(binding.start_vk) or false
+    local modifier_pressed = modifier and not state.modifier
+    state.modifier = modifier
+    local toggle = binding and binding.start_mode == "toggle"
+    local game, game_why
+    if focused and binding and (toggle or modifier or radial.opened or state.pending or policy.job or state.toggle_close) then
+        game, game_why = reader:game_menu()
+    end
+    local native_active = game and game.active == true
+    if not native_active and not state.pending and not policy.job and not state.toggle_close and not state.owned_start then
+        state.toggle_suppressed = nil
+    end
     if binding and not modifier then state.list_ready = true end
     -- An injected list-key hold finishes a command; it must not reopen the radial.
-    local overlay = config.radial and state.list_ready and modifier and not state.owned_start and not state.mouse_release or false
+    local overlay = config.radial and state.list_ready and
+        (toggle and native_active and not state.toggle_suppressed or not toggle and modifier) and
+        not state.owned_start and not state.mouse_release or false
     local overlay_pressed, overlay_released = overlay and not state.overlay, not overlay and state.overlay
     state.overlay = overlay
     local numbers, pressed, count = {}, nil, 0
@@ -167,27 +185,26 @@ local function tick()
     state.keys = numbers
     local allowed = focused and binding and not state.chat and not escape and not enter and not fire and reader:idle()
     if not allowed then
-        local was_open, was_pending = radial.opened, state.pending ~= nil or state.open_pending ~= nil
+        local was_open, was_pending = radial.opened,
+            state.pending ~= nil or state.open_pending ~= nil or state.toggle_close ~= nil
         stop()
         if overlay_pressed or was_open or was_pending then
             local why = not focused and "focus-lost" or not binding and "binding-unavailable" or
                 (state.chat or enter) and "chat" or escape and "escape" or fire and "fire" or "game-menu"
             note((was_open and "OVERLAY cancelled " or was_pending and "INPUT cancelled " or "OVERLAY blocked ") .. why)
         end
-        state.blocking_inputs = (focused and modifier) or state.mouse_release ~= nil
+        state.blocking_inputs = (focused and (modifier or native_active)) or state.mouse_release ~= nil
         return
     end
-    local game, game_why
-    if modifier or radial.opened or state.pending or policy.job then game, game_why = reader:game_menu() end
-    local native_active = game and game.active == true
     -- Number shortcuts take priority over the radial on the same list-key hold.
-    local shortcut = config.hotkeys and state.list_ready and modifier and pressed and count == 1 and
-        not policy.job and not state.pending and not state.owned_start
+    local shortcut = config.hotkeys and state.list_ready and (modifier or toggle and native_active) and
+        pressed and count == 1 and not policy.job and not state.pending and not state.owned_start and not state.toggle_close
     if shortcut and game then
         close_radial()
         state.open_pending = nil
         state.radial_binding = nil
         state.radial_menu_token = nil
+        if toggle then state.toggle_suppressed = true end
         state.pending = {slot = pressed, menu_token = game.token, bindings = binding,
             due = now + 0.05, expires = now + 0.35}
     elseif shortcut then
@@ -216,7 +233,7 @@ local function tick()
                 local opened; opened, why = radial:open(inventory)
                 if opened then
                     state.radial_binding, state.radial_read_due = binding, now + 0.05
-                    if binding.start_vk == 5 or binding.start_vk == 6 then
+                    if not toggle and (binding.start_vk == 5 or binding.start_vk == 6) then
                         state.mouse_capture = {vk = binding.start_vk, binding = binding}
                     end
                     state.radial_menu_token = game.token
@@ -227,10 +244,49 @@ local function tick()
             if why ~= "ready" and why ~= nil then note("OVERLAY " .. why) end
         end
     end
+    if toggle and radial_was_open and radial.opened and modifier_pressed then
+        -- Snapshot before native close/cursor recenter; release capture before replaying a lost thumb click.
+        local row = radial.selected and radial.inventory.rows[radial.selected]
+        state.toggle_close = {row = row, binding = binding, menu_token = state.radial_menu_token,
+            token = radial.inventory.token, due = now + 0.08, expires = now + 0.8}
+        state.toggle_suppressed = true
+        close_radial()
+        state.radial_binding, state.radial_menu_token, state.highlight = nil, nil, nil
+    end
+    if state.toggle_close then
+        local waiting = state.toggle_close
+        if not same_binding(binding, waiting.binding) or not game or game.token ~= waiting.menu_token then
+            stop(); note("OVERLAY cancelled toggle-state-changed")
+        elseif now > waiting.expires then
+            stop(); note("OVERLAY cancelled toggle-close-timeout")
+        elseif not modifier and now >= waiting.due and not state.owned_start then
+            if native_active then
+                if not waiting.replayed then
+                    waiting.replayed = true
+                    if channel.key(binding.start_vk, true) then
+                        state.owned_start, state.release_due = binding.start_vk, now + 0.03
+                        log("INPUT toggle-close-replayed vk=" .. binding.start_vk)
+                    else stop(); note("SKIP toggle-close-key-failed") end
+                end
+            else
+                state.toggle_close = nil
+                local row = waiting.row
+                if row and row.ready then
+                    local request, why = reader:request_kind(row.kind, config.shared)
+                    if request and request.token == waiting.token and clean(request) and
+                        same_binding(binding, request.bindings) then
+                        state.pending = {kind = row.kind, token = request.token, menu_token = game.token,
+                            bindings = request.bindings, stage = "release", due = now + 0.03, expires = now + 0.75}
+                        log("OVERLAY selected toggle kind=" .. row.kind)
+                    else note("SKIP " .. (why or "loadout-binding-or-direction-changed")) end
+                else note("OVERLAY cancelled toggle-center-or-unavailable") end
+            end
+        end
+    end
     if radial.opened then
         if not game or game.token ~= state.radial_menu_token then
             stop(); note("OVERLAY cancelled character-state-changed")
-        elseif overlay and not native_active then
+        elseif not native_active and (toggle or overlay) then
             stop(); note("OVERLAY cancelled game-stratagem-menu-closed")
         elseif not same_binding(binding, state.radial_binding) then
             stop(); note("OVERLAY cancelled binding-changed")
@@ -277,7 +333,7 @@ local function tick()
         elseif pending.stage == "release" then
             if modifier then
                 stop(); note("SKIP list-key-pressed-again")
-            elseif radial.mouse or state.mouse_release or native_active or reader:menu_active() then
+            elseif radial.mouse or state.mouse_release or native_active or reader:menu_active(binding) then
                 pending.settled = nil
             elseif not pending.settled then
                 pending.settled = now + 0.03
@@ -287,14 +343,18 @@ local function tick()
                     same_binding(binding, request.bindings) then
                     if channel.key(binding.start_vk, true) then
                         state.owned_start = binding.start_vk
+                        if toggle then
+                            state.toggle_suppressed = true
+                            state.release_due = now + 0.03
+                        end
                         pending.stage, pending.due, pending.expires = "menu", now + 0.05, now + 0.5
                         log("INPUT list-key-acquired vk=" .. binding.start_vk)
                     else stop(); note("SKIP stratagem-start-key-failed") end
                 else stop(); note("SKIP " .. (why or "loadout-binding-or-direction-changed")) end
             end
-        elseif not modifier and not state.owned_start then
+        elseif not modifier and not state.owned_start and not (toggle and native_active) then
             stop(); note("SKIP stratagem-menu-not-active")
-        elseif native_active and reader:menu_active() then
+        elseif native_active and reader:menu_active(binding) then
             if pending.stage == "menu" and not pending.menu_ready then
                 pending.menu_ready = now + 0.015
             elseif not pending.menu_ready or now >= pending.menu_ready then
@@ -319,8 +379,8 @@ local function tick()
     if policy.job then
         local loadout = reader:loadout()
         local request = policy.job.request
-        local same = (modifier or state.owned_start ~= nil) and loadout and loadout.token == request.token and
-            same_binding(binding, request.bindings) and native_active and game.token == request.menu_token and reader:menu_active()
+        local same = (modifier or state.owned_start ~= nil or toggle and native_active) and loadout and loadout.token == request.token and
+            same_binding(binding, request.bindings) and native_active and game.token == request.menu_token and reader:menu_active(binding)
         local result, observed = policy:step(now, same)
         if observed then log(observed) end
         if result then
@@ -328,8 +388,8 @@ local function tick()
             if not policy.job then state.release_due = now + 0.03 end
         end
     end
-    state.blocking_inputs = modifier or radial.opened or state.pending ~= nil or policy.job ~= nil or
-        state.owned_start ~= nil or state.mouse_release ~= nil
+    state.blocking_inputs = modifier or native_active or radial.opened or state.pending ~= nil or policy.job ~= nil or
+        state.toggle_close ~= nil or state.owned_start ~= nil or state.mouse_release ~= nil
 end
 local previous = rawget(_G, "update")
 rawset(_G, "update", function(...)

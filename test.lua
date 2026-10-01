@@ -998,7 +998,7 @@ require = function(name)
 end
 local charge_sample = {active = true, native = true, avatar = 100, weapon = "native:100:8",
     mode = "ammo", ammo = 1, reserve = 0, reloading = false, feed = "magazine",
-    charge_kind = "epoch", charge_elapsed = 2.6, charge_limit = 3, charging = true,
+    charge_kind = "epoch", charge_elapsed = 2.6, charge_limit = 2.7, charge_max = 2.8, charging = true,
     charge_reason = "ready", charge_source = "instance"}
 TEST_NATIVE_READER.sample = function()
     local copy = {}; for key, value in pairs(charge_sample) do copy[key] = value end
@@ -1011,7 +1011,7 @@ equal(HD2HelperAutoReload.config.charge90, true)
 keys[1] = true; frame(20)
 equal(#inputs, 0, "initial charge reading cannot fire")
 charge_sample.charge_elapsed = 2.7; frame(20.1)
-equal(#inputs, 1, "90 percent sends a release even without spare ammo")
+equal(#inputs, 1, "Epoch full charge sends a release even without spare ammo")
 equal(inputs[1].type, 0); equal(inputs[1].mouse_flags, 4, "only MOUSEEVENTF_LEFTUP sent")
 frame(20.2); frame(20.3)
 equal(#inputs, 1, "held physical button does not repeat the automatic release")

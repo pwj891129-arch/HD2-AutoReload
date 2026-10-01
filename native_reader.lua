@@ -270,12 +270,14 @@ function Reader:with_charge(sample, held, record, wield)
         self:field(component, 0, 40)
     local config, source
     if raw then config, source = self:charge_config(component, held, identity:sub(1, 8)) end
-    local elapsed, limit = float(raw, 4), float(config, 48)
+    local elapsed, over = float(raw, 4), float(config, 48)
     local minimum, full = float(config, 0), float(config, 24)
     local charging = raw and raw:byte(13)
-    if not elapsed or not limit or not minimum or not full or minimum < 0 or
-        full < minimum or full >= limit or limit < 0.1 or limit > 30 or
-        elapsed < 0 or elapsed > limit or config:byte(186) ~= 1 or
+    local explodes = config and config:byte(186)
+    if not elapsed or not over or not minimum or not full or minimum < 0 or
+        full < minimum or full < 0.1 or full > 30 or over < full or over > 30 or
+        elapsed < 0 or elapsed > over or (explodes ~= 0 and explodes ~= 1) or
+        (kind == "railgun" and (explodes ~= 1 or full >= over)) or
         (charging ~= 0 and charging ~= 1) then
         sample.charge_reason = "charge-data-unavailable"; return sample
     end
@@ -284,7 +286,11 @@ function Reader:with_charge(sample, held, record, wield)
         self:component("charge", held, record) == nil then
         sample.charge_reason = "charge-identity-changed"; return sample
     end
-    sample.charge_elapsed, sample.charge_limit = elapsed, limit
+    -- Epoch completes a firing charge; Railgun releases before unsafe explosion.
+    sample.charge_elapsed = elapsed
+    sample.charge_limit = kind == "epoch" and full or over
+    sample.charge_max, sample.charge_full = over, full
+    sample.charge_basis = kind == "epoch" and "full" or "danger"
     sample.charging, sample.charge_source = charging == 1, source
     sample.charge_reason = "ready"
     return sample

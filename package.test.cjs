@@ -9,7 +9,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.34-test';
+const version = '0.3.35-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const coreIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared_other', 'large', 'slow'];
@@ -97,12 +97,17 @@ function checkPackage(language) {
   assert.deepEqual(fs.readdirSync(path.join(stage, 'OptionIcons')).sort(), optionIds.map(id => id + '.png').sort());
   assert(fs.readFileSync(path.join(stage, 'LUCIDE-LICENSE.txt')).equals(
     fs.readFileSync(path.join(__dirname, 'assets/LUCIDE-LICENSE.txt'))), 'Unmodified icon license ships');
-  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.33-test-${language}`);
+  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.34-test-${language}`);
   if (fs.existsSync(path.join(previousStage, 'manifest.json'))) {
     const previous = JSON.parse(fs.readFileSync(path.join(previousStage, 'manifest.json'), 'utf8'));
-    const withoutImages = option => Object.fromEntries(Object.entries(option).filter(([key]) => key !== 'Image')
-      .map(([key, value]) => [key, key === 'SubOptions' ? value.map(withoutImages) : value]));
-    assert.deepEqual(manifest.Options.map(withoutImages), previous.Options, 'Existing order, text, defaults and includes are unchanged');
+    for (const [i, id] of optionIds.entries()) {
+      const expected = structuredClone(previous.Options[i]);
+      if (['charge90', 'radial', 'hotkeys'].includes(id)) {
+        expected.Name = manifest.Options[i].Name;
+        expected.Description = manifest.Options[i].Description;
+      }
+      assert.deepEqual(manifest.Options[i], expected, 'Only charge/radial/hotkey descriptions change; option paths/defaults/icons are preserved');
+    }
   }
   assert(!fs.readdirSync(stage).some(name => /\.patch_\d+$/.test(name)), 'No root-only addon dependency');
   const archives = new Map();
@@ -127,13 +132,10 @@ function checkPackage(language) {
     const source = bytes.subarray(offset + 8, offset + size).toString('utf8');
     if (folder === 'Core') {
       assert(source.startsWith('-- HD2-Addon: mods/hd2_helper/auto_reload\n'));
-      const previousFile = path.join(previousStage, 'Core', files[0]);
-      if (fs.existsSync(previousFile)) {
-        const previous = fs.readFileSync(previousFile);
-        const at = Number(previous.readBigUInt64LE(120)), length = previous.readUInt32LE(160);
-        const previousSource = previous.subarray(at + 8, at + length).toString('utf8');
-        assert.equal(source, previousSource.replaceAll('0.3.33-test', version), 'Only version metadata changes in the game Lua');
-      }
+      assert(source.includes('sample.charge_limit = kind == "epoch" and full or over'));
+      assert(source.includes('sample.charge_kind == "epoch" and 1 or 0.9'));
+      assert(source.includes('binding.start_mode == "toggle"'));
+      assert(source.includes('INPUT toggle-close-replayed vk='));
       assert(source.includes(`local VERSION = "${version}"`));
       assert(source.includes('start_feature("stratagem", function()'));
       assert(source.includes('start_feature("autoreload", function()'));

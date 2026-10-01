@@ -20,7 +20,10 @@ function Charge:step(sample, now, fire)
         not finite(now) or not finite(sample.charge_elapsed) or
         not finite(sample.charge_limit) or sample.charge_limit < 0.1 or
         sample.charge_limit > 30 or sample.charge_elapsed < 0 or
-        sample.charge_elapsed >= sample.charge_limit then
+        (sample.charge_kind == "railgun" and sample.charge_elapsed >= sample.charge_limit) or
+        (sample.charge_kind == "epoch" and (not finite(sample.charge_max) or
+            sample.charge_max < sample.charge_limit or sample.charge_max > 30 or
+            sample.charge_elapsed > sample.charge_max)) then
         self:reset(); return false
     end
     local elapsed, limit = sample.charge_elapsed, sample.charge_limit
@@ -33,11 +36,13 @@ function Charge:step(sample, now, fire)
         self:reset(); return false
     end
     local previous = self.previous
-    self.previous = { weapon = sample.weapon, elapsed = elapsed, limit = limit, at = now }
+    self.previous = { weapon = sample.weapon, kind = sample.charge_kind,
+        elapsed = elapsed, limit = limit, maximum = sample.charge_max, at = now }
     if self.fired or not previous or previous.weapon ~= sample.weapon or
-        previous.limit ~= limit or now <= previous.at or now - previous.at > 0.2 or
+        previous.kind ~= sample.charge_kind or previous.limit ~= limit or
+        previous.maximum ~= sample.charge_max or now <= previous.at or now - previous.at > 0.2 or
         elapsed < previous.elapsed or elapsed - previous.elapsed > now - previous.at + 0.1 or
-        elapsed < limit * 0.9 then return false end
+        elapsed < limit * (sample.charge_kind == "epoch" and 1 or 0.9) then return false end
     self.fired = { weapon = sample.weapon }
     return true
 end

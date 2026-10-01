@@ -33,14 +33,15 @@ local combined_source = read("combined.lua")
     :gsub("%-%- @AUTORELOAD@", function() return reload_source end)
     :gsub("%-%- @STRATAGEM@", function() return stratagem_source end)
 
-local function fixture(flags, list_vk, fail_reload, fail_stratagem)
+local function fixture(flags, list_vk, fail_reload, fail_stratagem, start_mode)
     flags, list_vk = flags or {}, list_vk or 5
     local keys, events, order, logs = {}, {}, {}, {}
     local now, focused, hover, base, reads, stops = 0, true, 1, 0, 0, 0
     local latch, observed = nil, true
+    if start_mode == "toggle" then latch = false end
     local shot = {active = true, native = true, avatar = 100, weapon = "native:100:ammo",
         mode = "ammo", ammo = 1, reserve = 2, reloading = false, feed = "magazine"}
-    local binding = {start_vk = list_vk, directions = {38, 39, 40, 37}, owner = 1}
+    local binding = {start_vk = list_vk, start_mode = start_mode, directions = {38, 39, 40, 37}, owner = 1}
     local env = setmetatable({}, {__index = _G}); env._G = env
     env.FAIL_RELOAD, env.FAIL_STRATAGEM = fail_reload, fail_stratagem
     env.os = setmetatable({getenv = function() return nil end}, {__index = os})
@@ -88,7 +89,9 @@ local function fixture(flags, list_vk, fail_reload, fail_stratagem)
         down = function(vk) return keys[vk] == true end,
         key = function(vk, down)
             events[#events + 1] = {route = "list", vk = vk, down = down}; keys[vk] = down
-            if latch ~= nil then latch = down end
+            if start_mode == "toggle" then
+                if down then latch = not latch end
+            elseif latch ~= nil then latch = down end
             return true
         end,
         command_key = function(vk, down)
@@ -122,6 +125,7 @@ end
 local function finish(f) for i = 1, 30 do f.step(0.02) end end
 local function charge(f, kind)
     f.shot.charge_kind, f.shot.charging, f.shot.charge_limit = kind, true, 3
+    if kind == "epoch" then f.shot.charge_limit, f.shot.charge_max = 2.7, 2.8 end
     f.shot.charge_elapsed, f.keys[1] = 2.6, true; f.step(0.06)
     f.shot.charge_elapsed = 2.7; f.step(0.1)
 end
@@ -143,10 +147,23 @@ equal(table.concat(f.order, ","), "stratagem,base,reload", "duplicate combined s
 equal(f.env.shutdown(), "closed", "shutdown return preserved")
 local base, reads, stops = f.counts(); equal(base, 2, "base updated once per frame"); equal(stops, 1, "base shutdown once")
 
+f = fixture(nil, 5, nil, nil, "toggle"); f.step(0.06)
+f.latch(true); f.step(0.02)
+equal(f.env.TEST_RADIAL.opened, true, "native toggle opens combined wheel without a held physical button")
+charge(f, "epoch")
+equal(#f.events, 0, "native toggle blocks charge release even after wheel cancelled by fire")
+f.keys[1] = false; f.shot.ammo = 0; f.step(0.06); f.step(0.06)
+equal(#f.events, 0, "native toggle also blocks automatic reload without a held modifier")
+f.latch(false); f.shot.ammo = 1; f.step(0.06)
+charge(f, "epoch")
+equal(#f.events, 1, "charge resumes after actual toggle menu closes")
+equal(f.events[1].route, "charge", "resumed charge only releases left mouse")
+f.env.shutdown()
+
 for _, kind in ipairs({"railgun", "epoch"}) do
     f = fixture(); f.step(0.06); charge(f, kind)
     equal(#f.events, 1, "default-on charge works without option modules")
-    equal(f.events[1].route, "charge", "90% sends release only")
+    equal(f.events[1].route, "charge", "weapon-specific threshold sends release only")
     f.env.shutdown()
     f = fixture({autoreload_setting_charge90 = false}); f.step(0.06); charge(f, kind)
     equal(#f.events, 0, "explicit charge OFF honored")

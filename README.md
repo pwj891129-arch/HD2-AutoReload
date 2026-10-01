@@ -1,4 +1,30 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.34-test
+# HD2 Helper Auto Reload + Stratagems 0.3.35-test
+
+## Epoch Full Charge And Toggle Menus
+
+0.3.35-test fixes Epoch being rejected as a nonexplosive charge weapon. Epoch
+now releases left mouse at 100% of the native Full charge time, whereas Railgun
+retains 90% of its explosion limit. No fixed Epoch timer is embedded: instance
+overrides and authored configuration are read from the held weapon. Exact full
+charge, a clamped plateau and slightly late reads below the configured maximum
+are accepted; invalid data and repeat firing remain blocked.
+
+The game's keyboard and mouse-thumb Press/Toggle List bindings are now accepted
+alongside Hold. Toggle wheels follow the actual local character menu rather
+than physical key duration. Toggle open, choose a sector, then toggle closed to
+enter its command; closing at the center cancels. A lost thumb close is replayed
+only after physical release and cursor restoration, and its resulting native
+closure must be observed. Command reopening uses a bounded press/release pulse,
+never a permanently held Toggle button. Number-row shortcuts also work while
+the native Toggle menu is open. Native menu closure without a user toggle
+cancels rather than dispatching a hovered item. Both reload and charge release
+remain blocked while the native menu is active, including after key release.
+
+Option resource IDs, default values, icons, order and Include paths are retained;
+charge/radial/hotkey descriptions are updated in both language packages. Offline
+tests cover charge boundaries, native toggle observation, keyboard/thumb modes,
+center/cooldown cancellation, lost thumb clicks, binding changes, unavailable
+character state and combined reload coordination. Live gameplay is unverified.
 
 ## Arsenal Option Icons
 
@@ -9,7 +35,7 @@ uses an opaque dark contrast plate and remains legible as a small thumbnail.
 These are functional Lucide symbols for the settings UI, not the game's native
 stratagem artwork. In-game wheel art is unchanged.
 
-The current option order, labels, default values and Include paths are retained.
+In 0.3.34-test, option order, labels, default values and Include paths were retained.
 Individual toggles remain independent: no mutually exclusive mission group is
 introduced. Arsenal's [option documentation](https://docs.rsnl.gg/mod-builder/options)
 limits sub-options to one level and exclusive variants, so it cannot contain a
@@ -58,8 +84,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.34-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.34-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.35-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.35-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
@@ -92,7 +118,7 @@ Deploy. There is one loader addon resource, with independently guarded startup
 for both features. Stratagem input updates its gate before reload and charge
 processing in the same frame; both retain existing callback return values.
 
-Automatic reload and Railgun/Epoch 90% charge release default to ON when the
+Automatic reload and Railgun 90% / Epoch 100% charge release default to ON when the
 core is deployed and their individual settings are omitted. The radial and number hotkeys
 also default to ON. Explicit OFF settings are honored. Arsenal may retain the
 previous charge-OFF selection for this mod's existing GUID; review and select
@@ -119,7 +145,7 @@ registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 
 - `Automatic Reload` / `자동재장전`: `ON (Default)` / `ON (기본)` or `OFF`. An unselected option also means ON.
   Covers both magazine exhaustion and complete overheat.
-- `Railgun / Epoch 90% Charge Release` / `레일건·에포크 90% 충전 자동발사`: ON by default or OFF.
+- `Railgun 90% / Epoch 100% Release` / `레일건 90%·에포크 100% 자동발사`: ON by default or OFF.
   An unselected option means ON. Independent of automatic reload.
 - `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: ON by default; OFF disables the radial only.
 - `Stratagem Number Hotkeys` / `스트라타젬 숫자 핫키`: ON by default; OFF disables number shortcuts only.
@@ -141,10 +167,12 @@ not a saved setting.
 ## Stratagem Radial And Hotkeys
 
 Hold the game's configured Stratagem List button, move toward an icon sector,
-then release to enter the command. Release at the center to cancel. Keyboard
-and front/back mouse thumb Hold bindings are supported; direction bindings
-are read from the game. Press/toggle, wheel and controller mappings are not
-supported. Aim and throw manually. List + number-row 1-4 matches the personal
+then release to enter the command. Release at the center to cancel. With Toggle,
+press to open, choose a sector and press again to close and enter its command;
+closing at the center cancels. Keyboard and front/back mouse thumb Hold and
+Press/Toggle bindings are supported; direction bindings are read from the game.
+Wheel, long-press and controller mappings are not supported. Aim and throw
+manually. While List is open, number-row 1-4 matches the personal
 slot numbers shown in the radial; Numpad is distinct. F6 is not a separate key.
 
 The radial opens only after the character's native List menu activates and
@@ -200,15 +228,17 @@ and melee remain excluded; no tank field discovery runs in this package.
 A controlled on-foot grip70 weapon can use the native reader. Identity recovery
 after a new game or respawn and the seated-personal-weapon path are retained.
 
-## 90% Charge Release
+## Charge Release
 
 For RS-422 Railgun and PLAS-45 Epoch, the default-on feature reads the native
-WeaponChargeComponent elapsed charge and configured explosion limit. It uses
+WeaponChargeComponent elapsed charge and per-weapon charge configuration. It uses
 the instance override or authored type registry, not ordinary heat, OCR or a
 fixed timer. Two coherent reads are required.
 
-At or above 90% of the entire gauge from zero to the explosion limit, send one
-Windows `MOUSEEVENTF_LEFTUP`. No mouse press, repeated firing or aiming is sent.
+Railgun releases at or above 90% of the entire gauge from zero to its explosion
+limit. Epoch releases at or above 100% of its Full firing charge, without
+requiring an explosion flag; its Over charge time bounds valid readings.
+Both send one Windows `MOUSEEVENTF_LEFTUP`. No mouse press, repeated firing or aiming is sent.
 Release the physical button and click again for the next shot. Railgun safe
 mode, which caps below that threshold, stays manual.
 
@@ -285,8 +315,8 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.34-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.34-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.34-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.34-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.35-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.35-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.35-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.35-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.
