@@ -36,6 +36,13 @@ Local pinned native query and tile code were independently checked read-only.
 Atlas links, resource hashes, palette vectors and layouts are factual references,
 not copied game code. No native game function is invoked by this addon.
 
+Reload movement field layout (facts only; no third-party code copied):
+https://raw.githubusercontent.com/shalzuth/HelldiversData/master/data/components/WeaponReloadComponent.json
+https://pkg.go.dev/github.com/xypwn/filediver/datalibrary#WeaponReloadComponent
+The local pinned binary capture independently confirms the held-entity reload
+manager, override/authored config resolver and reload_allow_move byte. Runtime
+only reads verified data; it does not invoke the game's native resolver.
+
 Arsenal option preview images: Lucide 0.544.0 / Lucide Contributors and
 Feather / Cole Bemis. https://github.com/lucide-icons/lucide/tree/0.544.0
 The selected vector subset and remaining functional/fallback PNG symbols are licensed under

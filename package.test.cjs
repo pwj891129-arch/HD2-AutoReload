@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.39-test';
+const version = '0.3.40-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -123,7 +123,7 @@ function checkPackage(language) {
   assert(fs.readFileSync(path.join(stage, 'GAME-ARTWORK.txt')).equals(
     fs.readFileSync(path.join(__dirname, 'GAME-ARTWORK.txt'))), 'Native artwork notice ships');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(stage, 'GAME-ICON-SOURCES.json'), 'utf8')), nativeIcons);
-  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.38-test-${language}`);
+  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.39-test-${language}`);
   if (fs.existsSync(path.join(previousStage, 'manifest.json'))) {
     const previous = JSON.parse(fs.readFileSync(path.join(previousStage, 'manifest.json'), 'utf8'));
     assert.equal(previous.Options.length, 44);
@@ -165,6 +165,10 @@ function checkPackage(language) {
     const source = bytes.subarray(offset + 8, offset + size).toString('utf8');
     if (folder === 'Core') {
       assert(source.startsWith('-- HD2-Addon: mods/hd2_helper/auto_reload\n'));
+      assert(source.includes('reload = 0x3326a70'));
+      assert(source.includes('sample.reload_allow_move, sample.reload_source = allow == 1, source'));
+      assert(source.includes('action == "release-fire"'));
+      assert(source.includes('policy:released_fire(now)'));
       assert(source.includes('sample.charge_limit = kind == "epoch" and full or over'));
       assert(source.includes('sample.charge_kind == "epoch" and 1 or 0.9'));
       assert(source.includes('binding.start_mode == "toggle"'));

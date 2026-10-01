@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.39-test"
+local VERSION = "0.3.40-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -79,7 +79,8 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
         (sample.mode == "ammo" and sample.ammo == 0)
     if empty then
         local stamp = sample.weapon .. ":" .. sample.mode .. ":" ..
-            tostring(sample.reserve) .. ":" .. tostring(sample.reloading)
+            tostring(sample.reserve) .. ":" .. tostring(sample.reloading) .. ":" ..
+            tostring(sample.reload_allow_move)
         sample.unconfirmed = self.native_pending ~= stamp
         self.native_pending = stamp
     else
@@ -360,7 +361,8 @@ local function tick()
         state.native_refusal_logged = true
     end
     if sample.native and sample.weapon then
-        local source = sample.weapon .. ":" .. tostring(sample.feed)
+        local source = sample.weapon .. ":" .. tostring(sample.feed) .. ":" ..
+            tostring(sample.reload_allow_move) .. ":" .. tostring(sample.reload_reason)
         if state.native_source ~= source then
             log("NATIVE_SOURCE weapon=" .. sample.weapon ..
                 " feed=" .. tostring(sample.feed) ..
@@ -368,6 +370,9 @@ local function tick()
                 " ammo=" .. tostring(sample.ammo) ..
                 " overheat=" .. tostring(sample.overheated) ..
                 " reserve=" .. tostring(sample.reserve))
+            log("RELOAD_MOVEMENT allow=" .. tostring(sample.reload_allow_move) ..
+                " source=" .. tostring(sample.reload_source) ..
+                " reason=" .. tostring(sample.reload_reason))
             state.native_source = source
         end
     else
@@ -452,7 +457,21 @@ local function tick()
     end
     status(reason, sample)
     if not Options.allow(config, sample) then sample.active = false end
-    local trigger = policy:step(sample, now)
+    local trigger, action = policy:step(sample, now)
+    if trigger and action == "release-fire" and fire and not state.release_at and
+        foreground() and down(config.fire_vk) then
+        local sent = native.user32.SendInput(1, native.mouse, native.size)
+        if sent == 1 then
+            policy:released_fire(now)
+            state.fire, state.fire_cycle, state.fire_pending = false, nil, nil
+            state.fire_attempt, state.fire_released_at, state.fire_release_pending = nil, nil, nil
+            log("RELOAD_PRESS_RELEASE weapon=" .. tostring(sample.weapon))
+        else
+            policy:reset()
+            log("RELOAD_PRESS_RELEASE failed weapon=" .. tostring(sample.weapon))
+        end
+        return
+    end
     if sample.switch_ready and (trigger or
         (sample.mode == "ammo" and type(sample.ammo) == "number" and sample.ammo > 0) or
         (sample.mode == "heat" and sample.overheated == false)) then

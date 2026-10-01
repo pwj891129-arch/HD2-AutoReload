@@ -13,7 +13,7 @@
     "Options": {
       "enabled": {
         "Name": "Automatic Reload",
-        "Description": "Checked: ON. Unchecked: OFF. Reloads after magazine exhaustion or complete overheat. No ON/OFF submenu and no fallback activation when unchecked. Independent of charge release."
+        "Description": "Checked: ON. Unchecked: OFF. Reloads after magazine exhaustion or complete overheat. Weapons whose native reload setting forbids movement do not reload on fire release; click the empty weapon again to reload. Unknown movement settings also block fire-release reloads. Weapon-switch checks are unchanged. Fire must be bound to left mouse for empty-click release. Independent of charge release."
       },
       "charge90": {
         "Name": "Railgun 90% / Epoch 100% Release",
@@ -67,7 +67,7 @@
     "Options": {
       "enabled": {
         "Name": "자동재장전",
-        "Description": "체크하면 ON, 해제하면 OFF입니다. 실탄 소진과 완전 과열 시 자동재장전합니다. 하위 ON/OFF 메뉴와 체크 해제 시 기본 활성화는 없습니다. 충전 자동발사와 독립적입니다."
+        "Description": "체크하면 ON, 해제하면 OFF입니다. 실탄 소진과 완전 과열 시 자동재장전합니다. 게임의 재장전 설정상 이동 불가인 무기는 발사 버튼을 놓아도 장전하지 않으며, 빈 무기에서 다시 클릭하면 장전합니다. 이동 여부를 판독하지 못해도 버튼 해제 후 장전을 막습니다. 무기교체 검사는 유지합니다. 빈 무기 클릭의 발사 해제는 좌클릭 발사 설정이 필요합니다. 충전 자동발사와 독립적입니다."
       },
       "charge90": {
         "Name": "레일건 90%·에포크 100% 자동발사",

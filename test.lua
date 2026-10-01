@@ -6,6 +6,7 @@ local function equal(actual, expected, name)
     count = count + 1
 end
 dofile("native_reader.test.lua")(api, equal)
+dofile("reload_movement.test.lua")(api, equal)
 dofile("charge_policy.test.lua")(api, equal)
 local flags = {enabled = true, charge90 = true}
 local option_app = {can_get = function(_, resource) return flags[resource:match("autoreload_setting_(.+)$")] ~= nil end}
@@ -722,6 +723,7 @@ local user32 = {
         inputs[#inputs+1] = { type = input[0].type, flags = input[0].value.key.flags,
             mouse_flags = input[0].value.mouse.flags,
             scan = input[0].value.key.scan, time = now, fire_held = keys[1] == true }
+        if input[0].type == 0 and input[0].value.mouse.flags == 4 then keys[1] = false end
         return 1
     end,
 }
@@ -757,7 +759,7 @@ resolved = { status = "resolved", reason = "wield-node-named-the-hand:first-pers
     avatar = { goid = 100 }, grip = 15,
     hand_weapon = { goid = 5, type = "0x2df95dfe" } }
 control, rotation, declaration = true, true, ""
-cells = { ammo = 1, reserve = 3, reloading = false }
+cells = { ammo = 1, reserve = 3, reloading = false, reload_allow_move = true }
 identity.invalidate = function() end
 local live_type_calls, research_reads = 0, 0
 stingray = {
@@ -783,7 +785,7 @@ TEST_NATIVE_READER = { sample = function()
     return { active = true, native = true, avatar = resolved.avatar.goid,
         weapon = "native:100:" .. resolved.hand_weapon.goid,
         mode = "ammo", ammo = cells.ammo, reserve = cells.reserve,
-        reloading = cells.reloading, feed = "magazine" }, "ready"
+        reloading = cells.reloading, feed = "magazine", reload_allow_move = cells.reload_allow_move }, "ready"
 end }
 HD2_AUTO_RELOAD_TEST = nil
 local file = assert(io.open("addon.lua", "r")); local source = file:read("*a"); file:close()
@@ -979,7 +981,7 @@ inputs, keys, logs = {}, {}, {}
 HD2HelperAutoReload, shutdown = nil, nil
 update = function() return 123 end
 local default_heat = {active = true, native = true, avatar = 100, weapon = "native:100:heat",
-    mode = "heat", overheated = false, reserve = 2, reloading = false, feed = "heat"}
+    mode = "heat", overheated = false, reserve = 2, reloading = false, feed = "heat", reload_allow_move = true}
 TEST_NATIVE_READER.sample = function()
     local copy = {}; for key, value in pairs(default_heat) do copy[key] = value end
     return copy, "ready"
@@ -1010,7 +1012,7 @@ require = function(name)
     return original_require(name)
 end
 local charge_sample = {active = true, native = true, avatar = 100, weapon = "native:100:8",
-    mode = "ammo", ammo = 1, reserve = 0, reloading = false, feed = "magazine",
+    mode = "ammo", ammo = 1, reserve = 0, reloading = false, feed = "magazine", reload_allow_move = true,
     charge_kind = "epoch", charge_elapsed = 2.6, charge_limit = 2.7, charge_max = 2.8, charging = true,
     charge_reason = "ready", charge_source = "instance"}
 TEST_NATIVE_READER.sample = function()

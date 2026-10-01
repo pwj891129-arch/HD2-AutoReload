@@ -10,7 +10,7 @@ local RVA = {
     players = 53634152, owner = 54968216, avatars = 53636384,
     equipment = 53636544, wielder = 53634080,
     magazine = 53634632, rounds = 53636336, heat = 53636424,
-    charge = 53636128, authored = 0x346bf98,
+    charge = 53636128, authored = 0x346bf98, reload = 0x3326a70,
 }
 local COMPONENTS = {
     equipment = { map = 32, back = 56 },
@@ -19,6 +19,7 @@ local COMPONENTS = {
     rounds = { map = 40, back = 64, rows = 88, stride = 20 },
     heat = { map = 40, back = 64, rows = 88, stride = 12 },
     charge = { map = 32, back = 56, rows = 64, stride = 40 },
+    reload = { map = 32, back = 56 },
 }
 local CHARGE_WEAPONS = {
     ["2e9d0bdc48b09e60"] = "railgun",
@@ -174,19 +175,21 @@ function Reader:lookup(at, key)
     local rows = address(header, 0)
     local capacity, empty, mult = u32(header, 8), u32(header, 12), u32(header, 16)
     if not rows or not capacity or capacity < 1 or capacity > 1048576 or
-        not empty or not mult then return nil end
+        not empty or not mult then return nil, "map-unavailable" end
     local power = capacity
     while power > 1 and power % 2 == 0 do power = power / 2 end
-    if power ~= 1 then return nil end
+    if power ~= 1 then return nil, "map-unavailable" end
     local a, b, c, d = key % 65536, math.floor(key / 65536),
         mult % 65536, math.floor(mult / 65536)
     local seed = (a * c + ((a * d + b * c) % 65536) * 65536) % 4294967296
     for probe = 0, math.min(capacity, 128) - 1 do
         local row = self:read(rows + ((seed + probe) % capacity) * 8, 8)
         local found = u32(row, 0)
-        if found == nil or found == empty then return nil end
+        if found == nil then return nil, "map-unavailable" end
+        if found == empty then return nil, "not-found" end
         if found == key then return u32(row, 4) end
     end
+    return nil, "probe-limit"
 end
 
 function Reader:component(name, entity, record)
@@ -296,6 +299,60 @@ function Reader:with_charge(sample, held, record, wield)
     return sample
 end
 
+function Reader:reload_config(component, held, type_bytes)
+    -- Native resolver 0x4fd220 prefers entity overrides, then authored type data.
+    local index, why = self:lookup(component.manager + 0x60, held)
+    if index and index ~= 0xffffffff then
+        local capacity = self:word(component.manager + 4)
+        local rows = self:ptr(component.manager + 0xa0)
+        if not capacity or capacity > 1000000 or index >= capacity or not rows then
+            return nil, "reload-instance-unavailable"
+        end
+        return self:read(rows + index * 80, 2), "instance"
+    elseif why ~= "not-found" and index ~= 0xffffffff then
+        return nil, "reload-instance-map-unavailable"
+    end
+    local registry = self:root("authored")
+    local rows = registry and self:ptr(registry + 0xf12800)
+    local low, high = u32(type_bytes, 0), u32(type_bytes, 4)
+    if not rows or not low or not high or (low == 0 and high == 0) then
+        return nil, "reload-authored-unavailable"
+    end
+    local capacity = 498
+    local seed = (high % capacity * (4294967296 % capacity) + low % capacity) % capacity
+    for probe = 0, capacity - 1 do
+        local at = rows + ((seed + probe) % capacity) * 16
+        local row = self:read(at, 16)
+        if not row or row:sub(1, 8) == string.rep("\0", 8) then
+            return nil, "reload-authored-not-found"
+        end
+        if row:sub(1, 8) == type_bytes then
+            local slot = u32(row, 8)
+            if not slot or slot >= capacity then return nil, "reload-authored-index-invalid" end
+            return self:read(rows + capacity * 16 + slot * 80, 2), "authored"
+        end
+    end
+    return nil, "reload-authored-probe-limit"
+end
+
+function Reader:with_metadata(sample, held, record, wield)
+    local identity = self:read(record, 24)
+    local component = identity and self:component("reload", held, record)
+    local length = component and self:word(component.manager + 0xc)
+    local raw, source
+    if component and length and component.index < length and length <= 1000000 then
+        raw, source = self:reload_config(component, held, identity:sub(1, 8))
+    end
+    local allow = raw and raw:byte(2)
+    if (allow == 0 or allow == 1) and self:read(record, 24) == identity and
+        u32(identity, 8) == held and u32(self:field(wield, 0, 4), 0) == held and
+        self:component("reload", held, record) ~= nil then
+        sample.reload_allow_move, sample.reload_source = allow == 1, source
+        sample.reload_reason = "ready"
+    else sample.reload_reason = raw and "reload-movement-invalid" or source or "reload-movement-unavailable" end
+    return self:with_charge(sample, held, record, wield)
+end
+
 function Reader:sample()
     local channel, why = self:ready()
     if not channel then return nil, why end
@@ -336,7 +393,7 @@ function Reader:sample()
         if not count(reserve) or (flag ~= 0 and flag ~= 1) then
             return nil, "heat-state-unavailable"
         end
-        return self:with_charge({ active = true, mode = "heat", weapon = "native:" .. avatar .. ":" .. held,
+        return self:with_metadata({ active = true, mode = "heat", weapon = "native:" .. avatar .. ":" .. held,
             avatar = avatar_goid, goid = goid, reserve = reserve,
             overheated = flag == 1, reloading = reloading,
             native = true, feed = "heat" }, held, record, wield), "ready"
@@ -365,7 +422,7 @@ function Reader:sample()
         if chamber == nil then return nil, chamber_reason end
         if chamber then ammo = 1 end
     end
-    return self:with_charge({ active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,
+    return self:with_metadata({ active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,
         avatar = avatar_goid, goid = goid, reserve = reserve,
         ammo = ammo, reloading = reloading, native = true,
         feed = magazine and "magazine" or "rounds" }, held, record, wield), "ready"

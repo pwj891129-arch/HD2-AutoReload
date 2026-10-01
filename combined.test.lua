@@ -46,7 +46,8 @@ local function fixture(flags, list_vk, fail_reload, fail_stratagem, start_mode)
     local latch, observed = nil, true
     if start_mode == "toggle" then latch = false end
     local shot = {active = true, native = true, avatar = 100, weapon = "native:100:ammo",
-        mode = "ammo", ammo = 1, reserve = 2, reloading = false, feed = "magazine"}
+        mode = "ammo", ammo = 1, reserve = 2, reloading = false, feed = "magazine",
+        reload_allow_move = true}
     local binding = {start_vk = list_vk, start_mode = start_mode, directions = {38, 39, 40, 37}, owner = 1}
     local env = setmetatable({}, {__index = _G}); env._G = env
     env.FAIL_RELOAD, env.FAIL_STRATAGEM = fail_reload, fail_stratagem
@@ -85,7 +86,9 @@ local function fixture(flags, list_vk, fail_reload, fail_stratagem, start_mode)
                 GetWindowThreadProcessId = function(_, pid) pid[0] = focused and 42 or 7 end,
                 SendInput = function(_, input)
                     events[#events + 1] = {route = input[0].type == 0 and "charge" or "reload",
-                        down = input[0].type == 1 and input[0].value.key.flags == 8}
+                        down = input[0].type == 1 and input[0].value.key.flags == 8,
+                        fire_held = keys[1] == true,
+                        mouse_flags = input[0].value and input[0].value.mouse and input[0].value.mouse.flags}
                     if input[0].type == 0 then keys[1] = false end
                     return 1
                 end}}
@@ -211,6 +214,54 @@ for _, kind in ipairs({"railgun", "epoch"}) do
     f.env.shutdown()
     f = fixture({autoreload_setting_charge90 = false}); f.step(0.06); charge(f, kind)
     equal(#f.events, 0, "explicit charge OFF honored")
+    f.env.shutdown()
+end
+
+f = fixture(); f.shot.reload_allow_move = false; f.step(0.06)
+f.keys[1] = true; f.step(0.06)
+f.shot.ammo = 0; f.step(0.06); f.step(0.06)
+equal(#f.events, 0, "stationary reload never interrupts a loaded fire press")
+f.keys[1] = false; f.step(0.02); finish(f)
+equal(#f.events, 0, "stationary reload suppresses the entire post-release window")
+f.keys[1] = true; f.step(0.06)
+equal(#f.events, 1, "next empty press authorizes one fire release")
+equal(f.events[1].route, "charge", "empty press releases fire before reload")
+equal(f.events[1].down, false, "empty press never injects mouse down")
+f.step(0.02); equal(#f.events, 1, "empty press waits for fire release settlement")
+f.step(0.06)
+equal(#f.events, 2, "empty press reloads after releasing fire")
+equal(f.events[2].route, "reload", "empty press sends reload key")
+equal(f.events[2].fire_held, false, "reload key is never sent with fire held")
+f.shot.reloading = true; finish(f)
+equal(#f.events, 3, "reload pulse ends once without repeating during reload")
+equal(f.events[3].down, false, "reload pulse releases its key")
+f.env.shutdown()
+
+for _, fault in ipairs({"reserve", "reloading", "unknown", "focus", "menu"}) do
+    f = fixture(); f.shot.reload_allow_move, f.shot.ammo = false, 0
+    f.step(0.06); f.step(0.06)
+    if fault == "reserve" then f.shot.reserve = 0
+    elseif fault == "reloading" then f.shot.reloading = true
+    elseif fault == "unknown" then f.shot.reload_allow_move = nil
+    elseif fault == "focus" then f.focus(false)
+    else f.keys[5] = true end
+    f.keys[1] = true; f.step(0.06); f.step(0.08)
+    equal(#f.events, 0, "empty stationary click sends no input with " .. fault)
+    f.env.shutdown()
+end
+
+for _, fault in ipairs({"menu", "focus", "weapon", "classification", "reserve"}) do
+    f = fixture(); f.shot.reload_allow_move, f.shot.ammo = false, 0
+    f.step(0.06); f.step(0.06)
+    f.keys[1] = true; f.step(0.06)
+    equal(#f.events, 1, "pending stationary press has only released fire")
+    if fault == "menu" then f.keys[5] = true
+    elseif fault == "focus" then f.focus(false)
+    elseif fault == "weapon" then f.shot.weapon, f.shot.ammo = "native:100:new", 1
+    elseif fault == "classification" then f.shot.reload_allow_move = nil
+    else f.shot.reserve = 0 end
+    f.step(0.08); f.step(0.08)
+    equal(#f.events, 1, "pending stationary click cancels reload after " .. fault)
     f.env.shutdown()
 end
 

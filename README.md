@@ -1,4 +1,34 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.39-test
+# HD2 Helper Auto Reload + Stratagems 0.3.40-test
+
+## Stationary Reload Weapons
+
+0.3.40-test reads the held weapon's native `WeaponReloadComponent`
+`reload_allow_move` setting. Entity overrides take precedence over the game's
+authored configuration. No weapon-name list or HUD+ lookup is needed for this
+classification. Layouts remain guarded by the existing two binary hashes;
+indices, component ownership, booleans and held identity are validated.
+
+When that setting is false, releasing fire does not initiate reload during
+the one-second post-release window. Click the empty weapon again to request
+reload. Because the game ignores reload while fire is held, that explicit
+empty click releases left mouse once, waits at least 60 ms, then revalidates
+ammo/overheat, reserve, reload state and input gates before sending reload.
+It never injects a mouse-down. A click that began with usable ammo does not
+authorize release when the magazine later empties. The physical button must
+be released before another click. Weapon-switch reload checks are unchanged.
+
+If movement metadata cannot be read coherently, fire-release reload is also
+suppressed rather than guessing that movement is allowed. No automatic mouse
+release is authorized without an explicit stationary classification. Existing
+empty-click/manual/switch behavior otherwise remains. Logs report
+`RELOAD_MOVEMENT` and authorized `RELOAD_PRESS_RELEASE` events.
+
+Offline LuaJIT mocks cover stationary/moving/unknown settings, override/authored
+lookup, empty-click confirmation, focus/menu/weapon changes, no reserve and
+reload already in progress. The local pinned binary capture validates the
+native layout without reading a running game. Actual gameplay remains unverified.
+Native field research references the
+[HelldiversData reload component definition](https://raw.githubusercontent.com/shalzuth/HelldiversData/master/data/components/WeaponReloadComponent.json).
 
 ## Toggle Click Selection And Cancellation
 
@@ -203,8 +233,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.39-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.39-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.40-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.40-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
@@ -330,9 +360,11 @@ scheduling. Unknown game binaries or ambiguous data block input.
 - An observed magazine transition from positive usable ammo to zero, or an
   explicit complete-overheat transition, can request reload.
 - A new fire-key press checks once. While the fire button stays held, reload
-  checks and reload input are deferred.
+  checks and reload input are deferred, except for the explicitly empty
+  stationary-reload click described above.
 - Release immediately rereads the current held weapon and opens a one-second
-  confirmation window with further reads every 50 ms.
+  confirmation window with further reads every 50 ms. Stationary or unknown
+  reload-movement settings suppress reload from this window.
 - Number-row 1, 2, or 3 waits 1.1 seconds for draw completion, then verifies
   the changed held weapon. Numpad keys are separate.
 - A known positive reserve and coherent empty/overheat readings are required.
@@ -456,8 +488,8 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.39-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.39-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.39-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.39-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.40-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.40-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.40-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.40-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.
