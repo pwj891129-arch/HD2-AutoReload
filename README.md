@@ -1,14 +1,47 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.43-test
+# HD2 Helper Auto Reload + Stratagems 0.3.44-test
+
+## Korean Font Resource Routing
+
+The available gameplay log is from 0.3.42: Korean names and the matching native
+font/atlas were available, but the screenshot showed no Korean text. 0.3.43's
+raster route has not yet been tested in game. Neither outcome is assumed here.
+
+Review found that 0.3.42 bound an owned GUI's font material, then passed the
+Material instance pointer to Gui.text. Icons and English text instead draw by
+material resource. 0.3.44 uses the same resource-based contract for Korean text:
+the texture is bound on the owned GUI, and Gui.text resolves that GUI's
+`content/fonts/core_sans` resource, not the instance pointer. The font and its
+matching atlas stay paired. This is a targeted correction to a differing call
+path, not a proven diagnosis of the game's invisible output. The generic
+[Stingray API](https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/lua_ref/obj_stingray_Gui.html)
+documents both resource and pointer arguments; this game's rendering must still
+be checked live. No game native function is invoked through FFI.
+
+Native Korean text is preferred only when its font, atlas, material and glyph
+coverage are available. Binding/measurement/draw failures disable that route for
+the current opening and fall back to the 0.3.43 raster glyphs, then English if
+those are also unavailable. A successful API return is not proof of visible
+pixels, so silent native rendering failure cannot be automatically detected.
+Logs now identify `native-font-drawn` with the font, atlas, resource, primitive ID,
+font size and screen-space bounds, or a binding/measurement/draw error. Reports
+are bounded per font/opening. Nonfinite bearings and second, resized measurements
+are guarded. English rendering, icons, inputs, settings and reload remain unchanged.
+
+Regression tests distinguish a resource handle from a Material instance, cover
+both native pairs, reuse/cleanup, missing glyphs/resources, failures and recovery,
+and the actual raster fallback. A 0.3.44 Korean ZIP gameplay check is required to
+confirm whether this change resolves the native-font problem. No installed mod,
+game state or input was changed during development.
 
 ## Korean Raster Glyphs And Larger Icons
 
 The 0.3.42 native Korean font/atlas binding attempt still produced invisible names
-in the user's game. 0.3.43-test replaces that entire drawing path, not just the
+in the user's game. 0.3.43-test introduced an independent fallback drawing path, not just a
 font choice. A mod-owned coverage texture contains 296 raster glyphs generated
 from Noto Sans CJK KR Regular (SIL Open Font License 1.1). Korean text is drawn as
 retained UV bitmaps using the same native mask material as the working icons.
-It no longer calls the game's font renderer, native font extents or MSDF shader,
-and does not depend on Korean game UI resources. English text keeps its existing
+This fallback does not call the game's font renderer, native font extents or MSDF
+shader, and does not depend on Korean game UI resources. English text keeps its existing
 debug-font renderer. Missing glyphs/resources or failed draws fall back to English;
 partial glyph draws are cleaned up. Only owned GUI material instances are changed.
 
@@ -302,8 +335,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.42-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.42-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.44-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.44-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -560,8 +593,8 @@ node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
 node tools/reload-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.42-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.42-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.42-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.42-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.44-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.44-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.44-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.44-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

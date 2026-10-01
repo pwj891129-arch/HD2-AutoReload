@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.43-test';
+const version = '0.3.44-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -182,7 +182,9 @@ function checkPackage(language) {
       assert(source.includes('Radial.Glyphs = (function()'));
       assert(source.includes('renderer=mask-bitmap'));
       assert(source.includes('self:shape_on(style.gui, "bitmap_uv", style.material'));
-      assert(!source.includes('content/fonts/core_sans') && !source.includes('e007454455e2d2bb'));
+      assert(source.includes('content/fonts/core_sans') && source.includes('e007454455e2d2bb'));
+      assert(source.includes('font = resource, material = FONT_MATERIAL'), 'Native text uses the bound GUI-local resource, not the instance pointer');
+      assert(source.includes('renderer=resource-text') && source.includes('renderer=mask-bitmap'), 'Native and raster routes are distinguishable');
       assert(source.includes('72 * unit, 14 * unit, 12 * unit, 4 * unit'));
       assert(source.includes('sample.reload_allow_move, sample.reload_source = allow == 1, source'));
       assert(source.includes('action == "release-fire"'));

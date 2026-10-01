@@ -22,8 +22,9 @@ included separately as LUCIDE-LICENSE.txt for the remaining library symbols.
 
 The Korean wheel labels also use a subset of installed Korean game strings.
 141 names come from the native catalog and eight are addon fallback labels.
-Game translations retain their original rights. Runtime Korean text now uses
-addon-owned raster glyph artwork generated from Noto Sans CJK KR Regular under
+Game translations retain their original rights. Runtime Korean text can use the
+installed native font/atlas; its fallback uses addon-owned raster glyph artwork
+generated from Noto Sans CJK KR Regular under
 SIL Open Font License 1.1, not the game's fonts or font atlases. Its coverage
 texture is deployed with Core. WHEEL-FONT-LICENSE.txt and WHEEL-FONT-SOURCES.json
 include the font's original notice and provenance. No original game font, atlas,

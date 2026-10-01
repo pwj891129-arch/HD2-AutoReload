@@ -2,10 +2,10 @@ param(
     [Parameter(Mandatory)][string[]]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.43-test'
+    [string]$Tag = 'auto-reload-0.3.44-test'
 )
 $ErrorActionPreference = 'Stop'
-$expectedNames = @('HD2-AutoReload-0.3.43-test-en.zip', 'HD2-AutoReload-0.3.43-test-ko.zip')
+$expectedNames = @('HD2-AutoReload-0.3.44-test-en.zip', 'HD2-AutoReload-0.3.44-test-ko.zip')
 $assets = @($AssetPath | ForEach-Object {
     $resolved = (Resolve-Path -LiteralPath $_).Path
     [ordered]@{
@@ -32,17 +32,17 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.43-test
+## HD2 Auto Reload + Stratagems 0.3.44-test
 
-0.3.42에서도 한글 이름이 보이지 않던 문제에 대응해 표시 방식을 교체하고, 너무 작아진 아이콘을 다시 키웠습니다.
+한글 폰트 표시 경로를 수정하고, 표시 실패를 구분할 수 있도록 보완한 테스트 버전입니다. 현재 게임 로그는 0.3.42이며 0.3.43의 이미지 방식은 아직 게임에서 테스트되지 않았습니다.
 
-- 한글 이름을 게임 폰트 렌더러에 맡기는 방식 대신, 아이콘과 같은 이미지 그리기 경로로 직접 표시합니다. 번역 데이터와 폰트 연결이 정상인데 글자만 보이지 않던 경로를 사용하지 않습니다.
-- 공개 라이선스의 Noto 한글 글꼴로 만든 모드 전용 글자 이미지와 배포 패치를 포함했습니다. 게임 UI 언어와 게임 한글 폰트 로드 여부에 의존하지 않습니다. 원본 게임 폰트·텍스처·UI 패키지와 공용 HUD 재질은 변경하지 않습니다.
-- 아이콘 최대 크기를 100% 기준 44px에서 72px로 확대했습니다. 같은 휠 크기에서 각 부채꼴의 공간을 더 활용하며, 항목이 많거나 화면이 작을 때만 필요한 만큼 줄입니다.
-- 아이콘·최대 두 줄 이름·상태·기존 슬롯 번호가 겹치지 않도록 배치를 조정했습니다. 선택한 이름은 휠 가운데에 표시합니다. 배치 계산을 캐시해 선택 이동마다 다시 계산하지 않습니다.
-- 글자 이미지가 없거나 표시가 실패하면 빈칸 대신 영문 이름을 사용합니다. 일부만 그려진 글자는 정리하고, 실제 그리기 경로와 성공한 글자 수를 로그에 기록합니다.
+- 한글 이름과 폰트·글자 이미지가 정상적으로 확인되는데 화면에서 이름이 보이지 않던 0.3.42 코드를 조사했습니다. 글자 그리기에 재질 포인터를 넘기던 부분을, 실제 연결한 GUI의 재질 리소스로 그리는 방식으로 통일했습니다. 이 호출 차이가 미표시의 원인인지는 게임 테스트가 필요합니다.
+- 한글 폰트와 해당 글자 이미지가 로드되어 있고 필요한 글자를 모두 포함하면 게임 폰트로 우선 표시합니다. 공용 HUD 재질과 원본 게임 파일은 변경하지 않습니다.
+- 연결·크기 계산·그리기 호출이 실패하면 0.3.43의 모드 전용 글자 이미지로 대체하며, 이것도 사용할 수 없으면 영문 이름을 표시합니다. 호출 성공 후 화면에서만 보이지 않는 문제는 자동 감지할 수 없습니다.
+- 사용한 폰트·글자 이미지·재질·실제 표시 크기·화면 위치·그리기 반환값을 로그에 기록합니다. 창을 열 때마다 같은 폰트의 기록이 중복으로 쌓이지 않도록 제한했습니다.
+- 0.3.43의 커진 아이콘과 휠 내부 배치, 스트라타젬 선택 방향·커맨드·장착 슬롯 번호·표시 옵션 및 자동재장전/배낭 장전 동작은 유지합니다.
 - 스트라타젬 선택 방향·커맨드·장착 슬롯 번호·표시 옵션 및 자동재장전/배낭 장전 동작은 그대로 유지합니다.
-- 영어판 `HD2-AutoReload-0.3.43-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.43-test-ko.zip` 중 하나만 설치하세요. 옵션 순서·기본값·저장 경로는 유지했습니다. 한글 이름은 한국어 ZIP에서 표시합니다.
+- 영어판 `HD2-AutoReload-0.3.44-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.44-test-ko.zip` 중 하나만 설치하세요. 옵션 순서·기본값·저장 경로는 유지했습니다. 한글 이름은 한국어 ZIP에서 표시합니다.
 
 ### 설치
 
@@ -54,21 +54,21 @@ Arsenal은 새 옵션을 처음 가져올 때 체크합니다. 이제 체크된 
 
 ### English
 
-The native font binding attempt in 0.3.42 still displayed invisible Korean names in the user's game. This version replaces it with a mod-owned raster coverage atlas generated from Noto Sans CJK KR Regular under SIL OFL 1.1. Korean names use retained UV bitmaps and the same mask material as working icons, without the game's font renderer, MSDF shader or Korean-language resources. Missing glyphs/resources and failed draws fall back to English. No shared HUD material or original game font/atlas/UI binary is modified or shipped.
+0.3.42 had valid Korean names and a matching font/atlas, but invisible text. This build changes Gui.text from a Material-instance argument to the same owned GUI's material resource, matching the working icon/English resource-based path. Native Korean text is preferred when its font/atlas and glyph coverage are available. Bind, measure or draw-call failures fall back to the retained 0.3.43 OFL raster glyphs, then English. This call-path difference is a root-cause candidate, not a confirmed live diagnosis: the generic Stingray API permits both resource and pointer arguments, and a successful draw call cannot detect invisible pixels. Logs include resource IDs, font size, screen bounds and primitive ID. No original game font/atlas/UI binary is modified or shipped, and no shared HUD material is changed.
 
-Icons grow from the previous 44px cap to 72px at 100% where space permits. Cached tall content blocks make better use of each sector without enlarging the wheel or overlapping two-line names, status and original hotkey numbers. Dense wheels and small screens still adapt. Command input, selection angles, visibility and automatic/backpack reload remain unchanged.
+The larger icons and adaptive layout from 0.3.43 are retained. Command input, selection angles, visibility, settings and automatic/backpack reload remain unchanged.
 
 Install **one** ZIP: `-en.zip` or `-ko.zip`. Arsenal initially checks new options, so review checkbox states and uncheck unwanted calls. Use Individual Settings in the bulk controls to honor individual checks. Replace the previous version, then Purge / Deploy and restart with the game closed and Bingus Shared Loader v18 / API 1. At least one setting must be selected.
 
 ### 검증
 
-LuaJIT 모의 검사와 언어판별 배포 검사를 통과했습니다. 한글/영문·1~16개 항목·320x240~3840x2160·100~400% 크기에서 실제 글자 이미지의 배치와 아이콘/글자 겹침을 검사했습니다. 등록된 149개 이름과 296개 글자의 픽셀, DDS/GPU 크기, 12단계 mipmap, 텍스처 배포, 누락/그리기 실패의 영문 대체와 부분 그리기 정리도 검사했습니다. 실제 Lua 배치값·글자 UV를 내보내 인게임 아이콘과 함께 오프라인 렌더링했습니다. 실제 Arsenal UI 및 게임 테스트는 추가 확인이 필요하며 설치된 모드·게임 상태는 변경하지 않았습니다.
+LuaJIT 모의 검사와 언어판별 배포 검사를 통과했습니다. 재질 리소스와 인스턴스 포인터를 구분한 검사, 두 한글 폰트와 글자 이미지의 연결, 자원·글자 누락, 연결·크기 계산·그리기 실패, 한글 이미지 대체, GUI 정리와 다음 열기에서 복구를 검사했습니다. 기존 이름·아이콘 배치와 DDS/GPU 배포 검사도 유지했습니다. 실제 Arsenal UI 및 게임 테스트는 추가 확인이 필요하며 설치된 모드·게임 상태는 변경하지 않았습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.43-test (Korean bitmap labels + Larger icons)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.44-test (Korean font resource routing)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

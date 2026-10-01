@@ -82,5 +82,18 @@ return function(equal)
     fail = false
     radial:text("증원", 360, 200, 20, {}, 120, "REINFORCEMENT")
     equal(#radial.ids, 2); radial:close(); equal(next(shapes), nil)
+    local can_get = sr.Application.can_get
+    sr.Application.can_get = function(kind, name)
+        if kind == "font" and name == "e007454455e2d2bb" or kind == "texture" and name == "8d346dcdd08459d5" or
+            kind == "material" and name == "content/fonts/core_sans" then return true end
+        return can_get(kind, name)
+    end
+    sr.Gui.has_all_glyphs = function() return true end
+    -- This fixture cannot bind an MSDF material; the real bitmap path must recover.
+    local before = bitmap_calls
+    radial:text("증원", 360, 200, 20, {}, 120, "REINFORCEMENT")
+    equal(radial.native_font_failed, true)
+    equal(bitmap_calls - before, 2, "native failure falls back to actual Korean bitmaps before English")
+    equal(#radial.ids, 2); radial:close(); equal(next(shapes), nil); equal(next(surfaces), nil)
     equal(table.concat(messages, "|"):find("renderer=mask-bitmap", 1, true) ~= nil, true)
 end

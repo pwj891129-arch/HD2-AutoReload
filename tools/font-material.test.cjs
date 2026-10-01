@@ -11,7 +11,11 @@ const metadata = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../assets/s
 const pairs = metadata.fonts;
 assert.deepEqual(pairs.map(row => [row.id, row.atlas]), [
   ['e007454455e2d2bb', '8d346dcdd08459d5'], ['fca7631255290a2c', '9ae590aec7c63b1c']]);
-// Historical native font evidence only. Runtime Korean text now uses the mod's OFL mask atlas.
+const source = fs.readFileSync(path.resolve(__dirname, '../stratagem/radial.lua'), 'utf8');
+for (const spec of pairs) assert(source.includes(spec.id) && source.includes(spec.atlas));
+assert(source.includes('font = resource, material = FONT_MATERIAL'), 'Draw resolves the same GUI-local material resource as the bind');
+assert(!source.includes('material = font.material, gui = font.gui'), 'Do not reintroduce the 0.3.42 pointer draw path');
+assert(source.includes('renderer=resource-text') && source.includes('renderer=mask-bitmap'));
 const read = (offset, size, extension = '') => size ? archive.readPackageRange(opened, packages.get(packageId + extension), offset, size) : Buffer.alloc(0);
 try {
   const head = read(0, 72), start = 72 + head.readUInt32LE(4) * 32;

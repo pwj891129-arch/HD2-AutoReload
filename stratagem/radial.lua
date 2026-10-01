@@ -2,6 +2,11 @@ local Radial = {}
 Radial.__index = Radial
 local ICON_MATERIAL, ICON_SLOT = "c0f3797849262087", "3aa8b87e00000000"
 local ICON_COLORS = {"28723f4d00000000", "851fd4fd00000000", "10c353af00000000"}
+local FONT_MATERIAL, FONT_SLOT = "content/fonts/core_sans", "88bac99b00000000"
+local KOREAN_FONTS = {
+    {font = "e007454455e2d2bb", atlas = "8d346dcdd08459d5"},
+    {font = "fca7631255290a2c", atlas = "9ae590aec7c63b1c"},
+}
 -- @GLYPHS@
 function Radial.new(sr, channel, scale, trace)
     return setmetatable({sr = sr, channel = channel, scale = scale or 1, ids = {}, icons = {}, fonts = {}, icon_reasons = {}, trace = trace}, Radial)
@@ -61,6 +66,8 @@ function Radial:close()
     self.icons, self.fonts = {}, {}
     self.icon_reasons, self.icon_report = {}, nil
     self.glyph_failed = nil
+    self.native_font_failed = nil
+    self.native_font_error, self.native_fallback_report, self.measure_error = nil, nil, nil
     self:restore()
     if not good then error(why) end
 end
@@ -224,9 +231,59 @@ function Radial:glyph_resources()
     end)
     if ok then return atlas, material end
 end
+function Radial:native_font_resources(spec)
+    local sr = self.sr
+    if not sr.IdString64 or not sr.IdString64.from_hex or not sr.Gui.has_all_glyphs or
+        not sr.Gui.material or not sr.Material or not sr.Material.set_texture then return end
+    local good, resource, atlas = pcall(function()
+        local resource, atlas = sr.IdString64.from_hex(spec.font), sr.IdString64.from_hex(spec.atlas)
+        if sr.Application.can_get("font", resource) == true and sr.Application.can_get("texture", atlas) == true and
+            sr.Application.can_get("material", FONT_MATERIAL) == true then return resource, atlas end
+    end)
+    if good then return resource, atlas end
+end
+function Radial:native_text_style(text)
+    local sr = self.sr
+    if self.native_font_failed or not sr.IdString64 or not sr.IdString64.from_hex or
+        not sr.Gui.has_all_glyphs or not sr.Gui.material or not sr.Material or not sr.Material.set_texture then return end
+    for _, spec in ipairs(KOREAN_FONTS) do
+        local good, style = pcall(function()
+            local resource, atlas = self:native_font_resources(spec)
+            if not resource or sr.Gui.has_all_glyphs(self.gui, text, resource) ~= true then return end
+            local font = self.fonts[spec.font]
+            if not font then font = {}; self.fonts[spec.font] = font end
+            if not font.gui then
+                font.gui = sr.World.create_screen_gui(self.world, "scale", 1, 1)
+                if not font.gui or font.gui == 0 then font.gui = nil; error("font-gui-unavailable") end
+            end
+            if not font.material then
+                local instance = sr.Gui.material(font.gui, FONT_MATERIAL)
+                if not instance or instance == 0 then error("font-material-unavailable") end
+                sr.Material.set_texture(instance, sr.IdString64.from_hex(FONT_SLOT), atlas)
+                font.material = instance
+            end
+            -- Resolve the same GUI-local resource that was bound above, as bitmap_uv does.
+            -- Do not pass a Material pointer through the game's text resource argument.
+            return {text = text, font = resource, material = FONT_MATERIAL, gui = font.gui, native = spec}
+        end)
+        if good and style then return style end
+        if not good and self.native_font_error ~= tostring(style) then
+            self.native_font_error = tostring(style)
+            if self.trace then self.trace("OVERLAY native-font-bind-failed " .. self.native_font_error:gsub("[\r\n]", " ")) end
+        end
+        if not good then self.native_font_failed = true; return end
+    end
+end
 function Radial:text_style(text, fallback)
     local sr, debug = self.sr, "core/performance_hud/debug"
     if text:find("[\128-\255]") then
+        local native = self:native_text_style(text)
+        if native then return native end
+        if not self.native_fallback_report and self.trace then
+            self.native_fallback_report = true
+            self.trace("OVERLAY native-font-fallback reason=" ..
+                (self.native_font_failed and "native-call-failed" or "native-resources-or-glyph-coverage-unavailable"))
+        end
         local atlas, material = self:glyph_resources()
         local good, result = pcall(function()
             if not atlas or self.glyph_failed then return end
@@ -282,6 +339,9 @@ function Radial:measure(style, size)
     else
         lo, hi = self.sr.Gui.text_extents(style.gui, style.text, style.font, size)
     end
+    for _, value in ipairs({lo.x, lo.y, hi.x, hi.y}) do
+        if value ~= value or math.abs(value) > 100000 then error("font-extents-invalid") end
+    end
     local width, height = hi.x - lo.x, hi.y - lo.y
     if width ~= width or height ~= height or width <= 0 or height <= 0 or
         width > 100000 or height > 100000 then error("font-extents-invalid") end
@@ -299,6 +359,10 @@ function Radial:text(text, x, y, size, colour, maximum_width, fallback, maximum_
             self.measure_error = tostring(lo)
             if self.trace then self.trace("OVERLAY font-extents-failed " .. self.measure_error:gsub("[\r\n]", " ")) end
         end
+        if style.native then
+            self.native_font_failed = true
+            return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height)
+        end
         style = self:text_style(fallback or "STRATAGEM")
         good, lo, hi, width, height = pcall(self.measure, self, style, size)
         if not good then return end
@@ -306,7 +370,15 @@ function Radial:text(text, x, y, size, colour, maximum_width, fallback, maximum_
     local ratio = math.min(1, limit / width, (maximum_height or math.huge) / height)
     if ratio < 1 then
         size = size * ratio
-        lo, hi, width, height = self:measure(style, size)
+        good, lo, hi, width, height = pcall(self.measure, self, style, size)
+        if not good then
+            if style.native then
+                self.native_font_failed = true
+                if self.trace then self.trace("OVERLAY native-font-measure-failed " .. tostring(lo):gsub("[\r\n]", " ")) end
+                return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height)
+            end
+            return
+        end
     end
     local px, py = x - width / 2 - lo.x, y - lo.y
     if style.bitmap then
@@ -336,6 +408,21 @@ function Radial:text(text, x, y, size, colour, maximum_width, fallback, maximum_
             self.fonts.glyphs.draw_report = true
             if self.trace then self.trace(string.format("OVERLAY glyph-drawn count=%d size=%.1f bounds=%.1fx%.1f", #self.ids - start, size, width, height)) end
         end
+    elseif style.native then
+        local good, why = pcall(self.shape_on, self, style.gui, "text", style.text, style.font, size,
+            style.material, sr.Vector3(px, py, 12), colour)
+        if not good then
+            self.native_font_failed = true
+            if self.trace then self.trace("OVERLAY native-font-draw-failed " .. tostring(why):gsub("[\r\n]", " ")) end
+            return self:text(text, x, y, size, colour, maximum_width, fallback, maximum_height)
+        end
+        local font = self.fonts[style.native.font]
+        if not font.draw_report and self.trace then
+            font.draw_report = true
+            self.trace(string.format("OVERLAY native-font-drawn font=%s atlas=%s material=%s renderer=resource-text size=%.2f bounds=%.2f,%.2f,%.2f,%.2f id=%s",
+                style.native.font, style.native.atlas, style.material, size,
+                px + lo.x, py + lo.y, px + hi.x, py + hi.y, tostring(self.ids[#self.ids][2])))
+        end
     else
         self:shape_on(style.gui, "text", style.text, style.font, size, style.material, sr.Vector3(px, py, 12), colour)
     end
@@ -357,17 +444,28 @@ function Radial:label(text, x, top, size, colour, width, fallback)
             if left ~= "" and right ~= "" then
                 local a = {gui = style.gui, font = style.font, text = left, bitmap = style.bitmap}
                 local b = {gui = style.gui, font = style.font, text = right, bitmap = style.bitmap}
-                local _, _, wa = self:measure(a, size); local _, _, wb = self:measure(b, size)
+                local ok_a, _, _, wa = pcall(self.measure, self, a, size)
+                local ok_b, _, _, wb = pcall(self.measure, self, b, size)
+                if not ok_a or not ok_b then
+                    self:text(text, x, top - size, size, colour, width, fallback, size); return
+                end
                 local value = math.max(wa, wb)
                 if value < score then split, score = {left, right}, value end
             end
         end
     end
     if not split then self:text(style.text, x, top - size, size, colour, width, fallback, size); return end
+    local original_size, start = size, #self.ids
     size = size * math.min(1, width / score)
     for index, line in ipairs(split) do
         self:text(line, x, top - index * size, size, colour, width, fallback, size)
-        if style.bitmap and self.glyph_failed then return end
+        if style.native and self.native_font_failed or style.bitmap and self.glyph_failed then
+            for item = #self.ids, start + 1, -1 do
+                local shape = self.ids[item]
+                self.sr.Gui["destroy_" .. shape[1]](shape[3], shape[2]); self.ids[item] = nil
+            end
+            self:label(text, x, top, original_size, colour, width, fallback); return
+        end
     end
 end
 function Radial.content(count, inner, outer, angle, scale)
@@ -413,6 +511,10 @@ function Radial:draw(inventory)
     if not nx then return false end
     self.selected = Radial.pick(nx, ny, w, h, #rows, scale)
     local mark, pictures, reasons = {tostring(self.selected), tostring(w), tostring(h), tostring(scale)}, {}, {}
+    mark[#mark + 1] = tostring(self.native_font_failed)
+    for _, spec in ipairs(KOREAN_FONTS) do
+        mark[#mark + 1] = self:native_font_resources(spec) and spec.font or "native-font-unavailable"
+    end
     mark[#mark + 1] = self:glyph_resources() and not self.glyph_failed and "glyph-ready" or "glyph-unavailable"
     for index, row in ipairs(rows) do
         pictures[index], reasons[index] = self:icon_data(row)
