@@ -3,13 +3,14 @@ return function(equal, read_file)
         local now, active, focused, idle, available, token = 0, false, true, true, true, "CHARACTER"
         local keys, events = {}, {}
         local hover, ready, lost, acknowledge, close_on_command = 1, true, false, true, true
+        local loadout_token, surface = "LOADOUT", true
         local binding = {start_vk = vk, start_mode = "toggle", owner = 1, directions = {38, 39, 40, 37}}
         local radial = {restore = function() end, dispose = function() end}
         function radial:open(inventory)
             self.opened, self.inventory, self.selected = true, inventory, hover
             return true
         end
-        function radial:draw() self.selected = hover; return true end
+        function radial:draw() self.selected = hover; return surface end
         function radial:close() self.opened, self.inventory, self.selected = false, nil, nil end
         local channel = {foreground = function() return focused end, down = function(key) return keys[key] == true end,
             key = function(key, down)
@@ -25,7 +26,7 @@ return function(equal, read_file)
                 return true
             end}
         local function request()
-            if ready then return {kind = 1, token = "LOADOUT", bindings = binding,
+            if ready then return {kind = 1, token = loadout_token, bindings = binding,
                 keys = {38, 39}, directions = {1, 2}} end
         end
         local reader = {bindings = function() return binding, "ready" end,
@@ -36,13 +37,22 @@ return function(equal, read_file)
                 return {start = active, directions = {acknowledge and keys[38] == true,
                     acknowledge and keys[39] == true, false, false}}
             end,
-            radial = function() return {token = "LOADOUT", rows = {{kind = 1, ready = ready, status = "READY"}}}, "ready" end,
-            loadout = function() return {token = "LOADOUT"} end, request = request, request_kind = request}
+            radial = function() return {token = loadout_token, rows = {{kind = 1, ready = ready, status = "READY"}}}, "ready" end,
+            loadout = function() return {token = loadout_token} end, request = request, request_kind = request}
         local env = setmetatable({CHANNEL = channel, READER = reader, RADIAL = radial}, {__index = _G}); env._G = env
         env.CowboyBingusModLoader = {api = 1, open_log = function()
             return {write = function() end, flush = function() end, close = function() end}
         end}
-        env.stingray = {Application = {time_since_launch = function() return now end}}
+        env.require = function(name)
+            if name == "mods/hd2_helper/stratagem_option_radial" or
+                name == "mods/hd2_helper/stratagem_option_hotkeys" then return true end
+            return require(name)
+        end
+        env.stingray = {Application = {time_since_launch = function() return now end,
+            can_get = function(_, name)
+                return name == "mods/hd2_helper/stratagem_option_radial" or
+                    name == "mods/hd2_helper/stratagem_option_hotkeys"
+            end}}
         local source = read_file("addon.lua")
             :gsub("%-%- @PLATFORM@", "return {create=function() return CHANNEL end}")
             :gsub("%-%- @READER@", "return {new=function() return READER end}")
@@ -74,6 +84,8 @@ return function(equal, read_file)
             elseif name == "available" then available = value
             elseif name == "active" then active = value
             elseif name == "token" then token = value
+            elseif name == "loadout_token" then loadout_token = value
+            elseif name == "surface" then surface = value
             elseif name == "acknowledge" then acknowledge = value
             elseif name == "close_on_command" then close_on_command = value
             elseif name == "mode" then
@@ -101,6 +113,71 @@ return function(equal, read_file)
         equal(f.keys[vk], false, "injected toggle press is released")
         equal(f.radial.opened, false, "injected menu reopening cannot reopen the wheel")
         equal(f.env.HD2StratagemHotkeys.blocking_inputs, false, "game menu closure unblocks reload")
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.press(1); f.finish()
+        equal(f.radial.opened, true, "selection click retains cursor capture until physical release")
+        equal(#f.events, 0, "held selection click cannot close or reopen the native menu")
+        equal(f.env.HD2StratagemHotkeys.blocking_inputs, true, "selection click blocks automatic reload/charge release")
+        f.release(1); f.finish()
+        equal(f.radial.opened, false, "left click release confirms the hovered toggle sector")
+        equal(count(f, "list"), 4, "click confirmation closes and reopens with bounded List pulses")
+        equal(count(f, "command"), 4, "click confirmation enters exactly one observed command")
+        equal(f.keys[vk], false, "click selection releases injected List input")
+        equal(f.env.HD2StratagemHotkeys.blocking_inputs, false, "completed click selection unblocks reload")
+        for _, event in ipairs(f.events) do equal(event.vk ~= 1, true, "click confirmation never injects fire or throw") end
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.set("hover", nil); f.press(1)
+        f.release(1); f.finish()
+        equal(count(f, "list"), 2, "center click closes the native menu once")
+        equal(count(f, "command"), 0, "center click is cancellation, not call-in selection")
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.press(1); f.set("hover", nil); f.step(); f.release(1); f.finish()
+        equal(count(f, "command"), 4, "click captures the sector at mouse-down, not release-time recentering")
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.set("hover", nil); f.step(); f.set("hover", 1)
+        f.press(1); f.release(1); f.finish()
+        equal(count(f, "command"), 4, "click hit testing uses the current cursor rather than stale hover")
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.press(1); f.press(50); f.release(50); f.release(1); f.finish()
+        equal(count(f, "command"), 4, "number key during held confirmation cannot queue an extra command")
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.press(1); f.set("ready", false); f.release(1); f.finish()
+        equal(count(f, "list"), 2, "a newly unavailable call-in closes without reopening")
+        equal(count(f, "command"), 0, "click selection revalidates readiness before input")
+        f.env.shutdown()
+
+        for _, fault in ipairs({"focused", "idle", "available", "active", "token", "loadout_token", "mode"}) do
+            f = fixture(vk); f.open(); f.press(1)
+            f.set(fault, (fault == "token" or fault == "loadout_token") and "REPLACED" or fault == "mode" and "hold" or false)
+            f.step(0.3); f.release(1); f.finish()
+            equal(f.radial.opened, false, fault .. " change cancels click selection")
+            equal(#f.events, 0, fault .. " change before click release cannot send any command")
+            f.env.shutdown()
+        end
+        f = fixture(vk); f.open(); f.set("surface", false); f.press(1); f.release(1); f.finish()
+        equal(#f.events, 0, "failed click hit testing cannot select a stale sector")
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.press(1); f.step(10.1); f.release(1); f.finish()
+        equal(#f.events, 0, "unreleased click has a bounded cancellation timeout")
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.press(1); f.press(vk); f.release(vk); f.release(1); f.finish()
+        equal(#f.events, 0, "List close while a selection click is held cancels rather than double-confirms")
+        f.env.shutdown()
+
+        f = fixture(vk); f.step(); f.press(1); f.press(vk); f.release(vk); f.release(1); f.finish()
+        equal(count(f, "command"), 0, "fire held before opening cannot count as a selection click")
+        f.env.shutdown()
+
+        f = fixture(vk); f.open(); f.press(1); f.release(1); f.press(1); f.release(1); f.finish()
+        equal(count(f, "command"), 0, "a second fire press during preparation cancels pending input")
         f.env.shutdown()
 
         f = fixture(vk); f.open(); f.set("hover", nil); f.step()

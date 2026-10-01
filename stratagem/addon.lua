@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.37-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.38-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -56,10 +56,13 @@ local function visible(group, individual)
 end
 local visibility = {other = visible("shared", option("shared_other", false))}
 for _, filter in ipairs(Visibility) do
-    local enabled = visible(filter.group, option(filter.id, false))
+    local individual = option(filter.id, false)
+    local enabled = visible(filter.group, individual)
     for _, kind in ipairs(filter.kinds) do visibility[kind] = enabled end
+    log("CONFIG visibility=" .. filter.id .. " individual=" .. tostring(individual) ..
+        " effective=" .. tostring(enabled))
 end
-local config = {radial = option("radial", true), hotkeys = option("hotkeys", true),
+local config = {radial = option("radial", false), hotkeys = option("hotkeys", false),
     shared = visibility,
     scale = setting("scale", 1, 1, function(value)
         return value == 1 or value == 1.5 or value == 2 or value == 3 or value == 4
@@ -70,9 +73,9 @@ local policy = Policy.new(channel.command_key, function(binding) return reader:c
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
 if not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.37-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.38-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.37-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.38-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("CONFIG radial=" .. tostring(config.radial) .. " hotkeys=" .. tostring(config.hotkeys))
@@ -126,6 +129,7 @@ local function stop()
     state.pending = nil
     state.open_pending = nil
     state.toggle_close = nil
+    state.click_selection = nil
     state.radial_binding = nil
     state.radial_menu_token = nil
     state.highlight = nil
@@ -144,6 +148,14 @@ local function clean(request)
     for _, vk in ipairs(request.bindings.directions) do if channel.down(vk) then return false end end
     return true
 end
+local function close_toggle_selection(row, binding, token, menu_token, now)
+    state.toggle_close = {row = row, binding = binding, menu_token = menu_token,
+        token = token, due = now + 0.08, expires = now + 0.8}
+    state.toggle_suppressed = true
+    state.click_selection = nil
+    close_radial()
+    state.radial_binding, state.radial_menu_token, state.highlight = nil, nil, nil
+end
 local function tick()
     local now = app.time_since_launch()
     if type(now) ~= "number" then return end
@@ -158,6 +170,8 @@ local function tick()
         return
     end
     local escape, enter, fire = channel.down(27), channel.down(13), channel.down(1)
+    local fire_pressed = fire and not state.fire
+    state.fire = fire
     if focused then
         if enter and not state.enter then state.chat = not state.chat end
         if escape and not state.escape then state.chat = false end
@@ -187,7 +201,8 @@ local function tick()
         game, game_why = reader:game_menu()
     end
     local native_active = game and game.active == true
-    if not native_active and not state.pending and not policy.job and not state.toggle_close and not state.owned_start then
+    if not native_active and not state.pending and not policy.job and not state.toggle_close and
+        not state.click_selection and not state.owned_start then
         state.toggle_suppressed = nil
     end
     if binding and not modifier then state.list_ready = true end
@@ -203,10 +218,14 @@ local function tick()
         if numbers[slot] and not state.keys[slot] then pressed = slot; count = count + 1 end
     end
     state.keys = numbers
-    local allowed = focused and binding and not state.chat and not escape and not enter and not fire and reader:idle()
+    local click_pressed = fire_pressed and toggle and radial_was_open and radial.opened and native_active and
+        not modifier_pressed and not state.pending and not policy.job and not state.toggle_close and
+        same_binding(binding, state.radial_binding) and game.token == state.radial_menu_token
+    local allowed = focused and binding and not state.chat and not escape and not enter and
+        (not fire or click_pressed or state.click_selection ~= nil) and reader:idle()
     if not allowed then
         local was_open, was_pending = radial.opened,
-            state.pending ~= nil or state.open_pending ~= nil or state.toggle_close ~= nil
+            state.pending ~= nil or state.open_pending ~= nil or state.toggle_close ~= nil or state.click_selection ~= nil
         stop()
         if overlay_pressed or was_open or was_pending then
             local why = not focused and "focus-lost" or not binding and "binding-unavailable" or
@@ -216,9 +235,43 @@ local function tick()
         state.blocking_inputs = (focused and (modifier or native_active)) or state.mouse_release ~= nil
         return
     end
+    if click_pressed and not state.click_selection then
+        if not radial:draw(radial.inventory) then
+            stop(); note("OVERLAY cancelled surface-unavailable")
+            state.blocking_inputs = modifier or native_active or state.mouse_release ~= nil
+            return
+        else
+            local row = radial.selected and radial.inventory.rows[radial.selected]
+            state.click_selection = {row = row, binding = binding, token = radial.inventory.token,
+                menu_token = state.radial_menu_token, expires = now + 10}
+            log(row and ("OVERLAY click kind=" .. row.kind) or "OVERLAY click center")
+        end
+    end
+    if state.click_selection then
+        local waiting = state.click_selection
+        local loadout = reader:loadout()
+        if not radial.opened or not native_active or not game or game.token ~= waiting.menu_token or
+            not same_binding(binding, waiting.binding) or not loadout or loadout.token ~= waiting.token then
+            stop(); note("OVERLAY cancelled click-state-changed")
+            state.blocking_inputs = modifier or native_active or state.mouse_release ~= nil
+            return
+        elseif modifier_pressed or now > waiting.expires then
+            stop(); note("OVERLAY cancelled click-release-timeout-or-list-key")
+            state.blocking_inputs = modifier or native_active or state.mouse_release ~= nil
+            return
+        elseif not fire then
+            -- Keep capture and the native menu open until the selection click is released.
+            -- Only List/direction keys are replayed; this click must never throw the call-in.
+            close_toggle_selection(waiting.row, waiting.binding, waiting.token, waiting.menu_token, now)
+        else
+            state.blocking_inputs = true
+            return
+        end
+    end
     -- Number shortcuts take priority over the radial on the same list-key hold.
     local shortcut = config.hotkeys and state.list_ready and (modifier or toggle and native_active) and
-        pressed and count == 1 and not policy.job and not state.pending and not state.owned_start and not state.toggle_close
+        not fire and pressed and count == 1 and not policy.job and not state.pending and
+        not state.owned_start and not state.toggle_close
     if shortcut and game then
         close_radial()
         state.open_pending = nil
@@ -230,7 +283,8 @@ local function tick()
     elseif shortcut then
         note("SKIP " .. (game_why or "stratagem-menu-state-unavailable"))
     end
-    if overlay_pressed and not shortcut and not policy.job and not state.pending and not state.owned_start and not state.radial_failed then
+    if overlay_pressed and not fire and not shortcut and not policy.job and not state.pending and
+        not state.toggle_close and not state.owned_start and not state.radial_failed then
         log("OVERLAY list-key pressed vk=" .. binding.start_vk)
         if game then
             state.open_pending = {expires = now + 0.35, binding = binding, menu_token = game.token}
@@ -264,14 +318,10 @@ local function tick()
             if why ~= "ready" and why ~= nil then note("OVERLAY " .. why) end
         end
     end
-    if toggle and radial_was_open and radial.opened and modifier_pressed then
+    if toggle and radial_was_open and radial.opened and modifier_pressed and not fire then
         -- Snapshot before native close/cursor recenter; release capture before replaying a lost thumb click.
         local row = radial.selected and radial.inventory.rows[radial.selected]
-        state.toggle_close = {row = row, binding = binding, menu_token = state.radial_menu_token,
-            token = radial.inventory.token, due = now + 0.08, expires = now + 0.8}
-        state.toggle_suppressed = true
-        close_radial()
-        state.radial_binding, state.radial_menu_token, state.highlight = nil, nil, nil
+        close_toggle_selection(row, binding, radial.inventory.token, state.radial_menu_token, now)
     end
     if state.toggle_close then
         local waiting = state.toggle_close

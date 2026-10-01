@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.37-test"
+local VERSION = "0.3.38-test"
 local Options = (function()
 -- @OPTIONS@
 end)()

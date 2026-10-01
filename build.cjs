@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const optionModel = require('./arsenal-options.cjs');
 
 const root = __dirname;
-const version = '0.3.37-test';
+const version = '0.3.38-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -157,8 +157,8 @@ for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(c
 const texts = JSON.parse(readSource(path.join(root, 'arsenal-text.json')));
 const options = optionModel.definitions(filters);
 let optionIndex = 0;
-const optionManifest = options.map(({id: name, values, prefix}) => ({
-  SubOptions: values.map(value => {
+const optionManifest = options.map(({id: name, values, prefix, toggle}) => {
+  const variants = values.map(value => {
     const folder = `Option_${name}_${optionModel.suffix(value)}`;
     const bytes = Buffer.from(`return ${JSON.stringify(value)}\n`), module = Buffer.alloc(8 + bytes.length);
     module.writeUInt32LE(bytes.length, 0); module.writeUInt32LE(2, 4); bytes.copy(module, 8);
@@ -173,8 +173,9 @@ const optionManifest = options.map(({id: name, values, prefix}) => ({
     fs.writeFileSync(path.join(stage, folder, patch), marker);
     for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, folder, patch + suffix), Buffer.alloc(0));
     return {Include: ['Core', folder]};
-  })
-}));
+  });
+  return toggle ? {Include: variants[0].Include} : {SubOptions: variants};
+});
 const previewFolder = path.join(stage, 'OptionIcons');
 const nativeIcons = JSON.parse(readSource(path.join(root, 'assets/native-option-icons.json')));
 fs.mkdirSync(previewFolder, {recursive: true});
@@ -211,10 +212,11 @@ for (const language of ['en', 'ko']) {
         assert(typeof localized?.[key] === 'string' && localized[key].trim(), `Missing ${language} option: ${name}.${key}`);
       }
       const image = `OptionIcons/${name}.png`;
+      if (options[index].toggle) return {...localized, Image: image, Include: option.Include};
       return {...localized, Image: image, SubOptions: option.SubOptions.map((variant, i) => {
         const value = values[i];
-        return {...variant, Image: image, Name: optionModel.label(value, text) + (i === 0 ? ` (${text.Default})` : ''),
-          Description: optionModel.description(value, text)};
+        return {...variant, Image: image, Name: optionModel.label(value, text, name) + (i === 0 ? ` (${text.Default})` : ''),
+          Description: optionModel.description(value, text, name)};
       })};
     })
   }, null, 2));

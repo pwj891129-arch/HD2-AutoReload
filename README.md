@@ -1,4 +1,37 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.37-test
+# HD2 Helper Auto Reload + Stratagems 0.3.38-test
+
+## Direct Checkboxes And Toggle Click Selection
+
+0.3.38-test removes the ON/OFF submenus from 39 boolean settings. A checked
+Arsenal option now directly deploys its ON marker; an unchecked option deploys
+no marker and is OFF, including reload, charge release, radial and number hotkeys.
+This fixes the confusing two-level setting: previously a checked parent could
+still deploy its default OFF child, so the wheel showed only the four personal
+slots. All individual shared/mission visibility controls now follow their own
+checkbox. Their native icons, positions and ON resource paths are retained.
+
+Arsenal initially checks newly imported options. Checked calls are therefore
+visible if they exist in the current mission; uncheck unwanted calls before
+Deploy. Reload and charge release start checked on a fresh import. Existing
+options may be retained during replacement; review the actual checkbox states.
+The three bulk modes still offer Individual Settings / ON / OFF, because they
+also need to restore individual choices. Menu size remains a multi-value choice.
+Command Input Interval now explicitly offers 15 ms (default) or 30 ms rather
+than disguising the interval as another ON/OFF menu.
+
+With a Toggle List binding, left-click a wheel sector to confirm it, or press
+the List key again as before. The sector is captured at mouse-down; command
+input waits until physical left-mouse release before closing/reopening the
+native menu. Center clicks cancel. No left-mouse down/up is synthesized, and
+aim/throw remain manual. Hold-mode behavior is unchanged. Readiness, loadout,
+character ownership, bindings and direction input are revalidated; focus/chat
+loss, a changed character, a second List press or a 10-second unreleased click
+cancel selection. Reload/charge automation remains blocked during selection.
+
+Runtime logs now report each visibility checkbox and its effective bulk-filter
+result. Offline click/checkbox regressions pass; actual Arsenal and gameplay
+verification still needs a fresh Purge / Deploy with the game closed. Building
+and publishing do not modify installed mods or running game inputs.
 
 ## Native Arsenal Stratagem Previews
 
@@ -144,13 +177,13 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.37-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.37-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.38-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.38-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
 Changing package language replaces the same mod, not an additional addon. Review
-ON/OFF choices after replacement, then Purge / Deploy and restart the game.
+checkbox states after replacement, then Purge / Deploy and restart the game.
 
 Arsenal 0.36.2 displays mod-provided names and descriptions literally; its UI
 language packs do not translate these fields. There is no OS-language detection
@@ -166,10 +199,11 @@ Purge / Deploy 및 게임 재시작을 진행하세요. OS 언어 자동 감지 
 0.3.30-test fixes a deployment failure in 0.3.29-test: the current Arsenal
 0.36.2 BETA imported the root addon but deployed only seven setting markers.
 The loader listed neither helper component, and both feature logs were stale.
-The executable addon now lives in Core/, explicitly included by every ON/OFF
-variant. Selected variants share one common addon, not duplicate resources.
+The executable addon now lives in Core/, explicitly included by every selected
+checkbox or choice. Selected options share one common addon, not duplicate resources.
 Choose at least one setting in Arsenal; all options unchecked now intentionally
-deploys nothing. OFF still includes the core and disables only that setting.
+deploys nothing. Unchecked boolean options are OFF even when another selected
+setting deploys the core.
 
 This package includes the Stratagem Hotkeys 0.1.13-test implementation alongside
 automatic reload. Import only this ZIP: disable/remove the separate HD2
@@ -178,18 +212,18 @@ Deploy. There is one loader addon resource, with independently guarded startup
 for both features. Stratagem input updates its gate before reload and charge
 processing in the same frame; both retain existing callback return values.
 
-Automatic reload and Railgun 90% / Epoch 100% charge release default to ON when the
-core is deployed and their individual settings are omitted. The radial and number hotkeys
-also default to ON. Explicit OFF settings are honored. Arsenal may retain the
-previous charge-OFF selection for this mod's existing GUID; review and select
-ON when replacing an earlier version. No deployed files are changed by building.
+Automatic reload, Railgun 90% / Epoch 100% charge release, radial and number
+hotkeys are ON only when their checkboxes are checked. Missing markers mean OFF.
+Fresh Arsenal imports initially check options, including these features. Review
+the retained states when replacing an earlier version. No deployed files are
+changed by building.
 
 ## Default-On Reload And Diagnostic Removal
 
-Automatic reload defaults to ON unless explicitly set to OFF. The package
+Automatic reload starts checked on a fresh Arsenal import; unchecking it is OFF. The package
 uses explicit Core includes instead of depending on root-file auto-deployment.
 Arsenal's documented root-file behavior did not match the observed option-based
-deployment in 0.36.2 BETA. At least one ON/OFF setting must be selected.
+deployment in 0.36.2 BETA. At least one checkbox or choice must be selected.
 
 The separate ammo-OFF and heat-OFF checkboxes have been removed. Old option
 resources do not control this version. F9 type checks, tank field scanning,
@@ -203,22 +237,23 @@ Normal reload/error logs remain available.
 Feature settings are configured only in Arsenal. No in-game MODS menu is
 registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 
-- `Automatic Reload` / `자동재장전`: `ON (Default)` / `ON (기본)` or `OFF`. An unselected option also means ON.
+- `Automatic Reload` / `자동재장전`: checked is ON; unchecked is OFF.
   Covers both magazine exhaustion and complete overheat.
-- `Railgun 90% / Epoch 100% Release` / `레일건 90%·에포크 100% 자동발사`: ON by default or OFF.
-  An unselected option means ON. Independent of automatic reload.
-- `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: ON by default; OFF disables the radial only.
-- `Stratagem Number Hotkeys` / `스트라타젬 숫자 핫키`: ON by default; OFF disables number shortcuts only.
-- `Other Shared / Mission Calls` / `기타 공용/임무 스트라타젬 표시`: OFF by default; controls only types without an individual toggle.
+- `Railgun 90% / Epoch 100% Release` / `레일건 90%·에포크 100% 자동발사`: checked is ON; unchecked is OFF.
+  Independent of automatic reload.
+- `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: checked is ON; uncheck to disable the radial only.
+- `Stratagem Number Hotkeys` / `스트라타젬 숫자 핫키`: checked is ON; uncheck to disable number shortcuts only.
+- `Other Shared / Mission Calls` / `기타 공용/임무 스트라타젬 표시`: checked is ON; controls only types without an individual toggle.
 - `Radial Menu Size` / `원형 메뉴 크기`: 100% by default; 150%, 200%, 300% or 400%, limited to fit the screen.
-- `30 ms Command Input` / `커맨드 입력: 30ms`: OFF (15 ms) by default; ON uses at least 30 ms per edge.
-- `Shared: Reinforce`, `Shared: SOS Beacon`, `Shared: Resupply` / `공용: 증원`, `공용: SOS 신호기`, `공용: 보급`: each has its own ON/OFF setting, default OFF.
-- `Mission: ...` / `임무: ...`: 31 independent type toggles, default OFF. Includes Hellbomb, SEAF artillery, flag, drills, data upload, extraction variants and other native mission calls. Unavailable mission calls are never invented by enabling an option.
+- `Command Input Interval` / `커맨드 입력 간격`: 15 ms by default; choose 30 ms for a longer press/release interval.
+- `Shared: Reinforce`, `Shared: SOS Beacon`, `Shared: Resupply` / `공용: 증원`, `공용: SOS 신호기`, `공용: 보급`: check to show, uncheck to hide. No ON/OFF submenu.
+- `Mission: ...` / `임무: ...`: 31 independent direct checkboxes. Includes Hellbomb, SEAF artillery, flag, drills, data upload, extraction variants and other native mission calls. Unavailable mission calls are never invented by enabling an option.
 - `Shared: All` / `공용 스트라타젬 전체`: Individual Settings (default), ON or OFF for all shared calls, including other shared calls.
 - `Mission: All` / `임무 스트라타젬 전체`: Individual Settings (default), ON or OFF for all registered mission calls.
 - `Shared + Mission: All` / `공용·임무 스트라타젬 전체`: Individual Settings (default), ON or OFF for both categories together; takes priority over the two group controls.
 
-Each option's variants are mutually exclusive. Bulk controls do not erase saved
+Size, interval and bulk choices are mutually exclusive. Boolean settings have
+only a direct checkbox. Bulk controls do not erase saved
 individual settings; restore Individual Settings to use them again. Review choices after
 importing, especially if Arsenal automatically enables new options. Close the
 game, replace the previous package, Purge / Deploy, and restart after changes.
@@ -232,8 +267,8 @@ not a saved setting.
 
 Hold the game's configured Stratagem List button, move toward an icon sector,
 then release to enter the command. Release at the center to cancel. With Toggle,
-press to open, choose a sector and press again to close and enter its command;
-closing at the center cancels. Keyboard and front/back mouse thumb Hold and
+press to open, choose a sector and left-click (then release) or press List again
+to close and enter its command; choosing the center cancels. Keyboard and front/back mouse thumb Hold and
 Press/Toggle bindings are supported; direction bindings are read from the game.
 Wheel, long-press and controller mappings are not supported. Aim and throw
 manually. While List is open, number-row 1-4 matches the personal
@@ -352,7 +387,8 @@ Logs: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`.
 Stratagem log: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_stratagem_hotkeys.log`.
 Isolated startup failures: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_combined.log`.
 START reports enabled/charge90 and bindings. NATIVE_SOURCE, RELOAD,
-CHARGE_SOURCE, CHARGE_RELEASE and blocking/error logs remain; research scans
+CHARGE_SOURCE, CHARGE_RELEASE and blocking/error logs remain. Stratagem CONFIG
+logs include each individual checkbox and effective bulk result; research scans
 and research hotkeys have been removed.
 
 ## Build And Test
@@ -360,16 +396,16 @@ and research hotkeys have been removed.
 Requires Node.js, PowerShell and the game's `bin/lua51.dll`. Tests use mocked
 game/input APIs in a separate LuaJIT process, never attach to the game or send
 actual inputs. Package checks enforce the HD2SDK minimum of 256 bytes per
-single-resource archive. Per language, deployment checks exhaust all 1,458 base-control
+single-resource archive. Per language, deployment checks exhaust all 288 base-control
 combinations, every pair of settings in all omitted/variant states, and all-ON,
-all-OFF and all-default configurations (10,761 scenarios).
+all-OFF and all-default configurations (5,067 scenarios).
 They also verify localized text, identical option structure and byte-identical
 game payloads across the English and Korean packages. Individual kind filters,
 explicit OFF precedence, hidden command rejection, slot numbering and coherent
 shared/personal membership reads have regression coverage. The pinned native
 catalog checks all mission kinds when local reference captures are available.
 Manifest checks also confirm that every parent/variant choice has a valid PNG
-reference and that existing individual toggle positions/defaults/paths are
+reference and that existing individual toggle positions/icons/ON paths are
 unchanged when the previous local package is available. Separate image checks verify 44 previews, 256x256
 dimensions, nonblank pixels, full opacity and 32px thumbnail brightness.
 23 use native artwork, 11 are documented fallbacks and 10 are functional
@@ -380,7 +416,10 @@ Bulk tests cover all three controls in omitted/individual/ON/OFF states, mixed
 individual choices, restoration, query/load failure and invalid values. Size
 tests check 100 viewport/count/scale combinations from 320x240 to 3840x2160:
 sector/icon/text bounds, redraw, retention and aligned hit testing. The full
-LuaJIT suite passes 30,010 assertions without sending OS input.
+LuaJIT suite passes 30,265 assertions without sending OS input.
+Direct-checkbox tests require missing markers to be OFF. Click tests cover
+keyboard/thumb bindings, held clicks, current cursor hit testing, cancellation,
+cooldown changes, character/loadout replacement and no synthetic fire/throw.
 Tests cover both feature runtimes, shared-VM input declarations, callback order,
 default/explicit settings, initialization isolation and input blocking/resumption.
 These are offline mocks; actual combined gameplay and Arsenal UI remain unverified.
@@ -389,8 +428,8 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.37-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.37-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.37-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.37-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.38-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.38-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.38-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.38-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

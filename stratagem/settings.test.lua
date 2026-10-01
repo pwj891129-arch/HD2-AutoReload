@@ -6,7 +6,13 @@ return function(equal, read_file)
         :gsub('%-%- @POLICY@', function() return "return {new=function() return {} end}" end)
         :gsub('%-%- @RADIAL@', function() return "return {new=function() return {} end}" end)
         :gsub('%-%- @VISIBILITY@', function() return read_file("dist/visibility.generated.lua") end)
-    local function configure(values, query_error, load_error)
+    local function configure(values, query_error, load_error, unchecked_features)
+        local selected = {}; for key, value in pairs(values) do selected[key] = value end
+        if not unchecked_features then
+            if selected.radial == nil then selected.radial = true end
+            if selected.hotkeys == nil then selected.hotkeys = true end
+        end
+        values = selected
         local env = setmetatable({}, {__index = _G}); env._G = env
         env.CowboyBingusModLoader = {api = 1, open_log = function() end}
         env.stingray = {Application = {time_since_launch = function() return 0 end,
@@ -22,8 +28,9 @@ return function(equal, read_file)
             return values[name]
         end
         local initialize = assert(loadstring(source)); setfenv(initialize, env); initialize()
-        return assert(env.HD2StratagemHotkeys).config
+        return env.HD2StratagemHotkeys and env.HD2StratagemHotkeys.config
     end
+    equal(configure({}, nil, nil, true), nil, "unchecked feature checkboxes do not silently enable the addon")
     local initial = configure({})
     equal(initial.radial, true); equal(initial.hotkeys, true); equal(initial.scale, 1)
     equal(initial.shared.other, false)
@@ -88,4 +95,6 @@ return function(equal, read_file)
     equal(configure({scale = 4}, "scale").scale, 1)
     equal(configure({scale = 4}, nil, "scale").scale, 1)
     equal(configure({large = true}).scale, 1, "retired 130% marker cannot override the new selector")
+    equal(configure({radial = false}).radial, false, "unchecked radial stays disabled with hotkeys enabled")
+    equal(configure({hotkeys = false}).hotkeys, false, "unchecked hotkeys stay disabled with radial enabled")
 end

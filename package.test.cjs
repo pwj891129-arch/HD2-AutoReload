@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.37-test';
+const version = '0.3.38-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -19,10 +19,12 @@ const coreIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared_other', 'sc
   'shared_all', 'mission_all', 'shared_mission_all'];
 const definitions = optionModel.definitions(filters);
 const optionIds = definitions.map(option => option.id);
-const defaults = definitions.map(option => option.values[0]);
+const defaults = definitions.map(option => option.toggle ? false : option.values[0]);
+const variantsFor = option => option.SubOptions ?? [option];
 const variantCount = definitions.reduce((sum, option) => sum + option.values.length, 0);
 assert.equal(optionIds.length, 44);
-assert.equal(variantCount, 94);
+assert.equal(variantCount, 55);
+assert.equal(definitions.filter(option => option.toggle).length, 39);
 assert.deepEqual(definitions.find(option => option.id === 'scale').values, [1, 1.5, 2, 3, 4]);
 for (const id of ['shared_all', 'mission_all', 'shared_mission_all']) {
   assert.deepEqual(definitions.find(option => option.id === id).values, ['individual', true, false]);
@@ -80,7 +82,8 @@ function checkPackage(language) {
     const filter = filters.find(filter => filter.id === id);
     const localized = filter ? {Name: filter[language], Description: text.FilterDescription + ' ' +
       (nativeIcons.icons[id].source === 'game' ? text.NativeIconDescription : text.FallbackIconDescription)} : text.Options[id];
-    assert.deepEqual(Object.keys(option).sort(), ['Description', 'Image', 'Name', 'SubOptions']);
+    assert.deepEqual(Object.keys(option).sort(), definitions[i].toggle ?
+      ['Description', 'Image', 'Include', 'Name'] : ['Description', 'Image', 'Name', 'SubOptions']);
     assert.equal(option.Name, localized.Name);
     assert.equal(option.Description, localized.Description);
     assert(option.Name.trim() && option.Description.trim());
@@ -90,22 +93,27 @@ function checkPackage(language) {
     assert.equal(image.readUInt32BE(16), 256); assert.equal(image.readUInt32BE(20), 256);
     if (filter) assert.equal(crypto.createHash('sha256').update(image).digest('hex'),
       nativeIcons.icons[id].pngSha256, 'Staged preview matches native/fallback provenance');
+    if (definitions[i].toggle) {
+      assert(!option.SubOptions, 'Checkboxes have no hidden ON/OFF child selection');
+      assert.deepEqual(option.Include, ['Core', `Option_${id}_on`], 'Checked checkbox deploys only ON');
+      continue;
+    }
     assert.equal(option.SubOptions.length, definitions[i].values.length);
     for (const [index, variant] of option.SubOptions.entries()) {
       const value = definitions[i].values[index];
       assert.deepEqual(Object.keys(variant).sort(), ['Description', 'Image', 'Include', 'Name']);
       assert.equal(variant.Image, option.Image);
-      assert.equal(variant.Name, optionModel.label(value, text) + (index === 0 ? ` (${text.Default})` : ''));
-      assert.equal(variant.Description, optionModel.description(value, text));
+      assert.equal(variant.Name, optionModel.label(value, text, id) + (index === 0 ? ` (${text.Default})` : ''));
+      assert.equal(variant.Description, optionModel.description(value, text, id));
       assert.deepEqual(variant.Include, ['Core', `Option_${id}_${optionModel.suffix(value)}`]);
     }
   }
   const visibleText = [manifest.Description, ...manifest.Options.flatMap(option =>
-    [option.Name, option.Description, ...option.SubOptions.flatMap(variant => [variant.Name, variant.Description])])];
+    [option.Name, option.Description, ...(option.SubOptions ?? []).flatMap(variant => [variant.Name, variant.Description])])];
   if (language === 'en') assert(visibleText.every(value => /^[\x20-\x7e]+$/.test(value)), 'English UI text is ASCII');
-  else assert(visibleText.every(value => /[가-힣]/.test(value) || /^(ON|OFF|\d+%)$/.test(value)), 'Korean UI text is localized');
+  else assert(visibleText.every(value => /[가-힣]/.test(value) || /^(ON|OFF|\d+%|\d+ ms)$/.test(value)), 'Korean UI text is localized');
   const folders = [...new Set(manifest.Options.flatMap(option =>
-    option.SubOptions.flatMap(variant => variant.Include)))];
+    variantsFor(option).flatMap(variant => variant.Include)))];
   assert.equal(folders.length, 1 + variantCount);
   assert.deepEqual(fs.readdirSync(stage).filter(file => fs.statSync(path.join(stage, file)).isDirectory()).sort(),
     [...folders, 'OptionIcons'].sort(), 'Only patch folders and image previews are packaged');
@@ -115,14 +123,22 @@ function checkPackage(language) {
   assert(fs.readFileSync(path.join(stage, 'GAME-ARTWORK.txt')).equals(
     fs.readFileSync(path.join(__dirname, 'GAME-ARTWORK.txt'))), 'Native artwork notice ships');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(stage, 'GAME-ICON-SOURCES.json'), 'utf8')), nativeIcons);
-  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.36-test-${language}`);
+  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.37-test-${language}`);
   if (fs.existsSync(path.join(previousStage, 'manifest.json'))) {
     const previous = JSON.parse(fs.readFileSync(path.join(previousStage, 'manifest.json'), 'utf8'));
     assert.equal(previous.Options.length, 44);
     for (let i = 0; i < previous.Options.length; i++) {
-      for (const key of ['Name', 'Image', 'SubOptions']) {
+      for (const key of optionIds[i] === 'slow' ? ['Image'] : ['Name', 'Image']) {
         assert.deepEqual(manifest.Options[i][key], previous.Options[i][key],
-          'Existing toggle positions, defaults, icons and Include paths remain unchanged');
+          'Existing option positions and icons remain unchanged');
+      }
+      if (definitions[i].toggle) {
+        assert.deepEqual(manifest.Options[i].Include,
+          previous.Options[i].SubOptions.find(variant => variant.Include.some(folder => folder.endsWith('_on'))).Include,
+          'Direct checkbox preserves the previous ON resource path');
+      } else {
+        assert.deepEqual(manifest.Options[i].SubOptions.map(variant => variant.Include),
+          previous.Options[i].SubOptions.map(variant => variant.Include), 'Existing choice resource paths remain unchanged');
       }
     }
   }
@@ -148,13 +164,6 @@ function checkPackage(language) {
     assert.equal(bytes.readUInt32LE(offset), size - 8);
     const source = bytes.subarray(offset + 8, offset + size).toString('utf8');
     if (folder === 'Core') {
-      const previousCore = path.join(previousStage, 'Core', files[0]);
-      if (fs.existsSync(previousCore)) {
-        const previous = fs.readFileSync(previousCore);
-        const at = Number(previous.readBigUInt64LE(120)), length = previous.readUInt32LE(160);
-        assert.equal(source, previous.subarray(at + 8, at + length).toString('utf8').replaceAll('0.3.36-test', version),
-          'No runtime behavior changes beyond version strings');
-      }
       assert(source.startsWith('-- HD2-Addon: mods/hd2_helper/auto_reload\n'));
       assert(source.includes('sample.charge_limit = kind == "epoch" and full or over'));
       assert(source.includes('sample.charge_kind == "epoch" and 1 or 0.9'));
@@ -164,7 +173,11 @@ function checkPackage(language) {
       assert(source.includes('start_feature("stratagem", function()'));
       assert(source.includes('start_feature("autoreload", function()'));
       assert(source.indexOf('start_feature("stratagem", function()') < source.indexOf('start_feature("autoreload", function()'));
-      assert(source.includes('charge90 = setting("charge90", true)'));
+      assert(source.includes('charge90 = setting("charge90", false)'));
+      assert(source.includes('radial = option("radial", false), hotkeys = option("hotkeys", false)'));
+      assert(source.includes('local fire_pressed = fire and not state.fire'));
+      assert(source.includes('OVERLAY click center'));
+      assert(source.includes('not fire then\n            -- Keep capture'));
       assert(source.includes('HD2StratagemHotkeys'));
       assert(source.includes('state.mouse_release or native_active'));
       assert(source.includes('INPUT mouse-release-replayed'));
@@ -197,8 +210,8 @@ function checkPackage(language) {
   }
   const resourceIds = new Set([archives.get('Core').id]);
   for (const option of manifest.Options) {
-    for (const variant of option.SubOptions) assert(variant.Include.includes('Core'), 'Every ON/OFF choice deploys the addon');
-    const variants = option.SubOptions.map(variant => archives.get(variant.Include.find(folder => folder !== 'Core')));
+    for (const variant of variantsFor(option)) assert(variant.Include.includes('Core'), 'Every checkbox/choice deploys the addon');
+    const variants = variantsFor(option).map(variant => archives.get(variant.Include.find(folder => folder !== 'Core')));
     assert(variants.every(variant => variant.id === variants[0].id), 'Exclusive choices set one resource');
     assert.equal(new Set(variants.map(variant => variant.source)).size, variants.length);
     assert(!resourceIds.has(variants[0].id), 'Different settings have different Lua IDs');
@@ -215,7 +228,8 @@ function checkPackage(language) {
       archives.get(variant.Include.find(folder => folder !== 'Core')).source.slice('return '.length)) : defaults[i]);
     for (let i = 0; i < selected.length; i++) {
       const variant = selected[i];
-      assert.equal(values[i], variant ? definitions[i].values[manifest.Options[i].SubOptions.indexOf(variant)] : defaults[i]);
+      assert.equal(values[i], variant ? definitions[i].values[variantsFor(manifest.Options[i]).indexOf(variant)] : defaults[i]);
+      if (definitions[i].toggle) assert.equal(values[i], Boolean(variant), 'Check state alone determines ON/OFF');
     }
     if (selected.every(variant => variant === null)) {
       assert.equal(deployed.length, 0, 'All unchecked intentionally deploys no feature files');
@@ -228,7 +242,7 @@ function checkPackage(language) {
   function deployment(index, selected) {
     if (index === baseIndices.length) return checkDeployment(selected);
     const at = baseIndices[index];
-    for (const variant of [null, ...manifest.Options[at].SubOptions]) {
+    for (const variant of [null, ...variantsFor(manifest.Options[at])]) {
       const next = [...selected]; next[at] = variant; deployment(index + 1, next);
     }
   }
@@ -236,8 +250,8 @@ function checkPackage(language) {
   let pairs = 0;
   for (let first = 0; first < optionIds.length; first++) {
     for (let second = first + 1; second < optionIds.length; second++) {
-      for (const a of [null, ...manifest.Options[first].SubOptions]) {
-        for (const b of [null, ...manifest.Options[second].SubOptions]) {
+      for (const a of [null, ...variantsFor(manifest.Options[first])]) {
+        for (const b of [null, ...variantsFor(manifest.Options[second])]) {
           const selected = omitted(); selected[first] = a; selected[second] = b; checkDeployment(selected);
         }
       }
@@ -245,8 +259,9 @@ function checkPackage(language) {
     }
   }
   for (const value of [true, false]) checkDeployment(manifest.Options.map((option, i) =>
-    option.SubOptions[Math.max(0, definitions[i].values.indexOf(value))]));
-  checkDeployment(manifest.Options.map(option => option.SubOptions[0]));
+    definitions[i].toggle ? value ? option : null :
+      option.SubOptions[Math.max(0, definitions[i].values.indexOf(value))]));
+  checkDeployment(manifest.Options.map(option => variantsFor(option)[0]));
   assert.equal(combinations, baseIndices.reduce((count, at) => count * (1 + definitions[at].values.length), 1) + pairs + 3);
   console.log(`PASS ${language}: ${optionIds.length} localized controls, ${variantCount} option archives, ${combinations} deployment scenarios`);
   return {stage, manifest};

@@ -510,7 +510,16 @@ env._G = env
 env.CowboyBingusModLoader = {api = 1, open_log = function()
     return {write = function(_, text) logs[#logs + 1] = text end, flush = function() end, close = function() end}
 end}
-env.stingray = {Application = {time_since_launch = function() return current end}}
+env.require = function(name)
+    if name == "mods/hd2_helper/stratagem_option_hotkeys" or
+        name == "mods/hd2_helper/stratagem_option_radial" then return true end
+    return require(name)
+end
+env.stingray = {Application = {time_since_launch = function() return current end,
+    can_get = function(_, name)
+        return name == "mods/hd2_helper/stratagem_option_hotkeys" or
+            name == "mods/hd2_helper/stratagem_option_radial"
+    end}}
 local calls = 0
 env.update = function(value) calls = calls + 1; return value, "original" end
 env.shutdown = function() return "shutdown" end

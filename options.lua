@@ -9,7 +9,8 @@ function Options.read(app, load)
         local loaded, value = pcall(load, resource)
         return loaded and value == true
     end
-    return {enabled = setting("enabled", true), charge90 = setting("charge90", true)}
+    -- Unchecked Arsenal checkboxes deploy no marker; absence must mean OFF.
+    return {enabled = setting("enabled", false), charge90 = setting("charge90", false)}
 end
 function Options.allow(config, sample)
     return config.enabled == true and sample ~= nil and

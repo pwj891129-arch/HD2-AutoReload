@@ -4,7 +4,7 @@
     "Default": "Default",
     "Enabled": "Enabled",
     "Disabled": "Disabled",
-    "FilterDescription": "Default OFF. Used when its group and the combined bulk control are set to Individual Settings. ON shows this call only when present in your mission. Bulk controls override visibility without erasing this choice. Personal slots 1-4 are unchanged. Variants share one toggle.",
+    "FilterDescription": "Checked: ON. Unchecked: OFF. No ON/OFF submenu. Shows this call only when present in your mission and the group/combined controls use Individual Settings. Bulk controls override visibility without erasing this checkbox. Personal slots 1-4 are unchanged. Variants share one toggle.",
     "Individual": "Individual Settings",
     "IndividualDescription": "Use saved individual choices, or group choices when this is the combined control. Does not erase any ON/OFF selection.",
     "ScaleDescription": "Menu size: {percent}%. Automatically limited to fit the screen without clipping.",
@@ -13,31 +13,31 @@
     "Options": {
       "enabled": {
         "Name": "Automatic Reload",
-        "Description": "Default ON. Reloads after magazine exhaustion or complete overheat. Select OFF to disable. An omitted setting also defaults to ON when the core is deployed. Independent of charge release."
+        "Description": "Checked: ON. Unchecked: OFF. Reloads after magazine exhaustion or complete overheat. No ON/OFF submenu and no fallback activation when unchecked. Independent of charge release."
       },
       "charge90": {
         "Name": "Railgun 90% / Epoch 100% Release",
-        "Description": "Default ON, including when omitted. Releases left mouse once at Railgun danger-gauge 90% or Epoch firing-charge 100%. Uses the held weapon's native charge settings, not a fixed timer. Fire must be bound to left mouse. Aiming and the next charge remain manual. Select OFF to disable."
+        "Description": "Checked: ON. Unchecked: OFF. Releases left mouse once at Railgun danger-gauge 90% or Epoch firing-charge 100%. Uses the held weapon's native charge settings, not a fixed timer. Fire must be bound to left mouse. Aiming and the next charge remain manual."
       },
       "radial": {
         "Name": "Stratagem Radial Menu",
-        "Description": "Default ON. Follows the game's Stratagem List menu. Hold: move toward a sector and release. Toggle: open, move toward a sector, then press the List button again. Center cancels. Supports keyboard and mouse thumb bindings. Enters only the command; aim and throw manually."
+        "Description": "Checked: ON. Unchecked: OFF. Follows the game's Stratagem List menu. Hold: move toward a sector and release. Toggle: select with left click or press the List button again. A selection click must be released before command input starts. Center cancels. Supports keyboard and mouse thumb bindings. Commands only; aim and throw manually."
       },
       "hotkeys": {
         "Name": "Stratagem Number Hotkeys",
-        "Description": "Default ON. While the game-configured Stratagem List menu is open using Hold or Toggle, press number-row 1-4 to enter a personal slot command. Matches the slot numbers shown in the radial. Numpad keys are separate."
+        "Description": "Checked: ON. Unchecked: OFF. While the game-configured Stratagem List menu is open using Hold or Toggle, press number-row 1-4 to enter a personal slot command. Matches the slot numbers shown in the radial. Numpad keys are separate."
       },
       "shared_other": {
         "Name": "Other Shared / Mission Calls",
-        "Description": "Default OFF. Controls calls without a dedicated toggle, such as Eagle Rearm, when Shared: All and Shared + Mission: All use Individual Settings. The combined or shared bulk control overrides this visibility, not the saved choice. Personal slots 1-4 are unchanged."
+        "Description": "Checked: ON. Unchecked: OFF. Controls calls without a dedicated toggle, such as Eagle Rearm, when Shared: All and Shared + Mission: All use Individual Settings. Bulk controls override visibility, not this checkbox. Personal slots 1-4 are unchanged."
       },
       "scale": {
         "Name": "Radial Menu Size",
         "Description": "Choose 100% (default), 150%, 200%, 300% or 400%. Large sizes are limited to fit the screen. Apply in Arsenal, then Purge / Deploy and restart."
       },
       "slow": {
-        "Name": "30 ms Command Input",
-        "Description": "Default OFF (15 ms). ON uses at least 30 ms for each press and release. The next key is sent only after the game observes the previous direction input."
+        "Name": "Command Input Interval",
+        "Description": "Choose 15 ms (default) or 30 ms for each press and release. The next key is sent only after the game observes the previous direction input."
       },
       "shared_all": {
         "Name": "Shared: All",
@@ -58,7 +58,7 @@
     "Default": "기본",
     "Enabled": "활성화",
     "Disabled": "비활성화",
-    "FilterDescription": "기본 OFF. 해당 그룹과 공용·임무 전체 옵션이 ‘개별 설정 사용’일 때 적용됩니다. ON이면 현재 임무에 있는 해당 항목만 표시합니다. 전체 옵션은 표시 여부만 덮어쓰며 개별 선택값을 지우지 않습니다. 개인 슬롯 1~4는 유지하고 동일 항목의 변형은 같은 토글을 사용합니다.",
+    "FilterDescription": "체크하면 ON, 해제하면 OFF입니다. 하위 ON/OFF 메뉴는 없습니다. 해당 그룹과 공용·임무 전체가 ‘개별 설정 사용’일 때 현재 임무에 있는 해당 항목을 표시합니다. 전체 옵션은 표시 여부만 덮어쓰며 체크값을 지우지 않습니다. 개인 슬롯 1~4는 유지하고 동일 항목의 변형은 같은 토글을 사용합니다.",
     "Individual": "개별 설정 사용",
     "IndividualDescription": "저장된 개별 선택값을 적용합니다. 공용·임무 전체 옵션에서는 각 그룹의 설정부터 적용하며 기존 ON/OFF 선택값을 지우지 않습니다.",
     "ScaleDescription": "메뉴 크기 {percent}%. 화면 밖으로 잘리지 않도록 화면에 맞는 최대 크기로 제한합니다.",
@@ -67,31 +67,31 @@
     "Options": {
       "enabled": {
         "Name": "자동재장전",
-        "Description": "기본 ON. 실탄 소진과 완전 과열 시 자동재장전합니다. 끄려면 OFF를 선택하세요. 본체가 배포된 상태에서는 이 옵션을 선택하지 않아도 기본 ON이며, 충전 자동발사와 독립적입니다."
+        "Description": "체크하면 ON, 해제하면 OFF입니다. 실탄 소진과 완전 과열 시 자동재장전합니다. 하위 ON/OFF 메뉴와 체크 해제 시 기본 활성화는 없습니다. 충전 자동발사와 독립적입니다."
       },
       "charge90": {
         "Name": "레일건 90%·에포크 100% 자동발사",
-        "Description": "기본 ON. 옵션을 선택하지 않아도 레일건은 위험 게이지 90%, 에포크는 발사 충전 100%에서 좌클릭을 한 번 해제합니다. 고정 타이머가 아닌 현재 무기의 실제 충전 설정값을 읽습니다. 발사키는 좌클릭이어야 하며 조준과 다음 충전은 수동입니다. 끄려면 OFF를 선택하세요."
+        "Description": "체크하면 ON, 해제하면 OFF입니다. 레일건은 위험 게이지 90%, 에포크는 발사 충전 100%에서 좌클릭을 한 번 해제합니다. 고정 타이머가 아닌 현재 무기의 실제 충전 설정값을 읽습니다. 발사키는 좌클릭이어야 하며 조준과 다음 충전은 수동입니다."
       },
       "radial": {
         "Name": "스트라타젬 원형 오버레이",
-        "Description": "기본 ON. 게임의 스트라타젬 목록과 함께 열고 닫습니다. Hold는 마우스로 선택한 뒤 버튼을 놓고, 토글은 목록을 열어 선택한 뒤 목록 버튼을 다시 누릅니다. 중앙은 취소입니다. 키보드와 마우스 엄지버튼을 지원하며 커맨드만 입력하고 조준·투척은 수동입니다."
+        "Description": "체크하면 ON, 해제하면 OFF입니다. 게임의 스트라타젬 목록과 함께 열고 닫습니다. Hold는 항목을 가리킨 뒤 버튼을 놓습니다. 토글은 좌클릭 또는 목록 버튼 재입력으로 선택하며, 좌클릭을 놓은 뒤 커맨드를 시작합니다. 중앙은 취소입니다. 키보드와 마우스 엄지버튼을 지원하며 조준·투척은 수동입니다."
       },
       "hotkeys": {
         "Name": "스트라타젬 숫자 핫키",
-        "Description": "기본 ON. Hold 또는 토글로 게임의 스트라타젬 목록이 열린 상태에서 숫자열 1~4를 누르면 개인 장착 슬롯의 커맨드를 입력합니다. 원형 메뉴에 표시한 슬롯 번호와 일치하며 숫자패드는 별개입니다."
+        "Description": "체크하면 ON, 해제하면 OFF입니다. Hold 또는 토글로 게임의 스트라타젬 목록이 열린 상태에서 숫자열 1~4를 누르면 개인 장착 슬롯의 커맨드를 입력합니다. 원형 메뉴에 표시한 슬롯 번호와 일치하며 숫자패드는 별개입니다."
       },
       "shared_other": {
         "Name": "기타 공용/임무 스트라타젬 표시",
-        "Description": "기본 OFF. 공용 전체와 공용·임무 전체가 ‘개별 설정 사용’일 때 이글 재무장 등 개별 토글이 없는 항목을 제어합니다. 전체 옵션은 표시 여부만 덮어쓰며 이 선택값을 지우지 않습니다. 개인 슬롯 1~4는 유지합니다."
+        "Description": "체크하면 ON, 해제하면 OFF입니다. 공용 전체와 공용·임무 전체가 ‘개별 설정 사용’일 때 이글 재무장 등 개별 토글이 없는 항목을 제어합니다. 전체 옵션은 표시 여부만 덮어쓰며 체크값을 지우지 않습니다. 개인 슬롯 1~4는 유지합니다."
       },
       "scale": {
         "Name": "원형 메뉴 크기",
         "Description": "100%(기본), 150%, 200%, 300%, 400% 중 선택합니다. 큰 배율은 화면 밖으로 잘리지 않도록 제한됩니다. Arsenal에서 설정한 뒤 Purge / Deploy하고 게임을 재시작하세요."
       },
       "slow": {
-        "Name": "커맨드 입력: 30ms",
-        "Description": "기본 OFF(15ms). ON이면 누르기·떼기를 최소 30ms로 합니다. 게임이 방향 입력을 감지한 뒤 다음 키를 전송합니다."
+        "Name": "커맨드 입력 간격",
+        "Description": "누르기·떼기 간격을 15ms(기본) 또는 30ms 중 선택합니다. 게임이 방향 입력을 감지한 뒤 다음 키를 전송합니다."
       },
       "shared_all": {
         "Name": "공용 스트라타젬 전체",

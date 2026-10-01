@@ -35,6 +35,12 @@ local combined_source = read("combined.lua")
 
 local function fixture(flags, list_vk, fail_reload, fail_stratagem, start_mode)
     flags, list_vk = flags or {}, list_vk or 5
+    local selected = {autoreload_setting_enabled = true, autoreload_setting_charge90 = true,
+        stratagem_option_radial = true, stratagem_option_hotkeys = true}
+    for key, value in pairs(flags) do
+        if value == false then selected[key] = nil else selected[key] = value end
+    end
+    flags = selected
     local keys, events, order, logs = {}, {}, {}, {}
     local now, focused, hover, base, reads, stops = 0, true, 1, 0, 0, 0
     local latch, observed = nil, true
@@ -151,7 +157,8 @@ f = fixture(nil, 5, nil, nil, "toggle"); f.step(0.06)
 f.latch(true); f.step(0.02)
 equal(f.env.TEST_RADIAL.opened, true, "native toggle opens combined wheel without a held physical button")
 charge(f, "epoch")
-equal(#f.events, 0, "native toggle blocks charge release even after wheel cancelled by fire")
+equal(#f.events, 0, "native toggle blocks charge release during a held selection click")
+f.keys[27] = true; f.step(0.02); f.keys[27] = false
 f.keys[1] = false; f.shot.ammo = 0; f.step(0.06); f.step(0.06)
 equal(#f.events, 0, "native toggle also blocks automatic reload without a held modifier")
 f.latch(false); f.shot.ammo = 1; f.step(0.06)
@@ -160,9 +167,28 @@ equal(#f.events, 1, "charge resumes after actual toggle menu closes")
 equal(f.events[1].route, "charge", "resumed charge only releases left mouse")
 f.env.shutdown()
 
+f = fixture(nil, 6, nil, nil, "toggle"); f.step(0.06)
+f.latch(true); f.step(0.02); f.keys[1] = true
+f.shot.ammo, f.shot.charge_kind, f.shot.charging = 0, "epoch", true
+f.shot.charge_limit, f.shot.charge_elapsed, f.shot.charge_max = 2.7, 2.7, 2.8
+f.step(0.2); f.step(0.2)
+equal(#f.events, 0, "held selection click blocks empty-ammo reload and full-charge auto-release")
+equal(f.env.TEST_RADIAL.opened, true, "combined selection retains the wheel while click is held")
+f.keys[1] = false; f.step(0.02); finish(f)
+local directions, list_events = 0, 0
+for _, event in ipairs(f.events) do
+    equal(event.route ~= "reload" and event.route ~= "charge", true, "selection cannot trigger weapon automation")
+    if event.route == "command" then directions = directions + 1 end
+    if event.route == "list" then list_events = list_events + 1 end
+    equal(event.vk ~= 1, true, "combined selection never injects a fire/throw click")
+end
+equal(directions, 4, "combined click enters one command")
+equal(list_events, 4, "combined click closes and reopens List once")
+f.env.shutdown()
+
 for _, kind in ipairs({"railgun", "epoch"}) do
     f = fixture(); f.step(0.06); charge(f, kind)
-    equal(#f.events, 1, "default-on charge works without option modules")
+    equal(#f.events, 1, "checked charge checkbox uses the weapon-specific threshold")
     equal(f.events[1].route, "charge", "weapon-specific threshold sends release only")
     f.env.shutdown()
     f = fixture({autoreload_setting_charge90 = false}); f.step(0.06); charge(f, kind)

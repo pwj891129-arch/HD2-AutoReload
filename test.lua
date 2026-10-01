@@ -7,12 +7,12 @@ local function equal(actual, expected, name)
 end
 dofile("native_reader.test.lua")(api, equal)
 dofile("charge_policy.test.lua")(api, equal)
-local flags = {}
+local flags = {enabled = true, charge90 = true}
 local option_app = {can_get = function(_, resource) return flags[resource:match("autoreload_setting_(.+)$")] ~= nil end}
 local function load_option(resource) return flags[resource:match("autoreload_setting_(.+)$")] end
 local arsenal = api.Options.read(option_app, load_option)
-equal(arsenal.enabled, true, "automatic reload defaults on without any option modules")
-equal(arsenal.charge90, true, "charge release defaults on without any option modules")
+equal(arsenal.enabled, true, "checked automatic reload checkbox is on")
+equal(arsenal.charge90, true, "checked charge release checkbox is on")
 equal(arsenal.diagnostics, nil, "diagnostic setting removed")
 equal(api.Options.allow(arsenal, {mode = "ammo"}), true)
 equal(api.Options.allow(arsenal, {mode = "heat"}), true)
@@ -37,8 +37,8 @@ equal(api.Options.read({can_get = function() error("unavailable") end}, load_opt
     "option API errors fail closed")
 equal(api.Options.read({can_get = function() return true end}, function() error("unavailable") end).enabled,
     false, "option loading errors fail closed")
-equal(api.Options.read({}, load_option).enabled, true, "no option API retains default")
-equal(api.Options.read({}, load_option).charge90, true, "no option API retains charge default")
+equal(api.Options.read({}, load_option).enabled, false, "no option API cannot enable a checkbox")
+equal(api.Options.read({}, load_option).charge90, false, "no option API cannot enable charge release")
 equal(api.Options.read({can_get = function() error("unavailable") end}, load_option).charge90,
     false, "charge option API errors fail closed")
 equal(api.Options.read({can_get = function() return true end}, function() error("unavailable") end).charge90,
@@ -51,8 +51,13 @@ local obsolete = {can_get = function(_, resource)
         resource == "mods/hd2_helper/autoreload_option_diagnostics"
 end}
 local defaults = api.Options.read(obsolete, function() error("obsolete flag must not load") end)
-equal(defaults.enabled, true, "old OFF flags cannot disable new defaults")
-equal(defaults.charge90, true, "old diagnostic flags cannot change charge defaults")
+equal(defaults.enabled, false, "obsolete flags cannot enable an unchecked checkbox")
+equal(defaults.charge90, false, "old diagnostic flags cannot enable charge release")
+local unchecked = api.Options.read({can_get = function() return false end}, load_option)
+equal(unchecked.enabled, false, "missing reload marker means unchecked/OFF")
+equal(unchecked.charge90, false, "missing charge marker means unchecked/OFF")
+equal(api.Options.allow(unchecked, {mode = "ammo"}), false)
+equal(api.Options.allow(unchecked, {mode = "heat"}), false)
 -- Research modules are tested offline only; none is embedded in the addon.
 for name, file in pairs({TankProbe = "tank_probe.lua", SelfProbe = "self_probe.lua",
     CatalogProbe = "catalog_probe.lua", UnitLinkProbe = "unit_link_probe.lua",
@@ -735,7 +740,12 @@ local fake_ffi = {
         return { [0] = { type = 0, value = { key = {}, mouse = {} } } }
     end,
 }
-require = function(name) if name == "ffi" then return fake_ffi end; return original_require(name) end
+require = function(name)
+    if name == "ffi" then return fake_ffi end
+    if name == "mods/hd2_helper/autoreload_setting_enabled" or
+        name == "mods/hd2_helper/autoreload_setting_charge90" then return true end
+    return original_require(name)
+end
 os.getenv = function() return nil end
 CowboyBingusModLoader = { open_log = function()
     return { write = function(_, text) logs[#logs+1] = text end, flush = function() end }
@@ -761,7 +771,10 @@ stingray = {
         end },
     IdString32 = { from_hex = function(hash) return "id:" .. hash end },
     Application = { time_since_launch = function() return now end,
-        can_get = function() return false end,
+        can_get = function(_, name)
+            return name == "mods/hd2_helper/autoreload_setting_enabled" or
+                name == "mods/hd2_helper/autoreload_setting_charge90"
+        end,
         main_world = function() return 3 end, worlds = function() return {3} end },
 }
 TEST_READER_PARTS = parts
