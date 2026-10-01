@@ -38,7 +38,13 @@ $nativeDirectory = [Environment]::CurrentDirectory
 try {
     Set-Location -LiteralPath $PSScriptRoot
     [Environment]::CurrentDirectory = $PSScriptRoot
-    [AutoReloadLuaTest]::Run((Resolve-Path -LiteralPath $LuaDll).Path, (Get-Content -LiteralPath './test.lua' -Raw -Encoding UTF8))
+    $dll = (Resolve-Path -LiteralPath $LuaDll).Path
+    [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './test.lua' -Raw -Encoding UTF8))
+    [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './combined.test.lua' -Raw -Encoding UTF8))
+    $stratagem = Join-Path $PSScriptRoot 'stratagem'
+    Set-Location -LiteralPath $stratagem
+    [Environment]::CurrentDirectory = $stratagem
+    [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './test.lua' -Raw -Encoding UTF8))
 } finally {
     [Environment]::CurrentDirectory = $nativeDirectory
     Set-Location -LiteralPath $previous.Path

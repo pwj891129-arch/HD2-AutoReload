@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.28-test';
+const version = '0.3.29-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -79,7 +79,7 @@ fs.copyFileSync(path.join(sourceFolder, 'README.txt'), path.join(vendor, 'HD2-HU
   core = readSource(path.join(vendor, 'reader_core.lua'));
   numbers = readSource(path.join(vendor, 'numbers.lua'));
 }
-const source = readSource(path.join(root, 'addon.lua'))
+const autoSource = readSource(path.join(root, 'addon.lua'))
   .replace('-- @OPTIONS@', () => readSource(path.join(root, 'options.lua')))
   .replace('-- @POLICY@', () => readSource(path.join(root, 'policy.lua')))
   .replace('-- @CHARGE@', () => readSource(path.join(root, 'charge_policy.lua')))
@@ -87,11 +87,24 @@ const source = readSource(path.join(root, 'addon.lua'))
   .replace('-- @NATIVE_READER@', () => readSource(path.join(root, 'native_reader.lua')))
   .replace('-- @READER_CORE@', () => core)
   .replace('-- @NUMBERS@', () => compact(numbers));
+const stratagemRoot = path.join(root, 'stratagem');
+let stratagemSource = readSource(path.join(stratagemRoot, 'addon.lua'));
+for (const name of ['platform', 'reader', 'policy', 'radial']) {
+  stratagemSource = stratagemSource.replace('-- @' + name.toUpperCase() + '@',
+    () => readSource(path.join(stratagemRoot, name + '.lua')));
+}
+const source = readSource(path.join(root, 'combined.lua'))
+  .replace('-- @STRATAGEM@', () => stratagemSource)
+  .replace('-- @AUTORELOAD@', () => autoSource);
 assert.equal(source.split('\n')[0], `-- HD2-Addon: ${resource}`);
 assert(!source.includes('00-boot-state') && !source.includes('90-main'), 'HUD test reference must not ship');
+assert(!source.includes('-- @'), 'Combined source has unresolved includes');
 const stage = path.join(root, 'dist', `HD2-AutoReload-${version}`);
 fs.mkdirSync(stage, { recursive: true });
-fs.writeFileSync(path.join(root, 'dist', 'auto_reload.generated.lua'), source);
+fs.writeFileSync(path.join(root, 'dist', 'auto_reload.generated.lua'), autoSource);
+fs.writeFileSync(path.join(root, 'dist', 'combined.generated.lua'), source);
+fs.mkdirSync(path.join(stratagemRoot, 'dist'), {recursive: true});
+fs.writeFileSync(path.join(stratagemRoot, 'dist', 'stratagem_hotkeys.generated.lua'), stratagemSource);
 fs.writeFileSync(path.join(root, 'dist', 'reader_core.lua'), core);
 fs.writeFileSync(path.join(root, 'dist', 'numbers.lua'), compact(numbers));
 fs.copyFileSync(path.join(vendor, 'HD2-HUD-0.1.2-original-README.txt'), path.join(stage, 'HD2-HUD-0.1.2-original-README.txt'));
@@ -122,14 +135,19 @@ const filename = '9ba626afa44a3aa3.patch_0';
 // Root patches deploy whenever the mod is enabled, independently of option checkboxes.
 fs.writeFileSync(path.join(stage, filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, filename + suffix), Buffer.alloc(0));
-const description = `Auto reload ${version}. Requires Bingus Shared Loader v15+ / API 1. ` +
-  'Checks ammunition exhaustion, actual weapon swaps, and fire attempts. Optional Railgun / Epoch left-mouse release at 90% of the full charge gauge. Build-pinned, read-only held-object component reader at 50 ms intervals. Ambiguous readings, underbarrel, and vehicle weapons remain excluded. Live testing required.';
+const description = `Auto Reload + Stratagems ${version}. Requires Bingus Shared Loader v18 / API 1. ` +
+  'Combined automatic reload, default-on Railgun / Epoch left-mouse release at 90%, and native-icon stratagem radial/hotkeys. Stratagem input blocks reload and charge release in the same frame. Read-only held-object component reader at 50 ms intervals. Arsenal-only settings; no external companion mod or game assets included. Live testing required.';
 const options = [
   ['enabled', '자동재장전', '기본 ON. 실탄 소진과 완전 과열 시 자동재장전합니다. 끄려면 OFF를 선택하세요. 이 옵션을 선택하지 않아도 기본 ON이며, 충전 자동발사와 독립적입니다.', true],
-  ['charge90', '레일건·에포크 90% 충전 자동발사', '기본 OFF. ON 선택 시 전체 위험 게이지 90% 이상에서 좌클릭을 한 번 해제합니다. 발사키는 좌클릭이어야 하며, 조준과 다음 충전은 수동입니다.', false],
+  ['charge90', '레일건·에포크 90% 충전 자동발사', '기본 ON. 옵션을 선택하지 않아도 전체 위험 게이지 90% 이상에서 좌클릭을 한 번 해제합니다. 발사키는 좌클릭이어야 하며, 조준과 다음 충전은 수동입니다. 끄려면 OFF를 선택하세요.', true],
+  ['radial', '스트라타젬 원형 오버레이', '기본 ON. 게임에 설정한 스트라타젬 목록 열기 버튼을 누르고 마우스로 선택한 뒤 놓으면 커맨드만 입력합니다. 키보드와 마우스 엄지버튼의 Hold 설정을 지원하며 조준·투척은 수동입니다.', true, 'stratagem_option_'],
+  ['hotkeys', '스트라타젬 숫자 핫키', '기본 ON. 게임의 목록 열기 버튼 + 숫자열 1~4로 개인 장착 슬롯의 커맨드를 입력합니다. 원형 메뉴에 표시한 슬롯 번호와 일치하며 숫자패드는 별개입니다.', true, 'stratagem_option_'],
+  ['shared', '공용/임무 스트라타젬 표시', '기본 OFF. ON이면 공용·임무 스트라타젬도 원형 메뉴에 표시합니다. 개인 슬롯 1~4 번호는 유지합니다.', false, 'stratagem_option_'],
+  ['large', '큰 원형 메뉴', '기본 OFF(100%). ON이면 원형 메뉴 크기를 130%로 표시합니다.', false, 'stratagem_option_'],
+  ['slow', '커맨드 입력: 30ms', '기본 OFF(15ms). ON이면 누르기·떼기를 최소 30ms로 합니다. 게임이 방향 입력을 감지한 뒤 다음 키를 전송합니다.', false, 'stratagem_option_'],
 ];
 let optionIndex = 0;
-const optionManifest = options.map(([name, label, help, defaultValue]) => ({
+const optionManifest = options.map(([name, label, help, defaultValue, prefix = 'autoreload_setting_']) => ({
   Name: label, Description: help,
   SubOptions: [defaultValue, !defaultValue].map(value => {
     const folder = `Option_${name}_${value ? 'on' : 'off'}`;
@@ -139,7 +157,7 @@ const optionManifest = options.map(([name, label, help, defaultValue]) => ({
     const marker = Buffer.alloc(Math.max(256, 192 + Math.ceil(module.length / 16) * 16));
     archive.copy(marker, 0, 0, 192);
     marker.writeBigUInt64LE(BigInt(marker.length), 32);
-    marker.writeBigUInt64LE(hash64('mods/hd2_helper/autoreload_setting_' + name), 104);
+    marker.writeBigUInt64LE(hash64('mods/hd2_helper/' + prefix + name), 104);
     marker.writeUInt32LE(module.length, 160); module.copy(marker, 192);
     fs.mkdirSync(path.join(stage, folder), {recursive: true});
     const patch = `9ba626afa44a3aa3.patch_${++optionIndex}`;
@@ -150,7 +168,7 @@ const optionManifest = options.map(([name, label, help, defaultValue]) => ({
   })
 }));
 fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify({
-  Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload ${version}`,
+  Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload + Stratagems ${version}`,
   Description: description + ' Feature options are configured in Arsenal only; Purge / Deploy and restart to apply.', Options: optionManifest
 }, null, 2));
 const report = { version, resource, resourceHash: hash64(resource).toString(16),

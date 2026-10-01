@@ -13,5 +13,24 @@ only; it is not included in the playable addon resource or release ZIP.
 
 Bingus Shared Loader API and archive format documentation by CowboyBingus:
 https://github.com/CowboyBingus/BingusSharedLoader
-Requires a separately installed Bingus Shared Loader v15+ (API 1).
+Requires a separately installed Bingus Shared Loader v18 (API 1).
 This addon does not contain or replace the loader.
+
+Bundled stratagem implementation: HD2 Stratagem Hotkeys 0.1.13-test by HD2 Helper.
+https://github.com/pwj891129-arch/HD2-Stratagem-Hotkeys
+Source commit 86e0d00bb4103c8e91ee56bad1845798e8912eeb.
+Sources and offline tests are included under stratagem/; the combined build is
+self-contained and does not require that separate repository or addon.
+Integration changes defaults and explicit OFF handling, and adds independent
+startup and same-frame reload/charge coordination. Existing icon and mouse
+release fixes are retained. Game assets and captured references are not included.
+
+Native rendering/mouse/input API references (facts only; no third-party code copied):
+https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/lua_ref/obj_stingray_Gui.html
+https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/lua_ref/obj_stingray_Window.html
+https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/lua_ref/obj_stingray_Material.html
+https://help.autodesk.com/cloudhelp/KOR/Stingray-Help/lua_ref/ns_stingray_Mouse.html
+https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
+Local pinned native query and tile code were independently checked read-only.
+Atlas links, resource hashes, palette vectors and layouts are factual references,
+not copied game code/assets. No native game function is invoked by this addon.

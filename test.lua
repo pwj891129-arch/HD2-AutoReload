@@ -12,7 +12,7 @@ local option_app = {can_get = function(_, resource) return flags[resource:match(
 local function load_option(resource) return flags[resource:match("autoreload_setting_(.+)$")] end
 local arsenal = api.Options.read(option_app, load_option)
 equal(arsenal.enabled, true, "automatic reload defaults on without any option modules")
-equal(arsenal.charge90, false, "charge release defaults off")
+equal(arsenal.charge90, true, "charge release defaults on without any option modules")
 equal(arsenal.diagnostics, nil, "diagnostic setting removed")
 equal(api.Options.allow(arsenal, {mode = "ammo"}), true)
 equal(api.Options.allow(arsenal, {mode = "heat"}), true)
@@ -38,6 +38,13 @@ equal(api.Options.read({can_get = function() error("unavailable") end}, load_opt
 equal(api.Options.read({can_get = function() return true end}, function() error("unavailable") end).enabled,
     false, "option loading errors fail closed")
 equal(api.Options.read({}, load_option).enabled, true, "no option API retains default")
+equal(api.Options.read({}, load_option).charge90, true, "no option API retains charge default")
+equal(api.Options.read({can_get = function() error("unavailable") end}, load_option).charge90,
+    false, "charge option API errors fail closed")
+equal(api.Options.read({can_get = function() return true end}, function() error("unavailable") end).charge90,
+    false, "charge option loading errors fail closed")
+flags.charge90 = "true"
+equal(api.Options.read(option_app, load_option).charge90, false, "invalid charge option is not enabled")
 local obsolete = {can_get = function(_, resource)
     return resource == "mods/hd2_helper/autoreload_option_ammo_off" or
         resource == "mods/hd2_helper/autoreload_option_heat_off" or
@@ -45,7 +52,7 @@ local obsolete = {can_get = function(_, resource)
 end}
 local defaults = api.Options.read(obsolete, function() error("obsolete flag must not load") end)
 equal(defaults.enabled, true, "old OFF flags cannot disable new defaults")
-equal(defaults.charge90, false, "old diagnostic flags cannot enable a feature")
+equal(defaults.charge90, true, "old diagnostic flags cannot change charge defaults")
 -- Research modules are tested offline only; none is embedded in the addon.
 for name, file in pairs({TankProbe = "tank_probe.lua", SelfProbe = "self_probe.lua",
     CatalogProbe = "catalog_probe.lua", UnitLinkProbe = "unit_link_probe.lua",
@@ -791,7 +798,7 @@ local chunk = assert(loadstring(source, "@addon-runtime-test"))
 chunk()
 equal(HD2HelperAutoReload ~= nil, true, "runtime initialized")
 equal(HD2HelperAutoReload.config.enabled, true, "installed default reload is on")
-equal(HD2HelperAutoReload.config.charge90, false)
+equal(HD2HelperAutoReload.config.charge90, true, "runtime charge release defaults on")
 local function frame(time) now = time; return update() end
 a, b, c = frame(0)
 equal(a, 123); equal(b, nil); equal(c, 321)

@@ -9,7 +9,7 @@ function Options.read(app, load)
         local loaded, value = pcall(load, resource)
         return loaded and value == true
     end
-    return {enabled = setting("enabled", true), charge90 = setting("charge90", false)}
+    return {enabled = setting("enabled", true), charge90 = setting("charge90", true)}
 end
 function Options.allow(config, sample)
     return config.enabled == true and sample ~= nil and
