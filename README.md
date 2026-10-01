@@ -1,4 +1,39 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.40-test
+# HD2 Helper Auto Reload + Stratagems 0.3.41-test
+
+## Backpack Reserve And Korean Wheel Labels
+
+0.3.41-test includes the player's equipped ammo backpack when the held weapon
+has no personal spare ammo. The read-only native path follows the game's
+`WeaponAssistedReloadComponent`, local inventory backpack slot, support-backpack
+equipment class and `DepositComponent` compatibility/quantity. The pack must
+match the weapon and contain at least the native per-reload requirement. No
+weapon-name list or HUD+ lookup is used; other players' or dropped packs are
+never searched. Empty/incompatible/unreadable packs cannot authorize reload.
+Weapon, avatar, backpack identity and quantity are rechecked; a changed pack or
+GOID requires a new pair of coherent readings. Stationary reload behavior from
+0.3.40-test remains: release does not reload, but a new empty click can reload.
+Logs include `BACKPACK_RESERVE` with the source, quantity, requirement and reason.
+
+The Korean ZIP also displays Korean stratagem wheel names. Of the 149 pinned
+native definitions, 141 use installed Korean game strings and eight use explicit
+fallback labels for entries with no translated name. Names are matched to both
+kind and native definition name; mismatches use a generic Korean label. Commands,
+readiness, visibility, icons and hotkey slot numbers are not localized or changed.
+The English ZIP keeps its previous English wheel labels.
+
+Korean text uses already-loaded native Korean fonts, whose offline glyph tables
+cover every translated name. No font binaries or additional UI packages are
+redistributed or automatically loaded. If these fonts are unavailable, readable
+English labels are used and the reason is logged, instead of drawing missing
+glyph boxes. Korean in-game UI language is recommended for those font resources.
+Text extents retain the existing sector-width limits. Original game translations
+and fonts retain their original rights.
+
+Offline tests cover the native backpack path, instance/authored compatibility,
+empty/insufficient ammo, dropped/stale/replaced packs, missing data, confirmation
+reset, stationary click behavior, Korean identity matching and font fallbacks.
+Existing saved binary/assets provide layout and glyph evidence only. No running
+game was inspected, controlled or redeployed; actual gameplay remains unverified.
 
 ## Stationary Reload Weapons
 
@@ -233,20 +268,20 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.40-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.40-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.41-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.41-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
-include paths and byte-identical game payload. Only manifest display text differs.
+include paths and game logic. Only manifest text and the wheel language flag differ.
 Changing package language replaces the same mod, not an additional addon. Review
 checkbox states after replacement, then Purge / Deploy and restart the game.
 
 Arsenal 0.36.2 displays mod-provided names and descriptions literally; its UI
 language packs do not translate these fields. There is no OS-language detection
 script or automatic language switch in this release. Choose the ZIP yourself.
-The in-game radial labels and runtime logs are unchanged.
+The wheel language follows the ZIP, not OS detection. Runtime logs remain English.
 
-한국어로 옵션을 표시하려면 `-ko.zip` 파일만 설치하세요. 영어판은 `-en.zip`입니다.
+한국어 옵션과 휠 이름을 표시하려면 `-ko.zip` 파일만 설치하세요. 영어판은 `-en.zip`입니다.
 두 언어판을 동시에 설치하지 마세요. 언어판 교체 후 ON/OFF 설정을 확인하고
 Purge / Deploy 및 게임 재시작을 진행하세요. OS 언어 자동 감지 파일은 포함하지 않습니다.
 
@@ -348,8 +383,9 @@ Neither a normal left/right mouse press nor automatic throwing is sent.
 
 The wheel does not redistribute original texture, shader, material or GUI
 binaries, or modify another mod's HUD instances. The package's game-derived PNG
-previews are Arsenal-only and documented separately. Labels retain internal English
-development names. The existing icon fix still needs gameplay confirmation.
+previews are Arsenal-only and documented separately. English labels retain internal
+development names; Korean labels use the localized catalog described above.
+The existing icon fix still needs gameplay confirmation.
 
 ## Reload Behavior
 
@@ -459,8 +495,8 @@ actual inputs. Package checks enforce the HD2SDK minimum of 256 bytes per
 single-resource archive. Per language, deployment checks exhaust all 288 base-control
 combinations, every pair of settings in all omitted/variant states, and all-ON,
 all-OFF and all-default configurations (5,067 scenarios).
-They also verify localized text, identical option structure and byte-identical
-game payloads across the English and Korean packages. Individual kind filters,
+They also verify localized text, identical option structure and game payloads
+that differ only in their wheel-language flag. Individual kind filters,
 explicit OFF precedence, hidden command rejection, slot numbering and coherent
 shared/personal membership reads have regression coverage. The pinned native
 catalog checks all mission kinds when local reference captures are available.
@@ -476,7 +512,7 @@ Bulk tests cover all three controls in omitted/individual/ON/OFF states, mixed
 individual choices, restoration, query/load failure and invalid values. Size
 tests check 100 viewport/count/scale combinations from 320x240 to 3840x2160:
 sector/icon/text bounds, redraw, retention and aligned hit testing. The full
-LuaJIT suite passes 30,265 assertions without sending OS input.
+LuaJIT suite passes 30,766 assertions without sending OS input.
 Direct-checkbox tests require missing markers to be OFF. Click tests cover
 keyboard/thumb bindings, held clicks, current cursor hit testing, cancellation,
 cooldown changes, character/loadout replacement and no synthetic fire/throw.
@@ -488,8 +524,10 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.40-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.40-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.40-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.40-test-ko.zip'
+node tools/reload-layout.test.cjs
+node tools/stratagem-names.cjs --check
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.41-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.41-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.41-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.41-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

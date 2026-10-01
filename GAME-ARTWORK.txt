@@ -19,3 +19,9 @@ that record are provenance only; no capture or original texture is bundled.
 Game-derived artwork retains its original rights and is not relicensed under
 the addon or Lucide/Feather licenses. The unchanged Lucide/Feather notice is
 included separately as LUCIDE-LICENSE.txt for the remaining library symbols.
+
+The Korean wheel labels also use a subset of installed Korean game strings.
+141 names come from the native catalog and eight are addon fallback labels.
+Runtime text references the game's already-loaded Korean font resources and
+material; no font, texture atlas, runtime_font or UI package binaries are shipped.
+Game translations and fonts retain their original rights and licenses.

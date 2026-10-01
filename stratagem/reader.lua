@@ -1,5 +1,8 @@
 local Reader = {}
 Reader.__index = Reader
+Reader.Locale = (function()
+-- @LOCALE@
+end)()
 Reader.RVA = { players = 0x3326468, ui = 0x347ce28, loadouts = 0x347ce50,
     input = 0x347cf18, settings = 0x348e8f8, definitions = 0x37cb600,
     clock = 0x3326348, owner = 54968216, avatars = 0x3326d20 }
@@ -382,7 +385,8 @@ function Reader:radial(include_shared, read_icons)
         local call_due, reuse_due = self:integer64(row.address + 32), self:integer64(row.address + 24)
         row.command = definition.command
         definition.name = definition.name or self:name(definition.record + 16)
-        row.name = (definition.name or ("STRATAGEM " .. row.kind)):gsub("^.-%.%s*", "")
+        row.name_english = (definition.name or ("STRATAGEM " .. row.kind)):gsub("^.-%.%s*", "")
+        row.name = Reader.Locale and Reader.Locale.name(row.kind, definition.name) or row.name_english
         row.picture = self:hash(definition.record + 176)
         if read_icons ~= false then row.art, row.art_error = self:icon(definition, row.picture) end
         row.ready = row.uses ~= nil and row.uses > 0 and call_due ~= nil and

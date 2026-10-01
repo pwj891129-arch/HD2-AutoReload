@@ -6,6 +6,7 @@ local function equal(actual, expected, name)
     count = count + 1
 end
 dofile("native_reader.test.lua")(api, equal)
+dofile("backpack_reserve.test.lua")(api, equal)
 dofile("reload_movement.test.lua")(api, equal)
 dofile("charge_policy.test.lua")(api, equal)
 local flags = {enabled = true, charge90 = true}

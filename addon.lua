@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.40-test"
+local VERSION = "0.3.41-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -80,7 +80,8 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
     if empty then
         local stamp = sample.weapon .. ":" .. sample.mode .. ":" ..
             tostring(sample.reserve) .. ":" .. tostring(sample.reloading) .. ":" ..
-            tostring(sample.reload_allow_move)
+            tostring(sample.reload_allow_move) .. ":" .. tostring(sample.reserve_source) .. ":" ..
+            tostring(sample.reserve_token)
         sample.unconfirmed = self.native_pending ~= stamp
         self.native_pending = stamp
     else
@@ -362,7 +363,8 @@ local function tick()
     end
     if sample.native and sample.weapon then
         local source = sample.weapon .. ":" .. tostring(sample.feed) .. ":" ..
-            tostring(sample.reload_allow_move) .. ":" .. tostring(sample.reload_reason)
+            tostring(sample.reload_allow_move) .. ":" .. tostring(sample.reload_reason) .. ":" ..
+            tostring(sample.reserve_token) .. ":" .. tostring(sample.backpack_reason)
         if state.native_source ~= source then
             log("NATIVE_SOURCE weapon=" .. sample.weapon ..
                 " feed=" .. tostring(sample.feed) ..
@@ -373,6 +375,11 @@ local function tick()
             log("RELOAD_MOVEMENT allow=" .. tostring(sample.reload_allow_move) ..
                 " source=" .. tostring(sample.reload_source) ..
                 " reason=" .. tostring(sample.reload_reason))
+            if sample.backpack_reason then
+                log("BACKPACK_RESERVE source=" .. tostring(sample.reserve_source) ..
+                    " token=" .. tostring(sample.reserve_token) .. " ammo=" .. tostring(sample.backpack_ammo) ..
+                    " required=" .. tostring(sample.backpack_required) .. " reason=" .. sample.backpack_reason)
+            end
             state.native_source = source
         end
     else

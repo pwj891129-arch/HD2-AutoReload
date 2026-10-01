@@ -304,4 +304,19 @@ return function(api, equal)
         avatar = 101, weapon = "native:501:900", mode = "ammo", ammo = 0,
         reserve = 2, reloading = false } end
     equal(adapter:sample().active, false, "wrong avatar never authorizes reload")
+    local pack_token, source = "1000:124:5", "backpack"
+    native.sample = function() return {active = true, native = true,
+        avatar = 100, weapon = "native:500:900", mode = "ammo", ammo = 0,
+        reserve = 5, reloading = false, reserve_source = source, reserve_token = pack_token} end
+    equal(adapter:sample().unconfirmed, true, "new backpack reserve needs two coherent reads")
+    equal(adapter:sample().unconfirmed, false)
+    pack_token = "1001:125:5"
+    equal(adapter:sample().unconfirmed, true, "same ammo count in a different pack cannot reuse confirmation")
+    equal(adapter:sample().unconfirmed, false)
+    pack_token = "1001:126:5"
+    equal(adapter:sample().unconfirmed, true, "reused pack entity with new GOID resets confirmation")
+    equal(adapter:sample().unconfirmed, false)
+    source, pack_token = "weapon", nil
+    equal(adapter:sample().unconfirmed, true, "changing ammo source resets confirmation")
+    equal(adapter:sample().unconfirmed, false)
 end

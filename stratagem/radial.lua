@@ -202,9 +202,29 @@ function Radial:shape(kind, ...)
     if id == nil then error("overlay-" .. kind .. "-failed") end
     self.ids[#self.ids + 1] = {kind, id}
 end
-function Radial:text(text, x, y, size, colour, maximum_width)
+function Radial:text(text, x, y, size, colour, maximum_width, fallback)
     local sr, font = self.sr, "core/performance_hud/debug"
-    if not sr.Application.can_get("font", font) or not sr.Application.can_get("material", font) or
+    local material = font
+    if text:find("[\128-\255]") then
+        local found = false
+        if sr.IdString64 and sr.IdString64.from_hex then
+            for _, id in ipairs({"e007454455e2d2bb", "fca7631255290a2c"}) do
+                local ok, candidate = pcall(sr.IdString64.from_hex, id)
+                local loaded, usable = pcall(function()
+                    return ok and sr.Application.can_get("font", candidate) and
+                        sr.Application.can_get("material", "content/fonts/runtime_font") and
+                        (not sr.Gui.has_all_glyphs or sr.Gui.has_all_glyphs(self.gui, text, candidate))
+                end)
+                if loaded and usable then font, material, found = candidate, "content/fonts/runtime_font", true; break end
+            end
+        end
+        if not found then
+            if not self.font_warning and self.trace then self.trace("OVERLAY Korean font unavailable; English fallback") end
+            self.font_warning = true
+            text = fallback or "STRATAGEM"
+        end
+    end
+    if not sr.Application.can_get("font", font) or not sr.Application.can_get("material", material) or
         not sr.Gui.text or not sr.Gui.text_extents then return end
     local lo, hi = sr.Gui.text_extents(self.gui, text, font, size)
     local width = hi.x - lo.x
@@ -214,7 +234,7 @@ function Radial:text(text, x, y, size, colour, maximum_width)
         lo, hi = sr.Gui.text_extents(self.gui, text, font, size)
         width = hi.x - lo.x
     end
-    self:shape("text", text, font, size, font, sr.Vector3(x - width / 2, y, 12), colour)
+    self:shape("text", text, font, size, material, sr.Vector3(x - width / 2, y, 12), colour)
 end
 function Radial:draw(inventory)
     if not self.opened or not self:world_live(self.world) then return false end
@@ -285,7 +305,7 @@ function Radial:draw(inventory)
         end
         self.icon_reasons[index] = report
         self:text(row.name or ("STRATAGEM " .. row.kind), x, y - (shown and 49 or 7) * scale,
-            (shown and 14 or 16) * scale, ink, label_width)
+            (shown and 14 or 16) * scale, ink, label_width, row.name_english)
         if row.slot then self:text(tostring(row.slot), x, y + 48 * scale, 18 * scale, ink) end
         self:text(row.status, x, y - (shown and 70 or 50) * scale, shown and 13 * scale or 16 * scale, ink)
     end
@@ -296,7 +316,8 @@ function Radial:draw(inventory)
     end
     if self.selected then
         local row = rows[self.selected]
-        self:text(row.name or tostring(row.kind), cx, cy - outer - 33 * scale, 20 * scale, sr.Color(255, 245, 240, 210))
+        self:text(row.name or tostring(row.kind), cx, cy - outer - 33 * scale, 20 * scale,
+            sr.Color(255, 245, 240, 210), nil, row.name_english)
     end
     self.signature = signature
     return true

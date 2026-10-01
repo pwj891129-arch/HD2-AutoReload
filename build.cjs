@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const optionModel = require('./arsenal-options.cjs');
 
 const root = __dirname;
-const version = '0.3.40-test';
+const version = '0.3.41-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -109,6 +109,14 @@ for (const name of ['platform', 'reader', 'policy', 'radial']) {
   stratagemSource = stratagemSource.replace('-- @' + name.toUpperCase() + '@',
     () => readSource(path.join(stratagemRoot, name + '.lua')));
 }
+const labels = JSON.parse(readSource(path.join(root, 'assets/stratagem-names-ko.json')));
+assert.equal(labels.names.length, 149);
+const namesSource = 'return {\n' + labels.names.map(row => {
+  assert(Number.isInteger(row.kind) && row.kind >= 1 && row.kind <= 149 && row.native && row.ko);
+  return `    [${row.kind}] = {native = ${JSON.stringify(row.native)}, ko = ${JSON.stringify(row.ko)}},`;
+}).join('\n') + '\n}\n';
+const localeSource = readSource(path.join(stratagemRoot, 'locale.lua')).replace('-- @NAMES@', () => namesSource);
+stratagemSource = stratagemSource.replace('-- @LOCALE@', () => localeSource.replace('@LANGUAGE@', 'en'));
 const source = readSource(path.join(root, 'combined.lua'))
   .replace('-- @STRATAGEM@', () => stratagemSource)
   .replace('-- @AUTORELOAD@', () => autoSource);
@@ -122,6 +130,8 @@ fs.writeFileSync(path.join(root, 'dist', 'combined.generated.lua'), source);
 fs.mkdirSync(path.join(stratagemRoot, 'dist'), {recursive: true});
 fs.writeFileSync(path.join(stratagemRoot, 'dist', 'stratagem_hotkeys.generated.lua'), stratagemSource);
 fs.writeFileSync(path.join(stratagemRoot, 'dist', 'visibility.generated.lua'), filterSource);
+for (const language of ['en', 'ko']) fs.writeFileSync(path.join(stratagemRoot, 'dist', `locale.${language}.generated.lua`),
+  localeSource.replace('@LANGUAGE@', language));
 fs.writeFileSync(path.join(root, 'dist', 'reader_core.lua'), core);
 fs.writeFileSync(path.join(root, 'dist', 'numbers.lua'), compact(numbers));
 fs.copyFileSync(path.join(vendor, 'HD2-HUD-0.1.2-original-README.txt'), path.join(stage, 'HD2-HUD-0.1.2-original-README.txt'));
@@ -197,6 +207,14 @@ for (const language of ['en', 'ko']) {
   }
   stages[language] = path.join(root, 'dist', `HD2-AutoReload-${version}-${language}`);
   if (language !== 'en') fs.cpSync(stage, stages[language], {recursive: true});
+  if (language === 'ko') {
+    const localized = Buffer.from(source.replace('local LANGUAGE = "en"', 'local LANGUAGE = "ko"'), 'utf8');
+    assert.equal(localized.length, lua.length);
+    const korean = Buffer.from(archive);
+    localized.copy(korean, offset + 8);
+    fs.writeFileSync(path.join(stages[language], 'Core', filename), korean);
+    fs.writeFileSync(path.join(root, 'dist', 'combined.ko.generated.lua'), localized);
+  }
   const localizedOptions = {...text.Options};
   for (const filter of filters) localizedOptions[filter.id] = {
     Name: filter[language], Description: text.FilterDescription + ' ' +

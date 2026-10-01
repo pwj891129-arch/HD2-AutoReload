@@ -11,6 +11,7 @@ local RVA = {
     equipment = 53636544, wielder = 53634080,
     magazine = 53634632, rounds = 53636336, heat = 53636424,
     charge = 53636128, authored = 0x346bf98, reload = 0x3326a70,
+    assisted = 0x3326be8, inventory = 0x3326738, deposit = 0x33265e8,
 }
 local COMPONENTS = {
     equipment = { map = 32, back = 56 },
@@ -20,6 +21,9 @@ local COMPONENTS = {
     heat = { map = 40, back = 64, rows = 88, stride = 12 },
     charge = { map = 32, back = 56, rows = 64, stride = 40 },
     reload = { map = 32, back = 56 },
+    assisted = { map = 24, back = 48 },
+    inventory = { map = 40, back = 64, rows = 80, stride = 48 },
+    deposit = { map = 32, back = 56, rows = 80, stride = 8 },
 }
 local CHARGE_WEAPONS = {
     ["2e9d0bdc48b09e60"] = "railgun",
@@ -335,7 +339,95 @@ function Reader:reload_config(component, held, type_bytes)
     return nil, "reload-authored-probe-limit"
 end
 
-function Reader:with_metadata(sample, held, record, wield)
+function Reader:authored_config(type_bytes, offset, capacity, stride)
+    local registry = self:root("authored")
+    local rows = registry and self:ptr(registry + offset)
+    local low, high = u32(type_bytes, 0), u32(type_bytes, 4)
+    if not rows or not low or not high or (low == 0 and high == 0) then return nil end
+    local seed = (high % capacity * (4294967296 % capacity) + low % capacity) % capacity
+    for probe = 0, capacity - 1 do
+        local row = self:read(rows + ((seed + probe) % capacity) * 16, 16)
+        if not row or row:sub(1, 8) == string.rep("\0", 8) then return nil end
+        if row:sub(1, 8) == type_bytes then
+            local slot = u32(row, 8)
+            if not slot or slot >= capacity then return nil end
+            return rows + capacity * 16 + slot * stride
+        end
+    end
+end
+
+function Reader:pack_config(component, entity, identity, spec)
+    local index, why = self:lookup(component.manager + spec.map, entity)
+    if index and index ~= 0xffffffff then
+        local capacity, rows = self:word(component.manager + 4), self:ptr(component.manager + spec.rows)
+        if not capacity or capacity > 1000000 or index >= capacity or not rows then return nil end
+        return rows + index * spec.stride
+    elseif why ~= "not-found" and index ~= 0xffffffff then
+        local header = self:read(component.manager + spec.map, 20)
+        -- An allocated manager with a readable zero-capacity override map has no overrides.
+        if not header or u32(header, 8) ~= 0 then return nil end
+    end
+    return self:authored_config(identity:sub(1, 8), spec.authored, spec.capacity, spec.stride)
+end
+
+function Reader:backpack_reserve(sample, held, record, wield, avatar, avatar_identity)
+    sample.reserve_source = "weapon"
+    if sample.reserve ~= 0 then return sample end
+    -- Mirror the game's self-assisted reload check (0x73b440), not a weapon list.
+    local identity = self:read(record, 24)
+    local assisted = identity and self:component("assisted", held, record)
+    if not assisted then return sample end
+    sample.backpack_reason = "backpack-unavailable"
+    local config = self:authored_config(identity:sub(1, 8), 0xf12658, 12, 104)
+    local required = config and self:word(config + 20)
+    if not count(required) or required < 1 then
+        sample.backpack_reason = "backpack-requirement-unavailable"; return sample
+    end
+    local inventory = self:component("inventory", avatar)
+    local owner = inventory and self:read(inventory.record, 24)
+    local pack = inventory and u32(self:field(inventory, 12, 4), 0)
+    if owner ~= avatar_identity or not pack or pack == 0 or pack == 0x7fff or
+        pack == 0x800000 or pack == 0xffffffff then return sample end
+    local deposit = self:component("deposit", pack)
+    local pack_record = deposit and deposit.record
+    local pack_identity = pack_record and self:read(pack_record, 24)
+    local pack_goid = u32(pack_identity, 16)
+    local equipment = pack_record and self:component("equipment", pack, pack_record)
+    if not equipment or u32(pack_identity, 8) ~= pack or not pack_goid or
+        pack_goid == 0 or pack_goid == 0x7fff then return sample end
+    local deposit_config = self:pack_config(deposit, pack, pack_identity,
+        {map = 0x60, rows = 0xa0, authored = 0xf12a00, capacity = 58, stride = 152})
+    local equipment_config = self:pack_config(equipment, pack, pack_identity,
+        {map = 0x50, rows = 0x90, authored = 0xf12bc0, capacity = 688, stride = 232})
+    local compatible = deposit_config and self:read(deposit_config + 136, 8)
+    if not equipment_config or self:word(equipment_config + 128) ~= 17 or not compatible or
+        (compatible ~= string.rep("\0", 8) and compatible ~= identity:sub(1, 8)) then
+        sample.backpack_reason = "backpack-incompatible"; return sample
+    end
+    local reserve = u32(self:field(deposit, 0, 4), 0)
+    if not count(reserve) then sample.backpack_reason = "backpack-count-unavailable"; return sample end
+    local function unchanged(name, entity, original)
+        local current = self:component(name, entity, original.record)
+        return current and current.manager == original.manager and current.index == original.index
+    end
+    if self:read(record, 24) ~= identity or self:read(pack_record, 24) ~= pack_identity or
+        self:read(inventory.record, 24) ~= owner or u32(identity, 8) ~= held or
+        u32(self:field(wield, 0, 4), 0) ~= held or u32(self:field(inventory, 12, 4), 0) ~= pack or
+        not unchanged("inventory", avatar, inventory) or not unchanged("assisted", held, assisted) or
+        not unchanged("deposit", pack, deposit) or not unchanged("equipment", pack, equipment) or
+        self:word(config + 20) ~= required or self:word(equipment_config + 128) ~= 17 or
+        self:read(deposit_config + 136, 8) ~= compatible or
+        u32(self:field(deposit, 0, 4), 0) ~= reserve then
+        sample.backpack_reason = "backpack-identity-changed"; return sample
+    end
+    sample.backpack_ammo, sample.backpack_required = reserve, required
+    sample.backpack_reason = reserve >= required and "ready" or "backpack-insufficient-ammo"
+    sample.reserve = reserve >= required and reserve or 0
+    sample.reserve_source, sample.reserve_token = "backpack", pack .. ":" .. pack_goid .. ":" .. required
+    return sample
+end
+
+function Reader:with_metadata(sample, held, record, wield, avatar, avatar_identity)
     local identity = self:read(record, 24)
     local component = identity and self:component("reload", held, record)
     local length = component and self:word(component.manager + 0xc)
@@ -350,6 +442,7 @@ function Reader:with_metadata(sample, held, record, wield)
         sample.reload_allow_move, sample.reload_source = allow == 1, source
         sample.reload_reason = "ready"
     else sample.reload_reason = raw and "reload-movement-invalid" or source or "reload-movement-unavailable" end
+    self:backpack_reserve(sample, held, record, wield, avatar, avatar_identity)
     return self:with_charge(sample, held, record, wield)
 end
 
@@ -396,7 +489,7 @@ function Reader:sample()
         return self:with_metadata({ active = true, mode = "heat", weapon = "native:" .. avatar .. ":" .. held,
             avatar = avatar_goid, goid = goid, reserve = reserve,
             overheated = flag == 1, reloading = reloading,
-            native = true, feed = "heat" }, held, record, wield), "ready"
+            native = true, feed = "heat" }, held, record, wield, avatar, avatar_record), "ready"
     end
     local magazine, mag_fault = self:component("magazine", held, record)
     local rounds, rounds_fault = self:component("rounds", held, record)
@@ -425,7 +518,7 @@ function Reader:sample()
     return self:with_metadata({ active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,
         avatar = avatar_goid, goid = goid, reserve = reserve,
         ammo = ammo, reloading = reloading, native = true,
-        feed = magazine and "magazine" or "rounds" }, held, record, wield), "ready"
+        feed = magazine and "magazine" or "rounds" }, held, record, wield, avatar, avatar_record), "ready"
 end
 
 return Reader

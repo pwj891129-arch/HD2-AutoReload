@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.40-test';
+const version = '0.3.41-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -123,7 +123,7 @@ function checkPackage(language) {
   assert(fs.readFileSync(path.join(stage, 'GAME-ARTWORK.txt')).equals(
     fs.readFileSync(path.join(__dirname, 'GAME-ARTWORK.txt'))), 'Native artwork notice ships');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(stage, 'GAME-ICON-SOURCES.json'), 'utf8')), nativeIcons);
-  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.39-test-${language}`);
+  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.40-test-${language}`);
   if (fs.existsSync(path.join(previousStage, 'manifest.json'))) {
     const previous = JSON.parse(fs.readFileSync(path.join(previousStage, 'manifest.json'), 'utf8'));
     assert.equal(previous.Options.length, 44);
@@ -166,6 +166,12 @@ function checkPackage(language) {
     if (folder === 'Core') {
       assert(source.startsWith('-- HD2-Addon: mods/hd2_helper/auto_reload\n'));
       assert(source.includes('reload = 0x3326a70'));
+      assert(source.includes('assisted = 0x3326be8, inventory = 0x3326738, deposit = 0x33265e8'));
+      assert(source.includes('self:backpack_reserve(sample, held, record, wield, avatar, avatar_identity)'));
+      assert(source.includes('sample.reserve_token'));
+      assert(source.includes(`local LANGUAGE = "${language}"`));
+      assert(source.includes('Reader.Locale.name(row.kind, definition.name)'));
+      assert(source.includes('"e007454455e2d2bb", "fca7631255290a2c"'));
       assert(source.includes('sample.reload_allow_move, sample.reload_source = allow == 1, source'));
       assert(source.includes('action == "release-fire"'));
       assert(source.includes('policy:released_fire(now)'));
@@ -292,7 +298,14 @@ const files = packageFiles(english.stage);
 assert.equal(files.length, 10 + optionIds.length + variantCount * 3);
 assert.deepEqual(files, packageFiles(korean.stage));
 for (const file of files.filter(file => file !== 'manifest.json')) {
-  assert(fs.readFileSync(path.join(english.stage, file)).equals(fs.readFileSync(path.join(korean.stage, file))),
-    `Language packages have different payloads: ${file}`);
+  const en = fs.readFileSync(path.join(english.stage, file)), ko = fs.readFileSync(path.join(korean.stage, file));
+  if (file === path.join('Core', '9ba626afa44a3aa3.patch_0')) {
+    const at = Number(en.readBigUInt64LE(120)) + 8, length = en.readUInt32LE(160) - 8;
+    const normalized = Buffer.from(ko);
+    const source = ko.subarray(at, at + length).toString('utf8');
+    assert(source.includes('local LANGUAGE = "ko"'));
+    Buffer.from(source.replace('local LANGUAGE = "ko"', 'local LANGUAGE = "en"'), 'utf8').copy(normalized, at);
+    assert(en.equals(normalized), 'Only wheel language selection differs in Core');
+  } else assert(en.equals(ko), `Language packages have different nonlocalized payloads: ${file}`);
 }
-console.log('PASS English/Korean packages: same GUID, option order, defaults, paths and byte-identical payloads');
+console.log('PASS English/Korean packages: same GUID, option order, defaults and paths; only Core wheel language and manifest text differ');
