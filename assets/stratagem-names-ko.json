@@ -1049,7 +1049,9 @@
   "fonts": [
     {
       "id": "e007454455e2d2bb",
-      "material": "content/fonts/runtime_font",
+      "atlas": "8d346dcdd08459d5",
+      "material": "content/fonts/core_sans",
+      "slot": "88bac99b00000000",
       "sha256": "5968a3c17b726687c81774b42c8bc6a932c017b68f217c246e6c6b4d8c2c9eb2",
       "glyphs": [
         48149,
@@ -2419,7 +2421,9 @@
     },
     {
       "id": "fca7631255290a2c",
-      "material": "content/fonts/runtime_font",
+      "atlas": "9ae590aec7c63b1c",
+      "material": "content/fonts/core_sans",
+      "slot": "88bac99b00000000",
       "sha256": "1502c7218d1f7a657be420a402d07873c5087f849257d845ebb02b11559dbb43",
       "glyphs": [
         48149,

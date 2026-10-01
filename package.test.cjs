@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.41-test';
+const version = '0.3.42-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -171,7 +171,11 @@ function checkPackage(language) {
       assert(source.includes('sample.reserve_token'));
       assert(source.includes(`local LANGUAGE = "${language}"`));
       assert(source.includes('Reader.Locale.name(row.kind, definition.name)'));
-      assert(source.includes('"e007454455e2d2bb", "fca7631255290a2c"'));
+      assert(source.includes('{font = "e007454455e2d2bb", atlas = "8d346dcdd08459d5"}'));
+      assert(source.includes('{font = "fca7631255290a2c", atlas = "9ae590aec7c63b1c"}'));
+      assert(source.includes('sr.Material.set_texture(material, sr.IdString64.from_hex(FONT_SLOT), atlas)'));
+      assert(source.includes('"content/fonts/core_sans", "88bac99b00000000"'));
+      assert(source.includes('local icon_size = math.min(44 * scale'));
       assert(source.includes('sample.reload_allow_move, sample.reload_source = allow == 1, source'));
       assert(source.includes('action == "release-fire"'));
       assert(source.includes('policy:released_fire(now)'));

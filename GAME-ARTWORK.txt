@@ -23,5 +23,6 @@ included separately as LUCIDE-LICENSE.txt for the remaining library symbols.
 The Korean wheel labels also use a subset of installed Korean game strings.
 141 names come from the native catalog and eight are addon fallback labels.
 Runtime text references the game's already-loaded Korean font resources and
-material; no font, texture atlas, runtime_font or UI package binaries are shipped.
+their matching texture atlases through owned GUI-local core_sans materials;
+no font, texture atlas, runtime_font or UI package binaries are shipped.
 Game translations and fonts retain their original rights and licenses.

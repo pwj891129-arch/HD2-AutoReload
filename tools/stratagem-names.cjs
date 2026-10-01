@@ -56,8 +56,8 @@ try {
       source: text ? 'game' : 'fallback', stringId: text ? key.toString(16).padStart(8, '0') : null});
   }
   const fonts = [
-    {id: 'e007454455e2d2bb', offset: 6159696, size: 43704},
-    {id: 'fca7631255290a2c', offset: 6203408, size: 50604},
+    {id: 'e007454455e2d2bb', atlas: '8d346dcdd08459d5', offset: 6159696, size: 43704},
+    {id: 'fca7631255290a2c', atlas: '9ae590aec7c63b1c', offset: 6203408, size: 50604},
   ].map(spec => {
     const bytes = archive.readPackageRange(opened, packages.get('9212d7034dc5d55a'), spec.offset, spec.size);
     const count = bytes.readUInt32LE(68), offset = bytes.readUInt32LE(72);
@@ -65,7 +65,8 @@ try {
     const glyphs = Array.from({length: count}, (_, i) => bytes.readUInt32LE(offset + i * 4));
     const chars = new Set(glyphs);
     for (const name of names) for (const char of name.ko) assert(chars.has(char.codePointAt(0)), `Font lacks ${char}: ${spec.id}`);
-    return {id: spec.id, material: 'content/fonts/runtime_font', sha256: digest(bytes), glyphs};
+    return {id: spec.id, atlas: spec.atlas, material: 'content/fonts/core_sans',
+      slot: '88bac99b00000000', sha256: digest(bytes), glyphs};
   });
   const data = {source: 'Installed Korean strings + pinned native stratagem definitions',
     settingsSha256: digest(settings), names, fonts};

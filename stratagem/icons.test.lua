@@ -114,7 +114,7 @@ return function(equal)
         local ink, p, s = shape.args[4], shape.args[1], shape.args[2]
         equal(materials[ink], nil, "images have independent material instances")
         materials[ink], textures[ink.texture] = true, true
-        equal(s.x, 72)
+        equal(s.x, 44, "smaller icons leave room for two-line names within their sector")
         equal(p.x >= 0 and p.y >= 0 and p.x + s.x <= width and p.y + s.y <= height, true)
         equal(shape.args[5].x, 0.125); equal(shape.args[6].x, 0.375, "atlas offset+width converted to opposite corner")
         equal(table.concat(ink.colors["28723f4d00000000"], ","), "0.8,0.34,0.84,0.98", "raw shader vector order preserved")

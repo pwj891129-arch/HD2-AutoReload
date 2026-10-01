@@ -2,10 +2,10 @@ param(
     [Parameter(Mandatory)][string[]]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.41-test'
+    [string]$Tag = 'auto-reload-0.3.42-test'
 )
 $ErrorActionPreference = 'Stop'
-$expectedNames = @('HD2-AutoReload-0.3.41-test-en.zip', 'HD2-AutoReload-0.3.41-test-ko.zip')
+$expectedNames = @('HD2-AutoReload-0.3.42-test-en.zip', 'HD2-AutoReload-0.3.42-test-ko.zip')
 $assets = @($AssetPath | ForEach-Object {
     $resolved = (Resolve-Path -LiteralPath $_).Path
     [ordered]@{
@@ -32,17 +32,17 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.41-test
+## HD2 Auto Reload + Stratagems 0.3.42-test
 
-탄약 배낭을 사용하는 무기의 자동재장전을 지원하고, 한국어판 스트라타젬 휠 이름을 한국어로 표시하도록 변경했습니다.
+한국어판 스트라타젬 이름이 보이지 않던 문제를 수정하고, 아이콘과 글자를 휠 안에 정리했습니다.
 
-- 무기 본체의 여분 탄이 없을 때 실제 착용한 호환 탄약 배낭의 남은 탄약을 확인합니다. 게임의 지원 장전 설정·배낭 장착 슬롯·배낭 종류·무기 호환성·장전 1회 필요량을 읽기 전용으로 검사하며, 무기 이름 목록이나 HD2 HUD+ 데이터에 의존하지 않습니다.
-- 배낭 탄약이 부족하거나 비어 있을 때, 다른 무기용 배낭·보급 팩일 때, 배낭을 버렸거나 데이터를 확인할 수 없을 때는 자동장전하지 않습니다. 다른 플레이어나 바닥의 배낭을 검색하지 않습니다.
-- 배낭을 바꾸거나 게임 객체가 바뀌면 재확인하며, 장전 입력 전 무기·착용자·배낭·탄약의 일치 여부를 재검사합니다.
-- 이동 불가 무기의 기존 동작은 유지합니다. 발사 버튼을 놓을 때는 장전하지 않고, 빈 무기에서 다시 클릭하면 장전합니다. 무기교체 검사와 메뉴·채팅·장전 중 차단도 유지합니다.
-- 한국어판 휠은 스트라타젬 이름도 한국어로 표시합니다. 현재 149개 게임 정의 중 141개는 게임의 한국어 이름, 이름이 없는 8개는 대체 이름을 사용합니다. 영어판은 기존 영어 표시를 유지합니다. 커맨드·장착 슬롯 번호·가용 상태·아이콘·표시 옵션은 변경하지 않습니다.
-- 한글은 게임에 이미 로드된 한국어 글꼴로 표시합니다. 한글 글꼴이 없으면 깨진 글자 대신 영어 대체 이름을 표시하고 로그를 남깁니다. 게임 UI도 한국어로 설정하는 것을 권장합니다. 원본 폰트·UI 패키지는 배포하지 않습니다.
-- 영어판 `HD2-AutoReload-0.3.41-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.41-test-ko.zip` 중 하나만 설치하세요. 옵션 순서·기본값·저장 경로는 유지했습니다.
+- 한글 이름 데이터는 정상인데 화면에서 비어 있던 렌더링 경로를 수정했습니다. 한글 글꼴의 실제 글자 아틀라스를 모드 소유의 GUI 전용 재질에 연결합니다. 기존 재질의 빈 텍스처 슬롯만으로 표시를 시도하던 문제를 해결했습니다.
+- 게임 HUD의 공용 재질은 변경하지 않습니다. 이미 로드된 게임 한글 글꼴·아틀라스만 사용하며 원본 폰트·텍스처·UI 패키지는 배포하지 않습니다. 리소스가 없거나 연결이 실패하면 영문 이름으로 대체합니다.
+- 아이콘 최대 크기를 100% 기준 72px에서 44px로 줄이고, 표시 항목이 많으면 추가 조절합니다.
+- 아이콘·이름·상태·기존 슬롯 번호를 각각의 부채꼴 안에 배치했습니다. 긴 이름은 최대 두 줄로 나누고 폭에 맞춰 조절합니다. 선택한 항목의 이름도 휠 밖이 아닌 가운데에 표시합니다.
+- 실제 글꼴의 기준선과 좌우 여백을 반영해 한글 이름의 정렬을 보정했습니다. 연결한 글꼴과 아틀라스를 로그에 기록합니다.
+- 스트라타젬 선택 방향·커맨드·장착 슬롯 번호·표시 옵션 및 자동재장전/배낭 장전 동작은 그대로 유지합니다.
+- 영어판 `HD2-AutoReload-0.3.42-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.42-test-ko.zip` 중 하나만 설치하세요. 옵션 순서·기본값·저장 경로는 유지했습니다. 한글 표시를 위해 게임 UI도 한국어로 설정하는 것을 권장합니다.
 
 ### 설치
 
@@ -54,21 +54,21 @@ Arsenal은 새 옵션을 처음 가져올 때 체크합니다. 이제 체크된 
 
 ### English
 
-Supports compatible equipped ammo backpacks when the held weapon has no personal spare ammo. Reads the game's self-assisted reload requirement, inventory backpack slot, equipment class and DepositComponent compatibility/count without a weapon list or HUD+ data. Empty, insufficient, incompatible, dropped or unreadable backpacks do not authorize reload. Identity/count changes require fresh coherent readings. Existing stationary empty-click reload, weapon-switch checks and input gates remain unchanged.
+Fixes invisible Korean wheel names by binding each native Korean font's matching MSDF atlas on an owned GUI-local material. The previous stock runtime_font material had an empty texture slot. Native glyph bearings are included in alignment; missing resources/bindings fall back to English. No shared HUD material is modified and no original font/atlas/UI binaries are shipped.
 
-The Korean ZIP localizes wheel names as well as Arsenal options: 141 installed game translations and eight explicit fallback names across the 149 pinned definitions. The English ZIP retains English labels. Commands, readiness, slot numbers, icons and visibility are unchanged. Text uses already-loaded native Korean fonts; missing fonts fall back to readable English with a log message. No original font or UI-package binaries are shipped. Korean game UI language is recommended.
+Icons are capped at 44px instead of 72px at 100% scale. Smaller adaptive icons, balanced two-line labels, readiness and original hotkey numbers stay inside each sector. The selected name is shown in the center. Command input, selection angles, visibility options and automatic/backpack reload remain unchanged. Korean game UI language is recommended.
 
 Install **one** ZIP: `-en.zip` or `-ko.zip`. Arsenal initially checks new options, so review checkbox states and uncheck unwanted calls. Use Individual Settings in the bulk controls to honor individual checks. Replace the previous version, then Purge / Deploy and restart with the game closed and Bingus Shared Loader v18 / API 1. At least one setting must be selected.
 
 ### 검증
 
-30,766개 LuaJIT 모의 검사와 언어판별 5,067가지 배포 시나리오를 통과했습니다. 배낭 종류·호환성·필요 탄약량·설정 우선순위·판독 실패·장착 해제·객체 교체·재확인, 이동 불가 무기 클릭 장전, 한국어 이름 대응·커맨드/슬롯 유지·한글 폰트 대체와 기존 휠/충전 동작을 검사했습니다. 기존 로컬 캡처로 네이티브 판독 위치를 확인하고 40,000개 해시 계산을 검증했습니다. 설치된 게임 파일의 한국어 이름과 한글 글리프 범위, 44개 미리보기도 확인했습니다. 실제 Arsenal UI 및 게임 테스트는 추가 확인이 필요하며 설치된 모드·게임 상태는 변경하지 않았습니다.
+LuaJIT 모의 검사와 언어판별 배포 검사를 통과했습니다. 한글/영문·1~16개 항목·320x240~3840x2160·100~400% 크기에서 각 영역 내부 배치와 아이콘/글자 겹침을 검사했습니다. 글꼴은 로드됐지만 아틀라스가 없는 경우, 재질 연결 실패, 대체 글꼴, 기준선 보정과 GUI 정리도 검사했습니다. 설치된 게임 아틀라스에서 실제 한글 글자를 오프라인으로 렌더링해 두 글꼴/아틀라스 조합을 대조했습니다. 실제 Arsenal UI 및 게임 테스트는 추가 확인이 필요하며 설치된 모드·게임 상태는 변경하지 않았습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.41-test (Backpack reload + Korean wheel)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.42-test (Korean font fix + Compact wheel)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }
