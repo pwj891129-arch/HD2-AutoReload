@@ -2,10 +2,10 @@ param(
     [Parameter(Mandatory)][string[]]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.31-test'
+    [string]$Tag = 'auto-reload-0.3.32-test'
 )
 $ErrorActionPreference = 'Stop'
-$expectedNames = @('HD2-AutoReload-0.3.31-test-en.zip', 'HD2-AutoReload-0.3.31-test-ko.zip')
+$expectedNames = @('HD2-AutoReload-0.3.32-test-en.zip', 'HD2-AutoReload-0.3.32-test-ko.zip')
 $assets = @($AssetPath | ForEach-Object {
     $resolved = (Resolve-Path -LiteralPath $_).Path
     [ordered]@{
@@ -32,39 +32,37 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.31-test
+## HD2 Auto Reload + Stratagems 0.3.32-test
 
-Arsenal 옵션 표시 언어를 영어판과 한국어판 ZIP으로 분리했습니다.
+멀티플레이에서 스트라타젬 원형 메뉴가 표시되지 않을 수 있는 플레이어 인원 검사 오류를 수정했습니다.
 
-- **영어판(기본 배포):** `HD2-AutoReload-0.3.31-test-en.zip`
-- **한국어판:** `HD2-AutoReload-0.3.31-test-ko.zip`
-- 옵션 7개의 이름·설명, ON/OFF 설명과 기본값 표기를 각 언어로 제공합니다.
-- 두 ZIP은 manifest 표시 문구만 다르며 모드 본체와 설정 파일은 바이트 단위로 동일합니다. 기능, 기본값, 옵션 순서, 배포 경로와 모드 GUID를 유지했습니다.
-- 자동재장전, 레일건·에포크 90% 충전 자동발사, 스트라타젬 원형 메뉴와 숫자 핫키는 기본 ON입니다. 공용/임무 스트라타젬, 큰 원형 메뉴, 30ms 커맨드 입력은 기본 OFF입니다.
-- 0.3.30-test의 공통 Core 포함 배포 수정과 기존 입력·판독 동작을 유지했습니다. 인게임 원형 메뉴 이름과 로그 언어는 변경하지 않았습니다.
-- 현재 Arsenal은 모드 이름·설명을 그대로 표시하므로 OS 언어 자동 전환은 제공하지 않습니다. 언어 감지·적용 파일도 포함하지 않습니다.
+- 전체 플레이어 수와 로컬 플레이어 수를 구분하지 않고 둘 다 1명이어야 한다고 검사하던 조건을 수정했습니다. 전체 인원은 1~4명, 로컬 플레이어는 1명인 상태를 허용합니다.
+- 다른 사람의 임무에 중도 합류해도 본인 캐릭터의 실제 스트라타젬 메뉴와 본인 peer에 해당하는 장착 장비를 확인합니다. 다른 팀원의 캐릭터·장비로 대체하지 않습니다.
+- 캐릭터 소유·아바타 신원·메뉴 활성화 검증은 유지했습니다. 판독 도중 인원 정보나 장비가 바뀌면 해당 판독을 취소합니다.
+- 자동재장전·충전 자동발사와 기능 기본값은 변경하지 않았습니다.
+- 영어판 `HD2-AutoReload-0.3.32-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.32-test-ko.zip`을 별도로 제공합니다. 두 ZIP의 표시 언어만 다르고 게임 본체와 설정 파일은 동일합니다.
 
 ### 설치
 
-**두 ZIP 중 하나만 설치하세요.** 원하는 표시 언어의 파일로 이전 Auto Reload 버전을 교체하고 Arsenal의 ON/OFF 설정을 다시 확인하세요. 두 언어판은 같은 모드이므로 동시에 설치하는 별도 기능이 아닙니다.
+**언어별 ZIP 중 하나만 설치하세요.** 이전 Auto Reload 버전을 교체하고 Arsenal의 ON/OFF 설정을 확인한 뒤, 게임을 종료한 상태에서 Purge / Deploy하고 재시작하세요. Bingus Shared Loader v18 / API 1이 필요합니다.
 
-게임 종료 후 Bingus Shared Loader v18 / API 1과 함께 Purge / Deploy하고 게임을 재시작하세요. 원형 메뉴를 사용하려면 **Stratagem Radial Menu / 스트라타젬 원형 오버레이 ON**을 선택하세요. 원하는 ON/OFF 옵션을 적어도 하나 선택해야 하며, 모두 선택 해제하면 본체도 배포되지 않습니다. 기존 OFF 설정이 유지될 수 있으므로 충전 자동발사 ON도 확인하세요.
-
-별도 HD2 Stratagem Hotkeys 모드와 중복 자동재장전 기능은 비활성화하거나 제거하세요. 스트라타젬 목록 열기는 누르고 있기(Hold) 설정을 사용하며 커맨드만 자동 입력합니다. 조준·투척은 수동입니다. Mod Options Menu와 Mod Bindings Menu는 필요하지 않습니다.
+원형 메뉴를 사용하려면 **Stratagem Radial Menu / 스트라타젬 원형 오버레이 ON**을 선택하세요. 하나 이상의 ON/OFF 옵션이 선택되어야 공통 Core가 배포됩니다. 별도 HD2 Stratagem Hotkeys 모드와 중복 자동재장전 기능은 비활성화하거나 제거하세요. 스트라타젬 목록 열기는 누르고 있기(Hold)로 설정하며 조준·투척은 수동입니다.
 
 ### English
 
-Choose **one** ZIP: `-en.zip` for English Arsenal options (default distribution), or `-ko.zip` for Korean. Both use the same mod GUID and byte-identical game payload. Replace the previous package, review ON/OFF settings, then Purge / Deploy and restart. At least one option must be selected to deploy the common core. No OS-language detection script is included. In-game labels and behavior are unchanged.
+Fixes a single-player-only roster check that could block the stratagem radial in multiplayer. Allows a total roster of 1-4 players while still requiring one local player, the local character's active menu and a matching local-peer loadout. Coherent snapshots reject roster changes during a read; no remote-player fallback is used.
+
+Install **one** ZIP: `-en.zip` for English Arsenal options, or `-ko.zip` for Korean. Replace the previous version, review ON/OFF selections, then Purge / Deploy and restart with Bingus Shared Loader v18 / API 1. At least one setting must be selected. Reload, charge release and default settings are unchanged.
 
 ### 검증
 
-4,757개 LuaJIT 모의 검사와 언어판별 2,187가지 설정 조합(총 4,374가지)을 검사했습니다. 두 패키지의 번역, 동일 GUID·기본값·Include 경로, manifest 외 모든 파일의 바이트 일치를 확인했습니다. 실제 Arsenal 화면과 인게임 동작은 추가 확인이 필요합니다. 설치된 모드와 게임 파일은 변경하지 않았습니다.
+1~4명 인원별 본인 메뉴·장비 판독, 로컬 플레이어 부재·모호성, 잘못된 인원 수와 판독 중 인원 변경에 대한 회귀 검사를 추가했습니다. 전체 LuaJIT 모의 검사와 언어판별 2,187가지 설정 조합, 두 언어 패키지의 동일 본체 검사를 통과했습니다. 실제 멀티 호스트·참가자·중도 합류 테스트는 추가 확인이 필요합니다. 실행 중인 게임 정보는 읽기 전용으로 확인했으며 설치된 모드·게임 상태를 변경하지 않았습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.31-test (English / Korean packages)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.32-test (multiplayer roster fix)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

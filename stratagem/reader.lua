@@ -119,6 +119,16 @@ function Reader:name(at)
     end
 end
 function Reader:root(name) return self:ptr(self.channel.base + Reader.RVA[name]) end
+function Reader:local_player_manager()
+    local players = self:root("players")
+    local counts = players and self:read(players + 132, 8)
+    local total, local_count = word(counts, 0), word(counts, 4)
+    -- Native +0x606e30 iterates the roster; +0x606d90 uses the first local peer.
+    if not total or total < 1 or total > 4 or local_count ~= 1 then
+        return nil, "local-player-count-unavailable:" .. tostring(total) .. "/" .. tostring(local_count)
+    end
+    return players, counts
+end
 function Reader:lookup(at, key)
     local header = self:read(at, 20)
     local rows, capacity, empty, multiplier = pointer(header, 0), word(header, 8), word(header, 12), word(header, 16)
@@ -137,9 +147,10 @@ function Reader:lookup(at, key)
 end
 
 function Reader:game_menu()
-    local players, owner, avatars = self:root("players"), self:root("owner"), self:root("avatars")
-    if not players or not owner or not avatars or self:word(players + 132) ~= 1 or
-        self:word(players + 136) ~= 1 then return nil, "no-local-character" end
+    local players, counts = self:local_player_manager()
+    if not players then return nil, counts end
+    local owner, avatars = self:root("owner"), self:root("avatars")
+    if not owner or not avatars then return nil, "no-local-character" end
     local unit = self:word(players + 936)
     if not unit or unit == 0 or unit == 0x7fff or unit == 0xffffffff then return nil, "no-local-character" end
     local index = self:lookup(owner + 15871688, unit)
@@ -160,7 +171,7 @@ function Reader:game_menu()
     local flags = self:word(at)
     if not flags then return nil, "stratagem-menu-state-unreadable" end
     if self:root("players") ~= players or self:root("owner") ~= owner or self:root("avatars") ~= avatars or
-        self:word(players + 132) ~= 1 or self:word(players + 136) ~= 1 or self:word(players + 936) ~= unit or
+        self:read(players + 132, 8) ~= counts or self:word(players + 936) ~= unit or
         self:lookup(owner + 15871688, unit) ~= index or self:read(address, 24) ~= identity or
         self:lookup(avatars + 248, avatar) ~= seat or self:word(avatars + 108) ~= count or
         self:word(avatars + 5495040 + seat * 4664 + 2948) ~= avatar or self:word(at) ~= flags then
@@ -283,9 +294,10 @@ function Reader:command_state(binding)
     return state
 end
 function Reader:inventory(include_shared)
-    local players, history = self:root("players"), self:root("loadouts")
-    if not players or not history or self:word(players + 132) ~= 1 or
-        self:word(players + 136) ~= 1 then return nil, "no-local-player" end
+    local players, counts = self:local_player_manager()
+    if not players then return nil, counts end
+    local history = self:root("loadouts")
+    if not history then return nil, "no-local-player" end
     local peer = self:read(players + 0x2c8, 8)
     if not peer or peer == string.rep("\0", 8) then return nil, "local-peer-unavailable" end
     local count, selected = self:word(history + 0x2d200), nil
@@ -322,7 +334,8 @@ function Reader:inventory(include_shared)
     if #slots ~= 4 then return nil, "equipped-slot-count-mismatch:" .. #slots .. "/" .. total end
     -- Re-read identities after following the shared data; loading and respawn can replace them.
     if self:root("players") ~= players or self:root("loadouts") ~= history or
-        self:read(players + 0x2c8, 8) ~= peer or self:word(data + 0x788) ~= total then
+        self:read(players + 132, 8) ~= counts or self:read(players + 0x2c8, 8) ~= peer or
+        self:word(data + 0x788) ~= total then
         return nil, "loadout-changed"
     end
     for index = 0, total - 1 do

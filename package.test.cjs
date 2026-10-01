@@ -9,7 +9,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.31-test';
+const version = '0.3.32-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const optionIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared', 'large', 'slow'];
 function checkPackage(language) {

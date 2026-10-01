@@ -285,6 +285,33 @@ end
 equal(reader:game_menu(), nil, "ownership map replacement during snapshot rejected")
 channel.read = original_read; put(owner_index_at, word(0))
 
+for total = 1, 4 do
+    put(players + 132, word(total))
+    equal(assert(reader:game_menu()).active, true, "multiplayer roster retains own native menu")
+    equal(table.concat(assert(reader:loadout()).slots, ","), "113,101,66,1",
+        "multiplayer roster uses local peer loadout, not other players")
+end
+for _, counts in ipairs({{0, 1}, {5, 1}, {0xffffffff, 1}, {4, 0}, {4, 2}}) do
+    put(players + 132, word(counts[1])); put(players + 136, word(counts[2]))
+    equal(reader:game_menu(), nil, "missing/ambiguous local player blocks menu in multiplayer")
+    equal(reader:loadout(), nil, "invalid roster never selects a remote loadout")
+end
+put(players + 132, word(4)); put(players + 136, word(1))
+channel.read = function(self, at, size)
+    local raw = original_read(self, at, size)
+    if at == menu_flags_at then put(players + 132, word(3)) end
+    return raw
+end
+equal(reader:game_menu(), nil, "roster replacement during native menu snapshot rejected")
+channel.read = original_read; put(players + 132, word(4))
+channel.read = function(self, at, size)
+    local raw = original_read(self, at, size)
+    if at == local_data + 0x188 then put(players + 132, word(3)) end
+    return raw
+end
+equal(reader:loadout(), nil, "roster replacement during loadout snapshot rejected")
+channel.read = original_read; put(players + 132, word(1))
+
 local clock = 0x26000000
 root("clock", clock); put(clock + 24, pointer(10000000))
 local native_definitions = assert(reader:definitions())

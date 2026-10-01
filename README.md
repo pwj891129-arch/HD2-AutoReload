@@ -1,11 +1,26 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.31-test
+# HD2 Helper Auto Reload + Stratagems 0.3.32-test
+
+## Multiplayer Roster Fix
+
+0.3.32-test fixes a single-player-only assumption in stratagem menu and loadout
+reads. The total player roster count is now accepted from 1 to 4; exactly one
+local player is still required. The first local peer/unit follows the game's
+native getters, not an arbitrary remote teammate. Character ownership, avatar
+identity, actual menu activation, local-peer loadout matching and coherent
+snapshot checks remain required. Roster changes during a read cancel that
+snapshot; later attempts can use the updated roster. No input is sent based on
+another player's menu or equipment.
+
+This also applies when joining another player's mission in progress. Live
+host/client and late-join confirmation is still required. Automatic reload,
+charge release and feature defaults are unchanged.
 
 ## Language Packages
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.31-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.31-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.32-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.32-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
@@ -220,8 +235,8 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.31-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.31-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.31-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.31-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.32-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.32-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.32-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.32-test-ko.zip'
 ```
 
 Credited HD2 HUD+ 0.1.2 reader sources and original reuse permission are in
