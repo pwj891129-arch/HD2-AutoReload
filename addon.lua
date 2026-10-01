@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.27-test"
+local VERSION = "0.3.28-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -15,21 +15,6 @@ end)()
 local NativeReader = (function()
 -- @NATIVE_READER@
 end)()
-local TankProbe = (function()
--- @TANK_PROBE@
-end)()
-local SelfProbe = (function()
--- @SELF_PROBE@
-end)()
-local CatalogProbe = (function()
--- @CATALOG_PROBE@
-end)()
-local UnitLinkProbe = (function()
--- @UNIT_LINK_PROBE@
-end)()
-local HashTypeProbe = (function()
--- @HASH_TYPE_PROBE@
-end)()
 local Reader = {}
 Reader.__index = Reader
 
@@ -37,11 +22,6 @@ local function boolean(value)
     if value == true or value == 1 then return true end
     if value == false or value == 0 then return false end
     return nil
-end
-
-local function valid_count(value)
-    return type(value) == "number" and value == value and value >= 0 and
-        value < math.huge and value == math.floor(value)
 end
 
 function Reader.new(parts, fragment, native_reader)
@@ -61,7 +41,7 @@ function Reader.new(parts, fragment, native_reader)
     end
     return setmetatable({ generated = generated,
         identity = parts.IdentityCore.new(generated.identity),
-        provider = parts.Provider.new(generated), native = native_reader }, Reader)
+        native = native_reader }, Reader)
 end
 
 function Reader:sample_native(resolved, session, allow_seated_fire)
@@ -131,94 +111,7 @@ function Reader:sample(session, world, peer, allow_seated_fire)
         end
         return inactive, native_reason
     end
-    return self:sample_legacy(session, world, peer, allow_seated_fire, resolved)
-end
-
--- Retained only for the opt-in F9 type-hash diagnostic.
-function Reader:sample_legacy(session, world, peer, allow_seated_fire, resolved)
-    resolved = resolved or self.identity:resolve(session, world, peer)
-    if not resolved or not resolved.avatar or resolved.status ~= "resolved" then
-        local sample, reason = self:sample_native(resolved, session, allow_seated_fire)
-        if sample then return sample, reason end
-        return { active = false, avatar = resolved and resolved.avatar and resolved.avatar.goid,
-            grip = resolved and resolved.grip },
-            resolved and resolved.reason or "no-avatar"
-    end
-    local in_control = boolean(self.identity:in_control(session, resolved.avatar))
-    local rotation_free = boolean(self.identity:rotation_free(session, resolved.avatar))
-    local hand = resolved.hand_weapon
-    local spec = hand and self.generated.identity.equipment[hand.type]
-    local resource = spec and spec.resource or ""
-    local slot = string.find(resource, "/equipment/primary_weapons/", 1, true) and "primary" or
-        string.find(resource, "/equipment/sidearm_weapons/", 1, true) and "sidearm" or
-        string.find(resource, "/equipment/support_weapons/", 1, true) and "support" or nil
-    local held_in_hand = type(resolved.reason) == "string" and
-        (resolved.reason:find("wield%-node%-named%-the%-hand:narrowed") ~= nil or
-            resolved.reason:find("wield%-node%-named%-the%-hand:first%-person%-node") ~= nil)
-    local seated_fire = allow_seated_fire and in_control == false and
-        rotation_free == false and slot ~= nil and resolved.grip ~= 70 and held_in_hand
-    if (in_control ~= true or rotation_free ~= true) and not seated_fire then
-        return { active = false, avatar = resolved.avatar.goid, grip = resolved.grip,
-            in_control = in_control, rotation_free = rotation_free,
-            held_reason = resolved.reason }, "no-player-control"
-    end
-    if not hand then
-        local sample, reason = self:sample_native(resolved, session, allow_seated_fire)
-        if sample then return sample, reason end
-        return { active = true }, "no-held-weapon"
-    end
-    if not slot then
-        local sample, reason = self:sample_native(resolved, session, allow_seated_fire)
-        if sample then return sample, reason end
-        return { active = false }, "unsupported-held-item"
-    end
-    if resolved.underbarrel and resolved.underbarrel.goid == hand.goid then
-        return { active = false }, "underbarrel-not-supported"
-    end
-    local cells = self.provider:provide(resolved, session).cells
-    local declared = self.provider:declared_of(hand.type) or ""
-    local heat_base = self.generated.authored_base["WeaponHeatComponentData.overheat_temperature"] or {}
-    local heat = heat_base[hand.type] ~= nil or
-        string.find(declared, "0xa5023836", 1, true) ~= nil or cells.heat_shown ~= nil
-    local reserve = cells.reserve
-    if spec.spare_pack then
-        local pack = resolved.backpack
-        reserve = pack and spec.spare_pack[pack.type] and cells.pack_spare or nil
-    end
-    local weapon = tostring(hand.goid) .. ":" .. tostring(hand.type)
-    if heat then
-        self.native_pending = nil
-        local overheated = boolean(cells.overheated)
-        return { active = true, mode = "heat", weapon = weapon,
-            goid = hand.goid, type_hash = hand.type,
-            overheated = overheated, reserve = reserve,
-            heat_shown = cells.heat_shown, heat_max = cells.heat_max,
-            reloading = boolean(cells.reloading), avatar = resolved.avatar.goid,
-            slot = slot, seated_fire = seated_fire },
-            overheated == nil and "overheat-unavailable" or "ready"
-    end
-    local ammo = cells.ammo
-    if string.find(declared, "0x4a893e74", 1, true) and
-        boolean(cells.raw_chamber) == nil then ammo = nil end
-    if string.find(declared, "0xe525fa9c", 1, true) then
-        if not valid_count(cells.raw_slot0) or not valid_count(cells.raw_slot1) or
-            (cells.raw_selected ~= 0 and cells.raw_selected ~= 1) then
-            ammo = nil
-        else
-            local icons = spec.ammo_icon
-            -- Identical feeds (e.g. Punisher) still have usable ammo in the other tube.
-            if icons and icons["0"] and icons["0"] == icons["1"] and ammo ~= nil then
-                ammo = ammo + (cells.raw_selected == 0 and cells.raw_slot1 or cells.raw_slot0)
-            end
-        end
-    end
-    if not valid_count(ammo) then ammo = nil end
-    self.native_pending = nil
-    return { active = true, mode = "ammo", weapon = weapon,
-        goid = hand.goid, type_hash = hand.type,
-        ammo = ammo, reserve = reserve, reloading = boolean(cells.reloading),
-        avatar = resolved.avatar.goid, slot = slot, seated_fire = seated_fire },
-        ammo == nil and "ammo-unavailable" or "ready"
+    return { active = false }, "native-unavailable"
 end
 
 local function recover_identity(identity, state, sample, reason, now)
@@ -278,8 +171,6 @@ end
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Charge = Charge, Reader = Reader, Native = Native, boolean = boolean, Options = Options,
         NativeReader = NativeReader,
-        TankProbe = TankProbe, SelfProbe = SelfProbe, CatalogProbe = CatalogProbe,
-        UnitLinkProbe = UnitLinkProbe, HashTypeProbe = HashTypeProbe,
         recover_identity = recover_identity,
         install_hooks = install_hooks }
 end
@@ -341,8 +232,6 @@ if not native_ok then log("DISABLED input initialization: " .. tostring(native))
 if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
 local policy, state = Policy.new(), { paused = false, keys = {}, config = config }
 local charge = Charge.new()
-local tank_probe = TankProbe.new(GS)
-local hash_type_probe = HashTypeProbe.new(GS, sr.IdString32)
 rawset(_G, "HD2HelperAutoReload", state)
 
 local function down(vk) return native.user32.GetAsyncKeyState(vk) < 0 end
@@ -388,19 +277,12 @@ local function tick()
     if state.release_at and (now >= state.release_at or not foreground()) then release() end
     local focused = foreground()
     local keys = { enter = down(13), escape = down(27), tab = down(9),
-        pause = down(config.pause_vk), probe = down(120), primary = down(49),
+        pause = down(config.pause_vk), primary = down(49),
         sidearm = down(50), support = down(51) }
     local hotkeys = rawget(_G, "HD2StratagemHotkeys")
     keys.stratagem = down(164) or down(165) or
         (type(hotkeys) == "table" and hotkeys.blocking_inputs == true)
     local previous_keys = state.keys
-    local probe_requested = config.diagnostics and focused and keys.probe and not previous_keys.probe and
-        not state.paused and not state.chat and not keys.stratagem and not keys.enter and
-        not keys.escape and not keys.tab
-    if probe_requested then
-        state.probe_pending = true
-        log("HASH_TYPE requested")
-    end
     if focused then
         if keys.pause and not state.keys.pause then
             state.paused = not state.paused
@@ -424,9 +306,6 @@ local function tick()
     state.keys = keys
     local fire = focused and down(config.fire_vk)
     local aim = focused and down(2)
-    local aim_edge = aim and not state.aim
-    state.aim = aim
-    if aim_edge then state.aim_pending = true end
     if fire and not state.fire then
         state.fire_pending, state.fire_released_at = true, nil
         state.fire_cycle, state.fire_release_pending, state.fire_attempt = true, nil, nil
@@ -439,11 +318,10 @@ local function tick()
     state.fire = fire
     if aim and fire then state.lean_fire_until = now + 0.8 end
     if not focused or state.paused or state.failed or state.chat or keys.stratagem or keys.enter or keys.escape or keys.tab then
-        policy:reset(); charge:reset(); state.fire_pending, state.aim_pending = nil, nil
+        policy:reset(); charge:reset(); state.fire_pending = nil
         state.fire_attempt, state.fire_released_at = nil, nil
         state.fire_cycle, state.fire_release_pending = nil, nil
         reader.native_pending = nil
-        state.probe_pending = nil
         state.switch, state.lean_fire_until = nil, nil
         release(); return
     end
@@ -452,18 +330,12 @@ local function tick()
     state.next_read = now + 0.05
     local session, world, peer = scope()
     if not session then
-        if state.probe_pending then log("HASH_TYPE skipped=no-session") end
-        state.probe_pending = nil
         policy:reset(); charge:reset(); reader.identity:invalidate(); state.avatar = nil
         reader.native_pending = nil
         state.last_weapon = nil
         state.last_weapon_at = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
-        if state.context then
-            tank_probe:reset(); state.context = nil; state.seat_aim_lines = nil
-            state.probe_until = nil
-            hash_type_probe:reset()
-        end
+        state.context = nil
         state.fire_pending, state.switch, state.lean_fire_until = nil, nil, nil
         state.fire_attempt, state.fire_released_at = nil, nil
         state.fire_cycle, state.fire_release_pending = nil, nil
@@ -476,8 +348,6 @@ local function tick()
         state.last_weapon = nil
         state.last_weapon_at = nil
         state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
-        tank_probe:reset(); state.seat_aim_lines = nil; state.probe_until = nil
-        hash_type_probe:reset()
         state.switch, state.lean_fire_until = nil, nil
         state.fire_attempt, state.fire_released_at = nil, nil
         state.fire_cycle, state.fire_release_pending = nil, nil
@@ -512,50 +382,7 @@ local function tick()
         state.fire_attempt = { weapon = state.last_weapon,
             until_time = not fire and (state.fire_released_at or now) + 1.0 or nil }
     end
-    if state.probe_pending then
-        state.probe_pending = nil
-        local diagnostic = reader:sample_legacy(session, world, peer, allow_seated_fire)
-        local equipment = diagnostic.type_hash and
-            reader.generated.identity.equipment[diagnostic.type_hash]
-        local probe_ok, probe_line = pcall(hash_type_probe.read, hash_type_probe,
-            session, diagnostic, equipment and equipment.call)
-        log(probe_ok and probe_line or "HASH_TYPE error=" .. tostring(probe_line))
-    end
-    local seat_mod = rawget(_G, "Hd2TankSeatSwitch")
-    local seat_hint = type(seat_mod) == "table" and seat_mod.last or nil
-    if type(seat_hint) ~= "string" or seat_hint:sub(1, 5) ~= "seat:" then
-        seat_hint = nil
-    end
-    local control_blocked = reason == "no-player-control" or
-        (type(reason) == "string" and reason:find("^avatar%-not%-in%-control"))
-    local unknown_grip70 = sample.grip == 70 and type(reason) == "string" and
-        reason:find("^no%-on%-body%-object%-of%-grip=70")
-    local aim_event = state.aim_pending == true
-    state.aim_pending = nil
-    if unknown_grip70 and (aim_event or state.fire_pending) then
-        if not state.probe_until or now > state.probe_until then
-            tank_probe:reset()
-        end
-        state.probe_until = now + 20
-        log(string.format("PROBE_INPUT t=%.1f grip=70 aim=%s fire=%s", now,
-            tostring(aim_event), tostring(state.fire_pending == true)))
-    end
-    if aim_event and control_blocked and (state.seat_aim_lines or 0) < 20 then
-        state.seat_aim_lines = (state.seat_aim_lines or 0) + 1
-        log("SEAT_AIM seat_hint=" .. tostring(seat_hint or "unconfirmed") ..
-            " reason=" .. tostring(reason) ..
-            " grip=" .. tostring(sample.grip) ..
-            " control=" .. tostring(sample.in_control) ..
-            " rotation=" .. tostring(sample.rotation_free) ..
-            " held=" .. tostring(sample.held_reason))
-    end
-    if control_blocked or (unknown_grip70 and state.probe_until and
-        now <= state.probe_until) then
-        local probe_ok, probe_line = pcall(tank_probe.read, tank_probe,
-            session, peer, now, seat_hint or
-                (unknown_grip70 and "unconfirmed-grip70" or "unconfirmed"))
-        if probe_ok and probe_line then log(probe_line) end
-    end
+
     if recover_identity(reader.identity, state, sample, reason, now) then
         local raw_owned = reader.identity.counters and reader.identity.counters.owned_seen
         log("IDENTITY_RECOVERY reason=" .. tostring(reason) ..
@@ -653,7 +480,6 @@ end
 if not install_hooks(_G, guarded_tick, function() pcall(release) end) then
     log("DISABLED update callback unavailable"); rawset(_G, "HD2HelperAutoReload", nil); return
 end
-log("START " .. VERSION .. " Arsenal-only options ammo=" .. tostring(config.ammo) ..
-    " heat=" .. tostring(config.heat) .. " charge90=" .. tostring(config.charge90) ..
-    " diagnostics=" .. tostring(config.diagnostics) ..
+log("START " .. VERSION .. " Arsenal-only options enabled=" .. tostring(config.enabled) ..
+    " charge90=" .. tostring(config.charge90) ..
     " fire_vk=" .. config.fire_vk .. " reload_vk=" .. config.reload_vk)

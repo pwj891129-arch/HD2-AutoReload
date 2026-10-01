@@ -1,246 +1,115 @@
-# HD2 Helper Auto Reload 0.3.27-test
+# HD2 Helper Auto Reload 0.3.28-test
 
-## Startup Package Fix
+## Default-On Reload And Diagnostic Removal
 
-The startup `NxStorage` log reported `0x89240007` (read beyond end of file)
-for this addon's 224-byte Arsenal option archives, as well as Stratagem Hotkeys
-options. Version 0.3.27-test allocates at least 256 bytes for each single-resource
-archive, following
-[HD2SDK's package writer](https://github.com/RaidingForPants/HD2SDK-CommunityEdition/blob/3a488b42f10669790a5fff1f9d55b9c049cb734b/__init__.py#L827).
-Only trailing zero padding is added; option Lua values and reload/charge behavior
-are unchanged. Package tests reject the old 224-byte output and check every
-shipped archive's sizes, payloads and unique resource IDs. Actual game startup
-still needs confirmation.
+Automatic reload is now ON whenever this mod is enabled. Its Lua archive lives
+at the package root, so leaving every Arsenal feature option unchecked still
+deploys the addon. See
+[Arsenal's always-on file documentation](https://docs.rsnl.gg/mod-builder/creating-mods#always-on-files-vs-option-files).
 
-When also using Stratagem Hotkeys, replace it with **0.1.3-test**. Close the game,
-replace both old packages in Arsenal, Purge / Deploy, and restart. Leaving an
-older option archive from either mod can preserve the startup read failure.
-Building and publishing do not modify installed game patches.
+The separate ammo-OFF and heat-OFF checkboxes have been removed. Old option
+resources do not control this version. F9 type checks, tank field scanning,
+seat research, and the legacy diagnostic reader are no longer bundled or
+called. F9 and F10 have no addon function. Offline research sources and
+automated developer tests remain in the repository, not the release ZIP.
+Normal reload/error logs remain available.
 
 ## Arsenal Options
 
-Feature options are configured only in Arsenal. No in-game MODS settings menu
-is registered, and Mod Options Menu / Mod Bindings Menu are not dependencies.
-Review checkbox states after importing; close the game, Purge / Deploy and
-restart after changes.
+Feature settings are configured only in Arsenal. No in-game MODS menu is
+registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 
-- `자동재장전 ON/OFF`: checked activates auto reload, independently of charge release.
-- `실탄 무기 자동재장전 OFF`: checked disables ammunition-based reloads.
-- `과열 무기 자동재장전 OFF`: checked disables overheat-based reloads.
-- `F9 진단 활성화`: checked enables the optional read-only diagnostic; otherwise F9 does nothing.
-- `레일건·에포크 90% 충전 자동발사 ON`: explicitly check to enable charge release.
-  Without its option module this feature is off. Arsenal controls import checkbox
-  states, so review the checkbox before deploying.
+- `자동재장전`: `ON (기본)` or `OFF`. An unselected option also means ON.
+  Covers both magazine exhaustion and complete overheat.
+- `레일건·에포크 90% 충전 자동발사`: `OFF (기본)` or `ON`.
+  An unselected option means OFF. Independent of automatic reload.
 
-Leave both OFF exclusions unchecked to retain existing behavior for all personal
-weapons. Existing timing, fire-release, reserve checks and vehicle exclusions
-are unchanged. F8 temporarily pauses both features; it is not a saved setting.
+Each option's ON/OFF variants are mutually exclusive. Review the choices after
+importing, especially if Arsenal automatically enables new options. Close the
+game, replace the previous package, Purge / Deploy, and restart after changes.
+Old deployed option files must not be left behind. Building and publishing
+do not change installed game patches.
 
-## Experimental 90% Charge Release
+F8 temporarily pauses both features; it is not a saved setting.
 
-For RS-422 Railgun and PLAS-45 Epoch only, read the held weapon's native
-WeaponChargeComponent elapsed charge and the game's configured explosion limit.
-Use the instance override when present, otherwise the game's authored type
-registry. This does not use HUD+ weapon lists, ordinary heat values, OCR or a
-fixed hold timer. No additional mod is required beyond the shared loader.
+## Reload Behavior
 
-The threshold is 90% of the entire gauge from zero to the explosion limit,
-not 90% of only the red section. Two coherent reads are required. Once at or
-above the threshold and still charging with usable ammunition, send exactly one
+All personal weapons use the held-object native reader, without requiring a
+HUD+ weapon-name list. Reads are limited to one per 50 ms, plus frame/input
+scheduling. Unknown game binaries or ambiguous data block input.
+
+- An observed magazine transition from positive usable ammo to zero, or an
+  explicit complete-overheat transition, can request reload.
+- A new fire-key press checks once. While the fire button stays held, reload
+  checks and reload input are deferred.
+- Release immediately rereads the current held weapon and opens a one-second
+  confirmation window with further reads every 50 ms.
+- Number-row 1, 2, or 3 waits 1.1 seconds for draw completion, then verifies
+  the changed held weapon. Numpad keys are separate.
+- A known positive reserve and coherent empty/overheat readings are required.
+  A warm/red heat gauge alone never means a damaged heat sink.
+- Active/manual reload, chat, menus, missing player control, focus loss and
+  stratagem/radial input block requests.
+
+Two coherent empty readings are required. Magazine weapons stop detection while
+reloading. For heat weapons that raise the reload flag upon overheat, one attempt
+is allowed after 150 ms of persistent overheat with unchanged reserve.
+Manual R or reserve changes cancel that attempt. There is only one attempt per
+observed overheat episode; cooling or confirmed weapon change rearms it.
+
+Requests use a 40 ms Windows SendInput reload-key pulse. The game state and
+ammunition are never written. Input success does not confirm the game performed
+a reload. An initial empty reading alone is not an event.
+
+The seated-passenger exception requires right-click aim, recent fire and a
+personal held weapon. Tank cannons, mounted weapons, underbarrels, throwables
+and melee remain excluded; no tank field discovery runs in this package.
+A controlled on-foot grip70 weapon can use the native reader. Identity recovery
+after a new game or respawn and the seated-personal-weapon path are retained.
+
+## 90% Charge Release
+
+For RS-422 Railgun and PLAS-45 Epoch, the optional feature reads the native
+WeaponChargeComponent elapsed charge and configured explosion limit. It uses
+the instance override or authored type registry, not ordinary heat, OCR or a
+fixed timer. Two coherent reads are required.
+
+At or above 90% of the entire gauge from zero to the explosion limit, send one
 Windows `MOUSEEVENTF_LEFTUP`. No mouse press, repeated firing or aiming is sent.
-Release the physical button and click again to start the next shot. Railgun
-safe mode, which caps below this threshold, remains manual.
+Release the physical button and click again for the next shot. Railgun safe
+mode, which caps below that threshold, stays manual.
 
-Enable this independently of automatic reload through Arsenal, then Purge /
-Deploy with the game closed and restart. Fire must be bound to left mouse;
-legacy non-left-mouse fire bindings disable this feature. Chat, menus, missing
-player control, stratagem command/radial input, active/manual reload, weapon
-draw waits, unreadable charge data and unsupported game binaries block release.
-The existing post-release reload check remains available when auto reload is on.
-Remaining reserve ammunition is not required to fire the last loaded shot.
+Fire must be bound to left mouse. Chat, menus, no control, reload, weapon draw,
+stratagem input and unreadable charge data block release. Reserve is not required
+to fire the last loaded shot. The post-release reload check remains available
+when automatic reload is on.
 
-Reads retain the 50 ms interval, plus frame/input scheduling. This releases on
-the first eligible observed threshold crossing, not at an exact real-time 90%.
-Lag, frame stalls or input rejection can still allow overcharge; this is not an
-explosion-prevention guarantee. Actual Railgun/Epoch gameplay is unverified.
-Logs include `CHARGE_SOURCE` (read status/limit) and `CHARGE_RELEASE` (ratio and
-SendInput result). A successful SendInput result alone does not prove the game
-accepted the release.
+50 ms reads and frame/input latency may release above 90%; explosion prevention
+is not guaranteed. Actual Railgun/Epoch gameplay remains unverified.
+Native layout research references
+[FileDiver's charge component](https://github.com/xypwn/filediver/blob/master/datalibrary/weapon_charge_component.go)
+and its [resource hash names](https://github.com/xypwn/filediver/blob/master/hashes/hashes.txt).
 
-Native layout research was cross-checked against the pinned game code and
-[FileDiver's WeaponChargeComponent definition](https://github.com/xypwn/filediver/blob/master/datalibrary/weapon_charge_component.go).
-The two resource paths were checked against
-[FileDiver's hash names](https://github.com/xypwn/filediver/blob/master/hashes/hashes.txt).
-No latest HUD+ source, textures or runtime dependency were added.
+## Compatibility And Installation
 
-Stratagem shortcut compatibility: Alt blocks reload checks and digit-key weapon
-switch tracking. HD2 Stratagem Hotkeys also announces command input and the
-game-configured list key through its runtime state, so a reconfigured modifier
-does not start a reload check. Existing fire-release behavior is unchanged.
+1. Close the game before deploying.
+2. Import the release ZIP into Arsenal and replace the previous version.
+3. Enable this addon and Bingus Shared Loader v15+ / API 1.
+4. Confirm automatic reload is ON, then Purge / Deploy and restart.
+5. Disable other automatic-reload implementations to prevent double input.
 
-Bingus Shared Loader / Arsenal additive addon. It does not replace the game's
-boot script, the shared loader, or an installed HD2 Helper executable.
+HD2 HUD+ is optional. This addon replaces no HUD texture, GUI, boot script,
+Wwise startup resource, or HD2 Helper executable. Keep Bingus as the winning
+startup replacement. Update/shutdown wrappers preserve earlier callbacks and
+return values, and Win32 FFI symbols use private aliases.
 
-Source: https://github.com/pwj891129-arch/HD2-AutoReload
-Test releases: https://github.com/pwj891129-arch/HD2-AutoReload/releases
-Published separately from HD2 Helper.
+HD2 Stratagem Hotkeys announces command input and the game-configured list key
+to block reload/switch tracking. Left/right Alt also block these actions.
+External helper features that intercept the same keys can still conflict.
 
-## HD2 HUD Coexistence
-
-Keep HD2 HUD enabled for its displays. This addon owns no HUD textures, GUI,
-boot, Wwise replacement or HD2 HUD resource names. Its unique Lua resource is
-`mods/hd2_helper/auto_reload`. Arsenal assigns each mod's patch index; the ZIP's
-`patch_0` filename is not itself a resource conflict. Do not manually overwrite
-one mod's archive with another mod's archive in the game's data folder.
-
-The update/shutdown hooks preserve earlier callbacks and their return values.
-Errors in the auto-reload callback are isolated so a HUD callback wrapping it
-still runs. Win32 FFI symbols use private aliases and the reader clones its
-mutable field map instead of modifying shared HUD definitions. It does not
-change another mod's JIT options, input settings, GUI or configuration files.
-
-Test coverage uses the HD2 HUD+ 0.1.2 callback implementation in both hook
-orders, plus real Win32 symbol resolution, mocked memory and reload input. This
-is not a live gameplay compatibility test of HD2 HUD+ 0.1.12.
-
-Use HD2 HUD's game-compatible release. Automatic reload now reads all personal
-weapons through the held-object native reader; the older 0.1.2-derived reader
-remains for opt-in F9 diagnostics only. HUD+ does not need to be installed.
-The author lists 0.1.12 as the September 24 game-update fix:
-https://www.nexusmods.com/helldivers2/mods/15298
-
-Enable HD2 HUD, this addon and Bingus Shared Loader together. Keep Bingus as
-the winning Wwise startup replacement (normally below other such replacements
-in Arsenal), then purge/redeploy with the game closed and restart the game.
-Do not turn off HD2 HUD; only disable other automatic-reload implementations.
-
-## Reload Triggers
-
-- Magazine weapons: usable ammunition changes from a positive count to zero.
-- Heat weapons: the game's explicit overheat flag changes from false to true.
-- The actual held weapon changes to an empty or overheated weapon.
-- A new fire-key press checks for an empty or overheated weapon once. Any
-  needed reload waits for release; no reload input is sent while fire is held.
-- Further reload checks pause while fire is held. Release immediately rereads
-  the current held weapon and starts a one-second confirmation window, with
-  another read every 50 ms. A new press pauses that window again.
-- Number-row 1, 2, or 3 selects a primary, sidearm, or support weapon. The
-  addon waits 1.1 seconds, then rereads the held weapon and its ammunition
-  before attempting reload. Numpad keys are separate.
-
-Requests require known zero ammo for magazine weapons or an explicit true
-overheat flag for heat weapons, a known positive reserve, an unambiguous local
-held weapon, and player movement/rotation control. The seated-passenger
-exception requires right-click aim, recent fire, and a personal held weapon.
-It does not apply to the cannon or a merely carried weapon. A known idle reload state
-is normally required. Magazine weapons stop reload detection while the game's
-reload flag is true and discard the pending fire attempt. When a heat weapon's
-reload flag turns true with the overheat flag, one attempt is allowed after
-150 ms of persistent overheat and
-unchanged reserve; a manual R press or reserve change cancels that attempt.
-Only one input is sent per observed overheat episode, including across brief
-weapon-recognition gaps. Cooling or a confirmed weapon change clears the guard.
-Primary, sidearm (including the missile pistol), and support weapon classes
-are supported.
-The on-foot `grip=70` animation is used by personal weapons as well as
-unresolved mounted contexts. The addon now accepts it only when the local
-avatar has movement and rotation control; seated exceptions remain blocked.
-After a new game or respawn, the addon refreshes its local weapon identity
-cache when the avatar returns. A persistent missing weapon also triggers a
-throttled cache refresh; a brief swap animation does not. It never reloads
-from an unresolved weapon reading. The recovery path is covered by LuaJIT
-tests but still needs confirmation in a live game.
-The addon checks at most every 50 ms, plus game-frame scheduling. A 40 ms
-reload-key pulse is sent through Windows SendInput. It does not write ammunition
-or alter game state. An initial empty reading alone does not trigger a reload.
-An event can wait up to 350 ms for complete data, with a 350 ms repeat guard.
-The fire-release check can wait for complete data within its one-second window.
-
-Heat weapons are identified by the native heat component on the held weapon.
-A red/near-full heat gauge and zero ammo alone do not trigger reload.
-If the overheat flag or spare heat sink count is unavailable, no reload is sent.
-Underbarrels, throwables, melee, vehicle and mounted weapons remain excluded.
-Unknown data never counts as empty or overheated. All personal held weapons use
-a read-only native reader following the current wielder's entity and its ammo
-or heat component without a weapon name list. No legacy ammo reading is used
-when that native read fails. The older HD2 HUD+ 0.1.2-derived reader is retained
-only for F9 diagnostics with credit and its packaged reuse permission.
-The native reader is restricted to the pinned September 24 game binaries;
-it refuses an unknown game build. A zero-ammo or overheated reading must be
-observed twice before it can trigger reload. Failed component, chamber, reserve,
-avatar or control checks block input. The log records `NATIVE_SOURCE` with the
-selected feed for each held weapon. The user confirmed LAS-12 Sai's automatic
-reload in a live game after controlled `grip=70` weapons were allowed to reach
-the native reader.
-Version 0.3.19-test reads chamber count directly from the verified component;
-the optional instance map is not required to confirm an empty chamber. This
-does not certify that mod use is accepted by the game or its anti-cheat.
-
-## Experimental Diagnostics
-
-Versions 0.3.9-test and 0.3.10-test added independent `SELF_` field scanning and
-`CATALOG_API` checks. A game exit was reported on entering the ship with
-0.3.10-test. The last addon log entry was during ship initialization, before a
-`CATALOG_API` result; that is not enough to prove the crash's exact cause. Both
-experimental diagnostics are disabled in this build. Their source and mock
-tests remain for investigation, but they perform no live game-object reads.
-The earlier broad scan remains disabled. Version 0.3.17-test introduced a
-bounded, directly linked current-weapon read for unlisted equipment;
-0.3.18-test uses it for all personal weapons.
-
-## Game Type Hash Check
-
-In 0.3.12-test the one-shot `UNIT_LINK` check returned `no-synchronizer` on a
-recognized Dagger. This build leaves that path inactive. It tests another
-route: whether a game object's type can be matched using the hashed type ID
-from the game's own `.network_config`, without the old reader's string alias.
-
-In a mission, hold a weapon this version already recognizes, such as the
-Dagger, and press F9 once. The addon checks that the known string alias still
-matches, then asks `GameSession.game_object_is_type` about the same object
-using `IdString32.from_hex`. It logs one `HASH_TYPE` result per session and
-does not scan other objects or execute this check on an unrecognized weapon.
-The F9 edge is logged as `HASH_TYPE requested` immediately and held until the
-next reader tick; `0.3.13-test` could lose the edge during its former 20 ms read gap.
-`baseline=true hash=true` validates this type-matching step. A false/error
-result does not. Do not press F9 on ship entry; run the check after landing.
-The check does not reload unknown weapons or write game state.
-
-## Unknown Weapon Discovery
-
-The opt-in F10 field scan shipped in 0.3.15-test has been removed from the
-runtime after a game crash was reported immediately after its baseline started.
-The log alone does not establish the exact native crash cause. Do not continue
-testing 0.3.15-test. The inactive research module remains in the source tree
-for offline tests but is not bundled or called by this addon. The new bounded
-native reader is separate from that scanning experiment.
-
-## Game Catalog Research
-
-`inspect_game_catalog.cjs` reads the installed game's bundle index and locates
-the `.network_config` asset without changing game files. Its current purpose is
-diagnostic: that asset contains hashed game-object types and fields, but not the
-string call names needed by the existing reader. If the F9 check succeeds,
-parsing this asset and mapping a live unknown object to its type and held slot
-are still separate work. The standalone script does not run inside the game.
-
-## Installation
-
-1. Close the game before deploying mods.
-2. Import the release ZIP into Arsenal.
-3. Enable this addon and Bingus Shared Loader v15+ / API 1, then deploy.
-4. Disable the helper's existing screen-based automatic reload and the old Auto
-   Reload diagnostic/helper scripts while testing to prevent double input.
-5. Launch the game normally and test all three triggers in a mission.
-
-HD2 HUD+ does not need to be installed/enabled. The read-only modules required
-by this addon are embedded, but none of its display or startup code is included.
-
-Default keys are left mouse for fire, R for reload, F8 for pause/resume, and
-F9 for the one-shot read-only type check when enabled in Arsenal. F10 has no addon function.
-An existing `%APPDATA%\HD2AutoReload.ini` is read only for legacy custom key
-compatibility. Feature settings, including ON/OFF, come exclusively from Arsenal.
-The addon no longer creates this file. Existing key entries remain supported:
+Default bindings are left mouse for fire, R for reload, and F8 for pause/resume.
+Existing `%APPDATA%\HD2AutoReload.ini` key entries remain supported; the addon
+does not create the file or use it for feature settings:
 
 ```ini
 fire_vk=1
@@ -248,63 +117,32 @@ reload_vk=82
 pause_vk=119
 ```
 
-These are Windows virtual-key numbers; restart the game after editing. Mouse
-reload bindings are not supported. Enter tracks chat opening/sending; Escape
-clears that chat guard. Holding Enter, Escape, or Tab blocks requests. Control
-fields additionally gate menus and other non-player-control states, but their
-actual game behavior must be tested. F8 is an emergency pause/resume toggle.
+These are Windows virtual-key numbers. Restart after changes. Mouse reload
+bindings are not supported.
 
-Diagnostics are written through the Bingus loader to
-`%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`.
-Look for START, ready, RELOAD followed by
-one of ammo-exhausted / overheated / weapon-swapped / fire-attempt /
-fire-released, or a blocking reason. Reload input lines also record time and
-confirm that the fire key was released before sending R.
-RELOAD means an input was accepted by Windows, not confirmed completion by the
-game. INPUT_FAILED or DISABLED means no further guessed action is taken.
-For heat weapons, status lines also show the observed overheat flag, spare
-count, reload flag and a heat-gauge snapshot. `SEAT_AIM` records the weapon
-grip, control gates, and hand-node evidence when aiming from a suspected tank
-seat. These are
-read-only diagnostics and do not bypass an unknown safety condition.
-
-## Tank Cannon Diagnostic
-
-Tank cannon automatic reload is not enabled in this test. The existing weapon
-reader stops when the player is seated and does not expose the cannon's loaded
-round or remaining shells. This build records read-only `TANK_PROBE` snapshots
-when player control is blocked. It also records a 20-second window after aiming
-or firing while grip 70 has no recognized held object. Neither a seat hint nor
-grip 70 alone confirms a tank or authorizes reload input. The probe rotates through up to 12
-locally owned objects per 250 ms and logs only the first or changed bounded
-small integer and boolean fields on each page, up to 120 lines per session.
-It does not send a reload input from those snapshots.
-PROBE_INPUT marks aim and fire edges so the rotating snapshots can be compared
-against the actual shot. Repeated edges during one capture do not restart the
-page rotation.
-
-For field mapping, sit in the Bastion gunner seat with one shell loaded, fire
-to show `0/1`, then manually reload to show `1/1`. Hold each state for at least
-15 seconds so the rotating probe can see every page. Aim before firing to
-start the probe when the held object is unresolved. Send the `TANK_PROBE` lines
-from the log along with the screenshots. This is needed to distinguish the
-cannon's loaded round and reserve from unrelated vehicle and personal-weapon
-fields. The ordinary reload policy already blocks unknown or zero reserves;
-it is not yet connected to tank data.
+Logs: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`.
+START reports enabled/charge90 and bindings. NATIVE_SOURCE, RELOAD,
+CHARGE_SOURCE, CHARGE_RELEASE and blocking/error logs remain; research scans
+and research hotkeys have been removed.
 
 ## Build And Test
 
-Requires Node.js, PowerShell, and the game's LuaJIT `bin/lua51.dll`. Build reads
-the licensed HD2 HUD+ 0.1.2 package, verifies its SHA-256, and extracts only the
-non-rendering source modules. Tests run Lua in a separate process with mocked
-game/input APIs, never attach to the game or send actual inputs.
+Requires Node.js, PowerShell and the game's `bin/lua51.dll`. Tests use mocked
+game/input APIs in a separate LuaJIT process, never attach to the game or send
+actual inputs. Package checks enforce the HD2SDK minimum of 256 bytes per
+single-resource archive and all nine valid Arsenal setting combinations.
 
 ```powershell
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.27-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.27-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.28-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.28-test.zip'
 ```
 
-The credited reader sources and original permission README are in `vendor/`.
-To re-extract the pinned installed package, pass its folder to `build.cjs`.
+Credited HD2 HUD+ 0.1.2 reader sources and original reuse permission are in
+`vendor/` and THIRD_PARTY.txt. Only non-rendering identity support is used at
+runtime; the legacy diagnostic provider is not invoked.
+
+Source and test releases:
+https://github.com/pwj891129-arch/HD2-AutoReload
+Published separately from HD2 Helper.

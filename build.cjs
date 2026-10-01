@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.27-test';
+const version = '0.3.28-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -85,17 +85,12 @@ const source = readSource(path.join(root, 'addon.lua'))
   .replace('-- @CHARGE@', () => readSource(path.join(root, 'charge_policy.lua')))
   .replace('-- @NATIVE@', () => readSource(path.join(root, 'native.lua')))
   .replace('-- @NATIVE_READER@', () => readSource(path.join(root, 'native_reader.lua')))
-  .replace('-- @TANK_PROBE@', () => readSource(path.join(root, 'tank_probe.lua')))
-  .replace('-- @SELF_PROBE@', () => readSource(path.join(root, 'self_probe.lua')))
-  .replace('-- @CATALOG_PROBE@', () => readSource(path.join(root, 'catalog_probe.lua')))
-  .replace('-- @UNIT_LINK_PROBE@', () => readSource(path.join(root, 'unit_link_probe.lua')))
-  .replace('-- @HASH_TYPE_PROBE@', () => readSource(path.join(root, 'hash_type_probe.lua')))
   .replace('-- @READER_CORE@', () => core)
   .replace('-- @NUMBERS@', () => compact(numbers));
 assert.equal(source.split('\n')[0], `-- HD2-Addon: ${resource}`);
 assert(!source.includes('00-boot-state') && !source.includes('90-main'), 'HUD test reference must not ship');
 const stage = path.join(root, 'dist', `HD2-AutoReload-${version}`);
-fs.mkdirSync(path.join(stage, 'Addon'), { recursive: true });
+fs.mkdirSync(stage, { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'auto_reload.generated.lua'), source);
 fs.writeFileSync(path.join(root, 'dist', 'reader_core.lua'), core);
 fs.writeFileSync(path.join(root, 'dist', 'numbers.lua'), compact(numbers));
@@ -124,33 +119,36 @@ archive.writeUInt32LE(16, 172);
 archive.writeUInt32LE(16, 176);
 payload.copy(archive, offset);
 const filename = '9ba626afa44a3aa3.patch_0';
-fs.writeFileSync(path.join(stage, 'Addon', filename), archive);
-for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, 'Addon', filename + suffix), Buffer.alloc(0));
+// Root patches deploy whenever the mod is enabled, independently of option checkboxes.
+fs.writeFileSync(path.join(stage, filename), archive);
+for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, filename + suffix), Buffer.alloc(0));
 const description = `Auto reload ${version}. Requires Bingus Shared Loader v15+ / API 1. ` +
   'Checks ammunition exhaustion, actual weapon swaps, and fire attempts. Optional Railgun / Epoch left-mouse release at 90% of the full charge gauge. Build-pinned, read-only held-object component reader at 50 ms intervals. Ambiguous readings, underbarrel, and vehicle weapons remain excluded. Live testing required.';
 const options = [
-  ['enabled', '자동재장전 ON/OFF', '체크하면 자동재장전을 활성화합니다. 90% 충전 자동발사 옵션과는 독립적입니다.', ['Addon']],
-  ['ammo_off', '실탄 무기 자동재장전 OFF', '체크하면 실탄 무기의 자동재장전을 끕니다. 미체크하면 기존 동작을 유지합니다.', []],
-  ['heat_off', '과열 무기 자동재장전 OFF', '체크하면 과열 무기의 자동재장전을 끕니다. 미체크하면 완전 과열시에만 작동합니다.', []],
-  ['diagnostics', 'F9 진단 활성화', '체크시에만 F9 읽기 전용 진단을 실행합니다. 일반 자동재장전에는 필요하지 않습니다.', []],
-  ['charge90', '레일건·에포크 90% 충전 자동발사 ON', '기본 OFF. 전체 위험 게이지 90% 이상에서 좌클릭을 한 번 해제합니다. 발사키는 좌클릭이어야 하며, 조준과 다음 충전은 수동입니다.', ['Addon']],
+  ['enabled', '자동재장전', '기본 ON. 실탄 소진과 완전 과열 시 자동재장전합니다. 끄려면 OFF를 선택하세요. 이 옵션을 선택하지 않아도 기본 ON이며, 충전 자동발사와 독립적입니다.', true],
+  ['charge90', '레일건·에포크 90% 충전 자동발사', '기본 OFF. ON 선택 시 전체 위험 게이지 90% 이상에서 좌클릭을 한 번 해제합니다. 발사키는 좌클릭이어야 하며, 조준과 다음 충전은 수동입니다.', false],
 ];
-const optionManifest = options.map(([name, label, help, include], index) => {
-  const folder = 'Option_' + name;
-  const bytes = Buffer.from('return true\n'), module = Buffer.alloc(8 + bytes.length);
-  module.writeUInt32LE(bytes.length, 0); module.writeUInt32LE(2, 4); bytes.copy(module, 8);
-  // Match HD2SDK's 256-byte minimum per resource; 224-byte flags fail native reads.
-  const marker = Buffer.alloc(Math.max(256, 192 + Math.ceil(module.length / 16) * 16));
-  archive.copy(marker, 0, 0, 192);
-  marker.writeBigUInt64LE(BigInt(marker.length), 32);
-  marker.writeBigUInt64LE(hash64('mods/hd2_helper/autoreload_option_' + name), 104);
-  marker.writeUInt32LE(module.length, 160); module.copy(marker, 192);
-  fs.mkdirSync(path.join(stage, folder), {recursive: true});
-  const patch = `9ba626afa44a3aa3.patch_${index + 1}`;
-  fs.writeFileSync(path.join(stage, folder, patch), marker);
-  for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, folder, patch + suffix), Buffer.alloc(0));
-  return {Name: label, Description: help, Include: [...include, folder]};
-});
+let optionIndex = 0;
+const optionManifest = options.map(([name, label, help, defaultValue]) => ({
+  Name: label, Description: help,
+  SubOptions: [defaultValue, !defaultValue].map(value => {
+    const folder = `Option_${name}_${value ? 'on' : 'off'}`;
+    const bytes = Buffer.from(`return ${value}\n`), module = Buffer.alloc(8 + bytes.length);
+    module.writeUInt32LE(bytes.length, 0); module.writeUInt32LE(2, 4); bytes.copy(module, 8);
+    // Match HD2SDK's 256-byte minimum per resource; 224-byte flags fail native reads.
+    const marker = Buffer.alloc(Math.max(256, 192 + Math.ceil(module.length / 16) * 16));
+    archive.copy(marker, 0, 0, 192);
+    marker.writeBigUInt64LE(BigInt(marker.length), 32);
+    marker.writeBigUInt64LE(hash64('mods/hd2_helper/autoreload_setting_' + name), 104);
+    marker.writeUInt32LE(module.length, 160); module.copy(marker, 192);
+    fs.mkdirSync(path.join(stage, folder), {recursive: true});
+    const patch = `9ba626afa44a3aa3.patch_${++optionIndex}`;
+    fs.writeFileSync(path.join(stage, folder, patch), marker);
+    for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, folder, patch + suffix), Buffer.alloc(0));
+    return {Name: (value ? 'ON' : 'OFF') + (value === defaultValue ? ' (기본)' : ''),
+      Description: value ? '활성화' : '비활성화', Include: [folder]};
+  })
+}));
 fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify({
   Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload ${version}`,
   Description: description + ' Feature options are configured in Arsenal only; Purge / Deploy and restart to apply.', Options: optionManifest

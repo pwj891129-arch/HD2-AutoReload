@@ -8,29 +8,51 @@ end
 dofile("native_reader.test.lua")(api, equal)
 dofile("charge_policy.test.lua")(api, equal)
 local flags = {}
-local option_app = {can_get = function(_, resource) return flags[resource:match("autoreload_option_(.+)$")] ~= nil end}
-local function load_option(resource) return flags[resource:match("autoreload_option_(.+)$")] end
-equal(api.Options.read(option_app, load_option).enabled, false, "Arsenal master off")
-flags.enabled = true
+local option_app = {can_get = function(_, resource) return flags[resource:match("autoreload_setting_(.+)$")] ~= nil end}
+local function load_option(resource) return flags[resource:match("autoreload_setting_(.+)$")] end
 local arsenal = api.Options.read(option_app, load_option)
-equal(arsenal.enabled, true); equal(arsenal.ammo, true); equal(arsenal.heat, true)
-equal(arsenal.diagnostics, false, "diagnostics opt in")
+equal(arsenal.enabled, true, "automatic reload defaults on without any option modules")
 equal(arsenal.charge90, false, "charge release defaults off")
-flags.charge90 = true
-equal(api.Options.read(option_app, load_option).charge90, true, "Arsenal charge release opt in")
-flags.charge90 = nil
-flags.heat_off, flags.ammo_off, flags.diagnostics = true, true, true
-arsenal = api.Options.read(option_app, load_option)
-equal(arsenal.ammo, false); equal(arsenal.heat, false); equal(arsenal.diagnostics, true)
-equal(api.Options.allow(arsenal, {mode = "ammo"}), false, "ammo option enforced")
-equal(api.Options.allow(arsenal, {mode = "heat"}), false, "heat option enforced")
-flags.heat_off, flags.ammo_off = nil, nil
-arsenal = api.Options.read(option_app, load_option)
+equal(arsenal.diagnostics, nil, "diagnostic setting removed")
 equal(api.Options.allow(arsenal, {mode = "ammo"}), true)
 equal(api.Options.allow(arsenal, {mode = "heat"}), true)
 equal(api.Options.allow(arsenal, {mode = "unknown"}), false)
+equal(api.Options.allow(arsenal, nil), false)
+flags.enabled = false
+arsenal = api.Options.read(option_app, load_option)
+equal(arsenal.enabled, false, "explicit OFF setting is honored")
+equal(api.Options.allow(arsenal, {mode = "ammo"}), false)
+equal(api.Options.allow(arsenal, {mode = "heat"}), false)
+flags.charge90 = true
+arsenal = api.Options.read(option_app, load_option)
+equal(arsenal.charge90, true, "charge release can run independently")
+equal(arsenal.enabled, false)
+flags.enabled, flags.charge90 = true, false
+arsenal = api.Options.read(option_app, load_option)
+equal(arsenal.enabled, true, "explicit ON setting")
+equal(arsenal.charge90, false, "explicit charge OFF setting")
+flags.enabled = "true"
+equal(api.Options.read(option_app, load_option).enabled, false, "invalid option payload fails closed")
 equal(api.Options.read({can_get = function() error("unavailable") end}, load_option).enabled, false,
-    "option errors fail closed")
+    "option API errors fail closed")
+equal(api.Options.read({can_get = function() return true end}, function() error("unavailable") end).enabled,
+    false, "option loading errors fail closed")
+equal(api.Options.read({}, load_option).enabled, true, "no option API retains default")
+local obsolete = {can_get = function(_, resource)
+    return resource == "mods/hd2_helper/autoreload_option_ammo_off" or
+        resource == "mods/hd2_helper/autoreload_option_heat_off" or
+        resource == "mods/hd2_helper/autoreload_option_diagnostics"
+end}
+local defaults = api.Options.read(obsolete, function() error("obsolete flag must not load") end)
+equal(defaults.enabled, true, "old OFF flags cannot disable new defaults")
+equal(defaults.charge90, false, "old diagnostic flags cannot enable a feature")
+-- Research modules are tested offline only; none is embedded in the addon.
+for name, file in pairs({TankProbe = "tank_probe.lua", SelfProbe = "self_probe.lua",
+    CatalogProbe = "catalog_probe.lua", UnitLinkProbe = "unit_link_probe.lua",
+    HashTypeProbe = "hash_type_probe.lua"}) do
+    equal(api[name], nil, "research module absent from packaged API")
+    api[name] = dofile(file)
+end
 local function sample(weapon, ammo, fire)
     return { active = true, mode = "ammo", weapon = weapon, ammo = ammo, reserve = 5,
         reloading = false, fire = fire or false }
@@ -510,7 +532,7 @@ hot_reloading.manual_reload = false
 equal(p:step(hot_reloading, 0.3), nil, "manual heat reload is not duplicated")
 hot_reloading.reloading, hot_reloading.manual_reload = false, nil
 
--- Adapter contracts: a mocked provider never touches the game or sends input.
+-- Native adapter contracts, with no engine calls or actual input.
 local cells, resolved, control, rotation, declaration
 local equipment = { A = { resource = "content/fac_helldivers/equipment/primary_weapons/test/test" } }
 local identity = {
@@ -518,96 +540,70 @@ local identity = {
     in_control = function() return control end,
     rotation_free = function() return rotation end,
 }
-local provider = { provide = function() return { cells = cells } end,
-    declared_of = function() return declaration end }
 local parts = { GeneratedCommon = { identity = { equipment = equipment } },
     IdentityCore = { new = function() return identity end },
-    Provider = { new = function() return provider end } }
-local reader = api.Reader.new(parts, { snapshot = {} })
+    Provider = { new = function() error("legacy provider must not be constructed") end } }
+local native_calls, native_avatar = 0, 100
+local adapter_native = {sample = function()
+    native_calls = native_calls + 1
+    local copy = {}; for key, value in pairs(cells) do copy[key] = value end
+    copy.active, copy.native, copy.avatar, copy.weapon = true, true, native_avatar, "native:100:5"
+    return copy, "ready"
+end}
+local reader = api.Reader.new(parts, { snapshot = {} }, adapter_native)
 resolved = { status = "resolved", reason = "wield-node-named-the-hand:first-person-node",
-    avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "A" } }
-control, rotation, declaration = true, true, ""
-cells = { ammo = 0, reserve = 2, reloading = false }
+    grip = 15, avatar = { goid = 100 }, hand_weapon = { goid = 5, type = "A" } }
+control, rotation = true, true
+cells = { mode = "ammo", ammo = 0, reserve = 2, reloading = false }
 equal(reader:sample().ammo, 0, "known empty")
-equal(reader:sample().weapon, "5:A", "object identity")
-equal(reader:sample().reloading, false)
-resolved.status, resolved.reason = "absent", "no-on-body-object-of-grip=15"
-equal(reader:sample().avatar, 100, "unresolved weapon retains avatar identity")
-equal(reader:sample().active, false, "unresolved weapon remains inactive")
-resolved.status, resolved.reason = "resolved", "wield-node-named-the-hand:first-person-node"
-equipment.A.resource = "content/fac_helldivers/equipment/sidearm_weapons/smart_pistol_missile/smart_pistol_missile"
-local missile = reader:sample()
-equal(missile.active, true, "missile pistol is a supported sidearm")
-equal(missile.mode, "ammo", "missile pistol uses ammo state")
-equal(missile.ammo, 0, "missile pistol empty state is readable")
-local switch = api.Policy.new()
-equal(switch:step(sample("primary", 2), 0), nil)
-equal(switch:step(missile, 0.1), "weapon-swapped", "switch to empty missile pistol reloads")
-equipment.A.resource = "content/fac_helldivers/equipment/primary_weapons/test/test"
+equal(reader:sample().weapon, "native:100:5", "native weapon identity")
+equal(reader:sample().unconfirmed, false, "second coherent empty read confirmed")
+cells.ammo = 1
+equal(reader:sample().unconfirmed, nil, "loaded weapon clears confirmation")
+cells.ammo = 0
+equal(reader:sample().unconfirmed, true, "new empty episode requires confirmation")
+cells.reserve = 1
+equal(reader:sample().unconfirmed, true, "changed reserve restarts confirmation")
+equal(reader:sample().unconfirmed, false)
 control = false
-equal(reader:sample().active, false, "non-player control")
-equal(reader:sample().in_control, false, "seated control diagnostic")
+equal(reader:sample().active, false, "non-player control blocks")
+equal(reader:sample().in_control, false)
 rotation = false
-equal(reader:sample(nil, nil, nil, true).active, true,
-    "personal weapon may be read during seated fire")
-equal(reader:sample(nil, nil, nil, true).seated_fire, true,
-    "seated-fire scope is explicit")
-resolved.reason = "wield-node-named-the-hand:carried"
-equal(reader:sample(nil, nil, nil, true).active, false,
-    "carried weapon cannot authorize seated fire")
-resolved.reason = "wield-node-named-the-hand:first-person-node"
-equal(reader:sample().active, false, "seated weapon without firing stays blocked")
+equal(reader:sample(nil, nil, nil, true).active, true, "seated personal fire remains supported")
+equal(reader:sample(nil, nil, nil, true).seated_fire, true)
 resolved.grip = 70
-equal(reader:sample(nil, nil, nil, true).active, false,
-    "unresolved cannon grip never becomes a personal weapon")
-resolved.grip = nil
-control, rotation = true, false
-equal(reader:sample().active, false, "rotation gate")
-equal(reader:sample().rotation_free, false, "seated rotation diagnostic")
-rotation = true; resolved.hand_weapon = nil
-equal(reader:sample().weapon, nil, "no selected weapon")
-resolved.hand_weapon = { goid = 5, type = "A" }
-cells.heat_shown = 0.9; cells.overheated = false
-equal(reader:sample().mode, "heat", "heat mode detected")
-equal(reader:sample().overheated, false, "warm is not overheated")
-equal(reader:sample().heat_shown, 0.9, "heat diagnostic retains gauge")
-cells.overheated = true
-equal(reader:sample().overheated, true, "explicit overheated state")
-cells.overheated = nil
-equal(reader:sample().overheated, nil, "missing overheat state remains unknown")
-cells.heat_shown = nil; declaration = "0xa5023836"
-equal(reader:sample().mode, "heat", "declared heat without readable gauge")
-declaration = ""
-reader.generated.authored_base["WeaponHeatComponentData.overheat_temperature"] = { A = 100 }
-equal(reader:sample().mode, "heat", "authored heat without readable field")
-reader.generated.authored_base["WeaponHeatComponentData.overheat_temperature"] = nil
-equal(reader:sample().mode, "ammo", "normal weapon retains ammo mode")
-declaration = ""; resolved.underbarrel = { goid = 5 }
-equal(reader:sample().active, false, "base ammo not used for underbarrel")
-resolved.underbarrel.goid = 6
-equal(reader:sample().active, true, "unused underbarrel does not block main gun")
+equal(reader:sample(nil, nil, nil, true).active, false, "unresolved seated grip is blocked")
+control, rotation = true, true
+equal(reader:sample().active, true, "controlled grip70 uses held native weapon")
+resolved.grip = 40
+local before = native_calls
+equal(reader:sample().active, false, "mounted cannon stays excluded")
+equal(native_calls, before, "unsupported grip is not sampled")
+resolved.grip = 15
+resolved.underbarrel = { goid = 5 }
+equal(reader:sample().active, false, "underbarrel cannot use main ammo")
+equal(native_calls, before)
 resolved.underbarrel = nil
-equipment.A.resource = "content/fac_helldivers/vehicles/test/test"
-equal(reader:sample().active, false, "vehicle skipped")
-equipment.A.resource = "content/fac_helldivers/equipment/primary_weapons/test/test"
-declaration = "0x4a893e74"
-equal(reader:sample().ammo, nil, "unread chamber is not empty")
-cells.raw_chamber, cells.ammo = false, 1
-equal(reader:sample().ammo, 1, "one chambered round")
-declaration = "0xe525fa9c"
-cells.raw_slot0, cells.raw_slot1, cells.raw_selected, cells.ammo = 0, 3, 0, 0
-equipment.A.ammo_icon = { ["0"] = "buckshot", ["1"] = "buckshot" }
-equal(reader:sample().ammo, 3, "other same-ammo feed remains")
-equipment.A.ammo_icon["1"] = "stun"
-equal(reader:sample().ammo, 0, "different feed does not mask selected empty")
-cells.raw_selected = nil; equal(reader:sample().ammo, nil, "unknown selected feed")
-cells.raw_selected, cells.raw_slot1 = 0, nil
-equal(reader:sample().ammo, nil, "unread second feed")
-declaration = ""; equipment.A.spare_pack = { P = true }
-equal(reader:sample().reserve, nil, "missing matching backpack")
-resolved.backpack = { type = "wrong" }; cells.pack_spare = 4
-equal(reader:sample().reserve, nil, "wrong backpack")
-resolved.backpack.type = "P"; equal(reader:sample().reserve, 4)
+resolved.avatar = nil
+equal(reader:sample().active, false, "missing avatar blocks")
+equal(native_calls, before)
+resolved.avatar = { goid = 100 }
+native_avatar = 101
+local mismatch, mismatch_reason = reader:sample()
+equal(mismatch.active, false, "another avatar cannot authorize input")
+equal(mismatch_reason, "avatar-mismatch")
+native_avatar = 100
+cells = {mode = "heat", overheated = false, reserve = 2, reloading = false}
+equal(reader:sample().mode, "heat", "native heat component selects mode")
+equal(reader:sample().overheated, false, "warm is not overheated")
+cells.overheated = true
+equal(reader:sample().unconfirmed, true, "overheat requires two coherent reads")
+equal(reader:sample().unconfirmed, false)
+reader.native = nil
+local unavailable, unavailable_reason = reader:sample()
+equal(unavailable.active, false, "missing native reader fails closed")
+equal(unavailable_reason, "native-unavailable", "no legacy diagnostic fallback")
+equal(reader.sample_legacy, nil, "legacy diagnostic reader removed")
 equal(api.boolean(0), false); equal(api.boolean(1), true); equal(api.boolean(nil), nil)
 
 local invalidations = 0
@@ -691,18 +687,7 @@ raw[4] = true
 equal(real_provider:provide(id, 1).cells.reloading, true)
 raw[1] = nil
 equal(real_provider:provide(id, 1).cells.ammo, nil, "failed read remains unknown")
-raw[1], raw[2], raw[4] = 0, true, false
-resolved.hand_weapon = { goid = 5, type = missile_type }
-local missile_reader = api.Reader.new({ GeneratedCommon = real_parts.GeneratedCommon,
-    IdentityCore = { new = function() return identity end },
-    Provider = real_parts.Provider }, real_fragment)
-local live_missile = missile_reader:sample(1)
-equal(live_missile.active, true, "real missile pistol metadata is supported")
-equal(live_missile.ammo, 0, "real provider reads empty missile pistol")
-equal(live_missile.reserve, 4, "real provider reads missile pistol reserve")
-switch = api.Policy.new()
-switch:step(sample("primary", 2), 0)
-equal(switch:step(live_missile, 0.1), "weapon-swapped", "real missile pistol reload path")
+
 local ffi = require("ffi")
 ffi.cdef[[
 typedef struct { unsigned short vk, scan; unsigned int flags, time; uintptr_t extra; } ARTEST_KEY;
@@ -757,18 +742,19 @@ resolved = { status = "resolved", reason = "wield-node-named-the-hand:first-pers
 control, rotation, declaration = true, true, ""
 cells = { ammo = 1, reserve = 3, reloading = false }
 identity.invalidate = function() end
-local live_type_calls = 0
+local live_type_calls, research_reads = 0, 0
 stingray = {
     Network = { game_session = function() return 1 end, peer_id = function() return 2 end },
     GameSession = { in_session = function() return true end,
-        objects_owned_by = function() return { 42 } end,
-        game_object_field_batched = function() return { [1] = 1 } end,
+        objects_owned_by = function() research_reads = research_reads + 1; return { 42 } end,
+        game_object_field_batched = function() research_reads = research_reads + 1; return { [1] = 1 } end,
         game_object_is_type = function(_, goid, kind)
             live_type_calls = live_type_calls + 1
             return goid == 5 and (kind == "known-call" or kind == "id:2df95dfe")
         end },
     IdString32 = { from_hex = function(hash) return "id:" .. hash end },
     Application = { time_since_launch = function() return now end,
+        can_get = function() return false end,
         main_world = function() return 3 end, worlds = function() return {3} end },
 }
 TEST_READER_PARTS = parts
@@ -781,18 +767,13 @@ TEST_NATIVE_READER = { sample = function()
 end }
 HD2_AUTO_RELOAD_TEST = nil
 local file = assert(io.open("addon.lua", "r")); local source = file:read("*a"); file:close()
-equal(source:find("pcall(self_probe.read", 1, true), nil,
-    "independent field scanner is not called in the live runtime")
-equal(source:find("pcall(catalog_probe.read", 1, true), nil,
-    "hashed API check is not called in the live runtime")
+for _, marker in ipairs({"Probe", "probe_pending", "sample_legacy", "diagnostics",
+    "TANK_PROBE", "HASH_TYPE", "SEAT_AIM", "PROBE_INPUT"}) do
+    equal(source:find(marker, 1, true), nil, "removed runtime path: " .. marker)
+end
 file = assert(io.open("policy.lua", "r")); local policy_source = file:read("*a"); file:close()
 file = assert(io.open("native.lua", "r")); local native_source = file:read("*a"); file:close()
 file = assert(io.open("native_reader.lua", "r")); local native_reader_source = file:read("*a"); file:close()
-file = assert(io.open("tank_probe.lua", "r")); local tank_probe_source = file:read("*a"); file:close()
-file = assert(io.open("self_probe.lua", "r")); local self_probe_source = file:read("*a"); file:close()
-file = assert(io.open("catalog_probe.lua", "r")); local catalog_probe_source = file:read("*a"); file:close()
-file = assert(io.open("unit_link_probe.lua", "r")); local unit_link_probe_source = file:read("*a"); file:close()
-file = assert(io.open("hash_type_probe.lua", "r")); local hash_type_probe_source = file:read("*a"); file:close()
 file = assert(io.open("options.lua", "r")); local options_source = file:read("*a"); file:close()
 file = assert(io.open("charge_policy.lua", "r")); local charge_source = file:read("*a"); file:close()
 source = source:gsub("\r\n", "\n")
@@ -801,11 +782,6 @@ source = source:gsub("%-%- @POLICY@", function() return policy_source end)
     :gsub("%-%- @CHARGE@", function() return charge_source end)
     :gsub("%-%- @NATIVE@", function() return native_source end)
     :gsub("%-%- @NATIVE_READER@", function() return native_reader_source end)
-    :gsub("%-%- @TANK_PROBE@", function() return tank_probe_source end)
-    :gsub("%-%- @SELF_PROBE@", function() return self_probe_source end)
-    :gsub("%-%- @CATALOG_PROBE@", function() return catalog_probe_source end)
-    :gsub("%-%- @UNIT_LINK_PROBE@", function() return unit_link_probe_source end)
-    :gsub("%-%- @HASH_TYPE_PROBE@", function() return hash_type_probe_source end)
     :gsub("%-%- @READER_CORE@", "return TEST_READER_PARTS")
     :gsub("%-%- @NUMBERS@", "return {snapshot={}}")
     :gsub("pcall%(Reader%.new, parts, fragment, NativeReader%.new%(%)%)",
@@ -814,21 +790,16 @@ update = function() return 123, nil, 321 end
 local chunk = assert(loadstring(source, "@addon-runtime-test"))
 chunk()
 equal(HD2HelperAutoReload ~= nil, true, "runtime initialized")
+equal(HD2HelperAutoReload.config.enabled, true, "installed default reload is on")
+equal(HD2HelperAutoReload.config.charge90, false)
 local function frame(time) now = time; return update() end
 a, b, c = frame(0)
 equal(a, 123); equal(b, nil); equal(c, 321)
 keys[120] = true; frame(0.005)
-equal(logs[#logs]:find("HASH_TYPE requested", 1, true) ~= nil,
-    true, "F9 edge is recorded before the next reader tick")
-equal(live_type_calls, 0, "throttled frame defers the type lookup")
+equal(live_type_calls, 0, "F9 makes no diagnostic type calls")
 frame(0.051)
-local live_hash_result = false
-for _, line in ipairs(logs) do
-    if line:find("HASH_TYPE goid=5", 1, true) and
-        line:find("baseline=true hash=true", 1, true) then live_hash_result = true end
-end
-equal(live_hash_result, true, "F9 checks only a recognized held weapon")
-equal(live_type_calls, 2, "pending F9 runs exactly one comparison pair")
+equal(live_type_calls, 0, "F9 still does nothing on a reader tick")
+equal(research_reads, 0, "no research field scans at startup")
 keys[120] = false; frame(0.102)
 local logs_before_f10 = #logs
 keys[121] = true; frame(0.103); frame(0.153)
@@ -850,39 +821,17 @@ keys[120] = true; frame(0.525)
 frame(0.561)
 equal(#inputs, 2, "scheduled up")
 equal(inputs[2].flags, 10, "scan-code up")
-equal(logs[#logs]:find("HASH_TYPE already-checked", 1, true) ~= nil,
-    true, "second F9 reports the one-shot limit")
-equal(live_type_calls, 2, "second F9 makes no new game type calls")
+equal(live_type_calls, 0, "repeated F9 has no game type calls")
 keys[120] = false; frame(0.57)
 Hd2TankSeatSwitch = { last = "seat:16474112801385b6:3" }
 resolved.grip, control, keys[2] = 15, false, true
 frame(0.61)
 frame(0.612)
-equal(#inputs, 2, "seated aim diagnostic never reloads")
-local aimed = false
-for _, line in ipairs(logs) do
-    if line:find("SEAT_AIM", 1, true) and line:find("grip=15", 1, true) then
-        aimed = true
-    end
-end
-equal(aimed, true, "seated aim logs grip and control gate")
-local held_note = false
-for _, line in ipairs(logs) do
-    if line:find("SEAT_AIM", 1, true) and
-        line:find("held=wield-node-named-the-hand:first-person-node", 1, true) then
-        held_note = true
-    end
-end
-equal(held_note, true, "seated aim logs held-object evidence")
+equal(#inputs, 2, "seated aim without fire never reloads")
+equal(research_reads, 0, "seated control block no longer scans tank fields")
 Hd2TankSeatSwitch = nil; keys[2] = false; frame(0.67)
 keys[2] = true; frame(0.74)
-local unconfirmed_aim = false
-for _, line in ipairs(logs) do
-    if line:find("SEAT_AIM seat_hint=unconfirmed", 1, true) then
-        unconfirmed_aim = true
-    end
-end
-equal(unconfirmed_aim, true, "seated aim logs without seat addon")
+equal(research_reads, 0, "aim without a seat addon does not trigger scanning")
 resolved.grip, control, keys[2], Hd2TankSeatSwitch = nil, true, false, nil
 keys[1] = false; frame(0.75)
 resolved.grip, cells.ammo = 15, 1
@@ -915,21 +864,12 @@ frame(2.56)
 equal(#inputs, 7, "resume exhaustion")
 resolved.status, resolved.reason, resolved.grip = "absent", "no-on-body-object-of-grip=70", 70
 keys[2] = true; frame(2.57); frame(2.62)
-local grip_probe = false
+equal(research_reads, 0, "unresolved grip70 aim does not start a tank probe")
 for _, line in ipairs(logs) do
-    if line:find("TANK_PROBE", 1, true) and
-        line:find("seat_hint=unconfirmed-grip70", 1, true) then
-        grip_probe = true
+    for _, marker in ipairs({"TANK_PROBE", "HASH_TYPE", "SEAT_AIM", "PROBE_INPUT"}) do
+        equal(line:find(marker, 1, true), nil, "no live research log: " .. marker)
     end
 end
-equal(grip_probe, true, "unresolved grip 70 aim starts a bounded tank probe")
-local input_marker = false
-for _, line in ipairs(logs) do
-    if line:find("PROBE_INPUT", 1, true) and line:find("grip=70", 1, true) then
-        input_marker = true
-    end
-end
-equal(input_marker, true, "tank probe records input timing")
 resolved.status, resolved.reason, resolved.grip = "resolved", nil, 15
 resolved.hand_weapon.goid = 7
 keys[2], keys[49] = false, true
@@ -1018,12 +958,35 @@ end
 inputs, keys, logs = {}, {}, {}
 HD2HelperAutoReload, shutdown = nil, nil
 update = function() return 123 end
+local default_heat = {active = true, native = true, avatar = 100, weapon = "native:100:heat",
+    mode = "heat", overheated = false, reserve = 2, reloading = false, feed = "heat"}
+TEST_NATIVE_READER.sample = function()
+    local copy = {}; for key, value in pairs(default_heat) do copy[key] = value end
+    return copy, "ready"
+end
+resolved.avatar.goid, resolved.grip, control, rotation = 100, 15, true, true
+chunk()
+equal(HD2HelperAutoReload.config.enabled, true, "default heat reload is enabled")
+frame(15)
+keys[1] = true; default_heat.overheated = true; frame(15.1); frame(15.16)
+equal(#inputs, 0, "default heat reload waits for fire release")
+keys[1] = false; frame(15.17)
+equal(#inputs, 1, "default heat reload sends a key after confirmed overheat")
+equal(inputs[1].flags, 8)
+frame(15.22); equal(#inputs, 2, "default heat reload releases its key")
+equal(inputs[2].flags, 10)
+shutdown()
+inputs, keys, logs = {}, {}, {}
+HD2HelperAutoReload, shutdown = nil, nil
+update = function() return 123 end
 stingray.Application.can_get = function(_, resource)
-    return resource == "mods/hd2_helper/autoreload_option_charge90"
+    return resource == "mods/hd2_helper/autoreload_setting_charge90" or
+        resource == "mods/hd2_helper/autoreload_setting_enabled"
 end
 require = function(name)
     if name == "ffi" then return fake_ffi end
-    if name == "mods/hd2_helper/autoreload_option_charge90" then return true end
+    if name == "mods/hd2_helper/autoreload_setting_charge90" then return true end
+    if name == "mods/hd2_helper/autoreload_setting_enabled" then return false end
     return original_require(name)
 end
 local charge_sample = {active = true, native = true, avatar = 100, weapon = "native:100:8",
