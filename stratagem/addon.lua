@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.42-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.43-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -73,9 +73,9 @@ local policy = Policy.new(channel.command_key, function(binding) return reader:c
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
 if not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.42-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.43-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.42-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.43-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("CONFIG radial=" .. tostring(config.radial) .. " hotkeys=" .. tostring(config.hotkeys))

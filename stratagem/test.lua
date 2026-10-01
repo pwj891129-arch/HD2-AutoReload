@@ -557,6 +557,7 @@ equal(env.HD2StratagemHotkeys.blocking_inputs, false)
 
 dofile("radial.test.lua")(equal, read_file, source)
 dofile("locale.test.lua")(equal, Reader)
+dofile("glyphs.test.lua")(equal)
 dofile("layout.test.lua")(equal)
 dofile("toggle.test.lua")(equal, read_file)
 dofile("settings.test.lua")(equal, read_file)

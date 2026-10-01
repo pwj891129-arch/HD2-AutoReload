@@ -1,5 +1,6 @@
 return function(equal)
     local Radial = dofile("radial.lua")
+    Radial.Glyphs = dofile("dist/glyphs.generated.lua")
     local function vector(x, y, z) return {x = x, y = y, z = z} end
     local text, blocks, icons, triangles, width, height, x, y = {}, {}, {}, {}, 1280, 720, 0.5, 0.5
     local sr = {Vector2 = vector, Vector3 = vector, Color = function(...) return {...} end,
@@ -19,6 +20,9 @@ return function(equal)
     radial.clear = function(self) self.signature = nil; text, icons, triangles = {}, {}, {} end
     radial.shape_on = function(_, _, kind, value, font, size, material, at)
         if kind == "triangle" then triangles[#triangles + 1] = {value, font, size}; return end
+        if kind == "bitmap_uv" then
+            text[#text + 1] = {value = "glyph", x = material.x, y = material.y, w = at.x, h = at.y}; return
+        end
         assert(kind == "text")
         local lo, hi = sr.Gui.text_extents(1, value, font, size)
         text[#text + 1] = {value = value, x = at.x + lo.x, y = at.y + lo.y, w = hi.x - lo.x, h = hi.y - lo.y}
@@ -36,7 +40,8 @@ return function(equal)
             a.y < b.y + b.h - 0.001 and b.y < a.y + a.h - 0.001
     end
     local names = {"ORBITAL 380MM HE BARRAGE", "EAGLE GAS AIRSTRIKE", "REINFORCEMENT BEACON", "LONGUNBROKENWEAPONNAME"}
-    radial.text_style = function(self, value) return {text = value, font = "core/performance_hud/debug", material = "core/performance_hud/debug", gui = self.gui} end
+    radial.text_style = function(self, value) return {text = value, font = "core/performance_hud/debug",
+        material = "core/performance_hud/debug", gui = self.gui, bitmap = value:find("[\128-\255]") ~= nil} end
     local korean = {"궤도 380mm 고폭 폭격", "이글 가스 공중타격", "증원", "중기관총"}
     for _, labels in ipairs({names, korean}) do
     for _, dimensions in ipairs({{320, 240}, {1280, 720}, {1920, 1080}, {2560, 1440}, {3840, 2160}}) do
@@ -54,8 +59,8 @@ return function(equal)
                 blocks = {}
                 for index = 1, count do
                     local angle = math.pi / 2 - (index - 1) * 2 * math.pi / count
-                    local dx, dy, side = Radial.content(count, inner, outer, angle)
-                    blocks[index] = {x = width / 2 + dx - side / 2, y = height / 2 + dy - side / 2, w = side, h = side}
+                    local dx, dy, bw, bh = Radial.content(count, inner, outer, angle, effective)
+                    blocks[index] = {x = width / 2 + dx - bw / 2, y = height / 2 + dy - bh / 2, w = bw, h = bh}
                     local half = math.pi / count - 0.02
                     for _, p in ipairs(corners(blocks[index])) do
                         local px, py = p.x - width / 2, p.y - height / 2
@@ -64,8 +69,9 @@ return function(equal)
                         local delta = (math.atan2(py, px) - angle + math.pi) % (2 * math.pi) - math.pi
                         equal(math.abs(delta) <= half, true, "content stays inside its own sector")
                     end
-                    for _, p in ipairs(corners(icons[index])) do equal(inside(blocks[index], p), true, "small icon inside its content block") end
-                    equal(icons[index].w <= 44 * effective + 0.001, true, "icons capped at 44px instead of 72px")
+                    for _, p in ipairs(corners(icons[index])) do equal(inside(blocks[index], p), true, "larger icon inside its content block") end
+                    equal(icons[index].w <= 72 * effective + 0.001, true, "icons grow to 72px when space permits")
+                    if count <= 9 then equal(icons[index].w > 55 * effective, true, "normal wheel icons are visibly larger than the previous 44px cap") end
                 end
                 for _, item in ipairs(text) do
                     local owner

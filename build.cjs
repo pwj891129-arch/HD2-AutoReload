@@ -3,9 +3,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const optionModel = require('./arsenal-options.cjs');
+const wheelTexture = require('./tools/wheel-texture.cjs');
 
 const root = __dirname;
-const version = '0.3.42-test';
+const version = '0.3.43-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -109,6 +110,10 @@ for (const name of ['platform', 'reader', 'policy', 'radial']) {
   stratagemSource = stratagemSource.replace('-- @' + name.toUpperCase() + '@',
     () => readSource(path.join(stratagemRoot, name + '.lua')));
 }
+const glyphSource = wheelTexture.lua(hash64);
+stratagemSource = stratagemSource.replace('-- @GLYPHS@', () => 'Radial.Glyphs = (function()\n' + glyphSource + 'end)()');
+fs.mkdirSync(path.join(stratagemRoot, 'dist'), {recursive: true});
+fs.writeFileSync(path.join(stratagemRoot, 'dist', 'glyphs.generated.lua'), glyphSource);
 const labels = JSON.parse(readSource(path.join(root, 'assets/stratagem-names-ko.json')));
 assert.equal(labels.names.length, 149);
 const namesSource = 'return {\n' + labels.names.map(row => {
@@ -164,6 +169,7 @@ const coreFolder = path.join(stage, 'Core');
 fs.mkdirSync(coreFolder, {recursive: true});
 fs.writeFileSync(path.join(coreFolder, filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(coreFolder, filename + suffix), Buffer.alloc(0));
+wheelTexture.pack(coreFolder, hash64, archive);
 const texts = JSON.parse(readSource(path.join(root, 'arsenal-text.json')));
 const options = optionModel.definitions(filters);
 let optionIndex = 0;
@@ -198,6 +204,9 @@ for (const {id: name} of options) {
 fs.copyFileSync(path.join(root, 'assets', 'LUCIDE-LICENSE.txt'), path.join(stage, 'LUCIDE-LICENSE.txt'));
 fs.copyFileSync(path.join(root, 'GAME-ARTWORK.txt'), path.join(stage, 'GAME-ARTWORK.txt'));
 fs.copyFileSync(path.join(root, 'assets/native-option-icons.json'), path.join(stage, 'GAME-ICON-SOURCES.json'));
+fs.copyFileSync(path.join(root, 'assets/WHEEL-FONT-LICENSE.txt'), path.join(stage, 'WHEEL-FONT-LICENSE.txt'));
+const {glyphs, ...fontSource} = wheelTexture.metadata();
+fs.writeFileSync(path.join(stage, 'WHEEL-FONT-SOURCES.json'), JSON.stringify(fontSource, null, 2));
 const stages = {};
 for (const language of ['en', 'ko']) {
   const text = texts[language];

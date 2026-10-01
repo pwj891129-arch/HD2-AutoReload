@@ -1,30 +1,42 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.42-test
+# HD2 Helper Auto Reload + Stratagems 0.3.43-test
 
-## Korean Font Binding And Compact Wheel
+## Korean Raster Glyphs And Larger Icons
 
-0.3.42-test fixes Korean wheel names that were present in the logs but invisible
-on screen. The previous renderer selected a loaded Korean font with the stock
-`runtime_font` material, whose MSDF texture binding is empty. The new path binds
-each font's matching, already-loaded Korean atlas to `msdf_texture` on a separate
-GUI owned by this mod, using the game's `core_sans` material. Native font bearings
-are included in label placement. No game HUD material is modified and no font,
-atlas or UI binaries are redistributed. Missing resources or failed bindings use
-English labels. Logs report the font and atlas actually bound.
+The 0.3.42 native Korean font/atlas binding attempt still produced invisible names
+in the user's game. 0.3.43-test replaces that entire drawing path, not just the
+font choice. A mod-owned coverage texture contains 296 raster glyphs generated
+from Noto Sans CJK KR Regular (SIL Open Font License 1.1). Korean text is drawn as
+retained UV bitmaps using the same native mask material as the working icons.
+It no longer calls the game's font renderer, native font extents or MSDF shader,
+and does not depend on Korean game UI resources. English text keeps its existing
+debug-font renderer. Missing glyphs/resources or failed draws fall back to English;
+partial glyph draws are cleaned up. Only owned GUI material instances are changed.
 
-Icons are capped at 44px at 100% scale, down from 72px, and adapt further when
-many calls are shown. Icons, two-line names, readiness and original slot numbers
-fit in a conservative rectangle inside each polygonal sector. Long labels are
+Icons now grow to 72px at 100% scale where space permits, rather than being capped
+at 44px. A cached geometric search fits taller content blocks inside each actual
+polygonal sector, allowing larger icons without enlarging the wheel or overlapping
+names, status or slot numbers. Icons adapt for dense wheels/small screens. Long labels are
 balanced at spaces (or UTF-8 character boundaries), then fitted to the available
 width. The highlighted name stays in the center instead of below the wheel.
 Selection angles, slot mapping, command input, visibility and reload behavior
 are unchanged. English and Korean ZIPs retain the same option paths/defaults.
 
-Offline tests cover loaded-but-unbound font regression, correct atlas binding,
-native bearing placement, safe fallback and owned GUI cleanup. Layout tests check
-both languages, 1-16 calls, 320x240 through 3840x2160 and every 100-400% menu size
-for sector containment and icon/text overlaps. Installed atlas glyphs were rendered
-offline to verify both font/atlas pairs. Actual gameplay still needs verification;
-no installed mod, game process or game input was changed during testing.
+Core now includes a second patch with the mod-owned texture and its GPU payload.
+Every existing option still includes the same Core folder. Both language packages
+include WHEEL-FONT-LICENSE.txt and WHEEL-FONT-SOURCES.json; no original game fonts,
+textures or UI binaries are shipped. Font source SHA256:
+`6bcb2a0703aa137e874fc2dffa85f6c21ba9a67fa329e81b8c801663af7e992a`.
+The downloaded source OTF is build-only and is not included in releases. Normal
+builds use the checked-in mask PNG, glyph metrics and compressed native mipmaps.
+Regenerate them with `tools/wheel-glyphs.py` (Pillow) and `tools/wheel-texture.cjs`
+(Sharp); `tools/wheel-glyphs.test.cjs` verifies actual pixel coverage and deployment.
+
+Offline tests cover all 149 Korean names, exact DDS/GPU mipmap sizes, atlas binding,
+glyph bearing alignment, fallback/partial draw cleanup, 1-16 calls, 320x240 through
+3840x2160 and every 100-400% menu size. Actual Lua draw geometry and glyph UVs were
+exported and rendered offline together with native icons for visual verification.
+Logs distinguish `glyph-source`, `glyph-drawn` and `glyph-draw-failed`. Actual gameplay
+still needs verification; no installed mod, game process or game input was changed.
 
 ## Backpack Reserve And Korean Wheel Labels
 
@@ -47,13 +59,9 @@ kind and native definition name; mismatches use a generic Korean label. Commands
 readiness, visibility, icons and hotkey slot numbers are not localized or changed.
 The English ZIP keeps its previous English wheel labels.
 
-Korean text uses already-loaded native Korean fonts and their matching atlases,
-whose offline glyph tables cover every translated name. No font binaries or additional UI packages are
-redistributed or automatically loaded. If these fonts are unavailable, readable
-English labels are used and the reason is logged, instead of drawing missing
-glyph boxes. Korean in-game UI language is recommended for those font resources.
-Text extents fit the compact sector layout described above. Original game translations
-and fonts retain their original rights.
+The initial native-font path in 0.3.41 and the atlas-binding attempt in 0.3.42 have
+been replaced by the OFL bitmap path described above. Original game translations
+retain their original rights; the new glyph artwork carries its separate OFL notice.
 
 Offline tests cover the native backpack path, instance/authored compatibility,
 empty/insufficient ammo, dropped/stale/replaced packs, missing data, confirmation

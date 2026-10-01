@@ -140,5 +140,5 @@ async function main() {
   console.log(`Converted ${Object.values(icons).filter(icon => icon.source === 'game').length} native option previews; ` +
     `${Object.values(icons).filter(icon => icon.source === 'fallback').length} unassigned native icons retain explicit fallbacks`);
 }
-module.exports = {definitions, coloredMask, decode};
+module.exports = {definitions, textures, coloredMask, decode};
 if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1;});
