@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const optionModel = require('./arsenal-options.cjs');
 
 function checkMinimum(bytes) {
@@ -10,9 +11,10 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.36-test';
+const version = '0.3.37-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
+const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
 const coreIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared_other', 'scale', 'slow',
   'shared_all', 'mission_all', 'shared_mission_all'];
 const definitions = optionModel.definitions(filters);
@@ -76,7 +78,8 @@ function checkPackage(language) {
   for (let i = 0; i < optionIds.length; i++) {
     const option = manifest.Options[i], id = optionIds[i];
     const filter = filters.find(filter => filter.id === id);
-    const localized = filter ? {Name: filter[language], Description: text.FilterDescription} : text.Options[id];
+    const localized = filter ? {Name: filter[language], Description: text.FilterDescription + ' ' +
+      (nativeIcons.icons[id].source === 'game' ? text.NativeIconDescription : text.FallbackIconDescription)} : text.Options[id];
     assert.deepEqual(Object.keys(option).sort(), ['Description', 'Image', 'Name', 'SubOptions']);
     assert.equal(option.Name, localized.Name);
     assert.equal(option.Description, localized.Description);
@@ -85,6 +88,8 @@ function checkPackage(language) {
     const image = fs.readFileSync(path.join(stage, option.Image));
     assert(image.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')));
     assert.equal(image.readUInt32BE(16), 256); assert.equal(image.readUInt32BE(20), 256);
+    if (filter) assert.equal(crypto.createHash('sha256').update(image).digest('hex'),
+      nativeIcons.icons[id].pngSha256, 'Staged preview matches native/fallback provenance');
     assert.equal(option.SubOptions.length, definitions[i].values.length);
     for (const [index, variant] of option.SubOptions.entries()) {
       const value = definitions[i].values[index];
@@ -107,15 +112,14 @@ function checkPackage(language) {
   assert.deepEqual(fs.readdirSync(path.join(stage, 'OptionIcons')).sort(), optionIds.map(id => id + '.png').sort());
   assert(fs.readFileSync(path.join(stage, 'LUCIDE-LICENSE.txt')).equals(
     fs.readFileSync(path.join(__dirname, 'assets/LUCIDE-LICENSE.txt'))), 'Unmodified icon license ships');
-  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.35-test-${language}`);
+  assert(fs.readFileSync(path.join(stage, 'GAME-ARTWORK.txt')).equals(
+    fs.readFileSync(path.join(__dirname, 'GAME-ARTWORK.txt'))), 'Native artwork notice ships');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(stage, 'GAME-ICON-SOURCES.json'), 'utf8')), nativeIcons);
+  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.36-test-${language}`);
   if (fs.existsSync(path.join(previousStage, 'manifest.json'))) {
     const previous = JSON.parse(fs.readFileSync(path.join(previousStage, 'manifest.json'), 'utf8'));
-    assert.equal(previous.Options.length, 41);
+    assert.equal(previous.Options.length, 44);
     for (let i = 0; i < previous.Options.length; i++) {
-      if (optionIds[i] === 'scale') {
-        assert.equal(previous.Options[i].Image, 'OptionIcons/large.png', 'Size selector replaces only the former size control');
-        continue;
-      }
       for (const key of ['Name', 'Image', 'SubOptions']) {
         assert.deepEqual(manifest.Options[i][key], previous.Options[i][key],
           'Existing toggle positions, defaults, icons and Include paths remain unchanged');
@@ -144,6 +148,13 @@ function checkPackage(language) {
     assert.equal(bytes.readUInt32LE(offset), size - 8);
     const source = bytes.subarray(offset + 8, offset + size).toString('utf8');
     if (folder === 'Core') {
+      const previousCore = path.join(previousStage, 'Core', files[0]);
+      if (fs.existsSync(previousCore)) {
+        const previous = fs.readFileSync(previousCore);
+        const at = Number(previous.readBigUInt64LE(120)), length = previous.readUInt32LE(160);
+        assert.equal(source, previous.subarray(at + 8, at + length).toString('utf8').replaceAll('0.3.36-test', version),
+          'No runtime behavior changes beyond version strings');
+      }
       assert(source.startsWith('-- HD2-Addon: mods/hd2_helper/auto_reload\n'));
       assert(source.includes('sample.charge_limit = kind == "epoch" and full or over'));
       assert(source.includes('sample.charge_kind == "epoch" and 1 or 0.9'));
@@ -255,7 +266,7 @@ function packageFiles(folder, relative = '') {
   }).sort();
 }
 const files = packageFiles(english.stage);
-assert.equal(files.length, 8 + optionIds.length + variantCount * 3);
+assert.equal(files.length, 10 + optionIds.length + variantCount * 3);
 assert.deepEqual(files, packageFiles(korean.stage));
 for (const file of files.filter(file => file !== 'manifest.json')) {
   assert(fs.readFileSync(path.join(english.stage, file)).equals(fs.readFileSync(path.join(korean.stage, file))),

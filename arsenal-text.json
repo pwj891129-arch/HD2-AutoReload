@@ -1,6 +1,6 @@
 {
   "en": {
-    "Description": "Requires Bingus Shared Loader v18 / API 1. Combined automatic reload, default-on Railgun danger 90% / Epoch full-charge 100% left-mouse release, and native-icon stratagem radial/hotkeys with Hold and Toggle bindings. Stratagem input blocks reload and charge release in the same frame. Read-only held-object reader at 50 ms intervals. Configure options in Arsenal, then Purge / Deploy and restart. No external companion mod or game assets included. Live testing required. English option labels; install only one language package.",
+    "Description": "Requires Bingus Shared Loader v18 / API 1. Combined automatic reload, default-on Railgun danger 90% / Epoch full-charge 100% left-mouse release, and native-icon stratagem radial/hotkeys with Hold and Toggle bindings. Stratagem input blocks reload and charge release in the same frame. Read-only held-object reader at 50 ms intervals. Configure options in Arsenal, then Purge / Deploy and restart. No external companion mod. Native icon PNGs are included only as Arsenal previews; unassigned icons retain documented fallbacks. Live testing required. English option labels; install only one language package.",
     "Default": "Default",
     "Enabled": "Enabled",
     "Disabled": "Disabled",
@@ -8,6 +8,8 @@
     "Individual": "Individual Settings",
     "IndividualDescription": "Use saved individual choices, or group choices when this is the combined control. Does not erase any ON/OFF selection.",
     "ScaleDescription": "Menu size: {percent}%. Automatically limited to fit the screen without clipping.",
+    "NativeIconDescription": "Preview uses the native in-game icon and palette. A toggle with several native variants uses a representative icon; different calls may share the same game artwork.",
+    "FallbackIconDescription": "No icon is assigned in the captured game definition. The existing fallback symbol is retained rather than substituting another call's artwork.",
     "Options": {
       "enabled": {
         "Name": "Automatic Reload",
@@ -52,7 +54,7 @@
     }
   },
   "ko": {
-    "Description": "Bingus Shared Loader v18 / API 1이 필요합니다. 자동재장전, 기본 ON인 레일건 위험 게이지 90%·에포크 발사 충전 100% 좌클릭 해제, 게임 아이콘을 사용하는 스트라타젬 원형 메뉴·핫키를 통합했습니다. 스트라타젬의 Hold와 토글 설정을 지원하며 입력 중에는 같은 프레임의 자동재장전과 충전 자동발사를 차단합니다. 현재 손에 든 무기를 50ms 간격으로 읽기 전용 판독합니다. Arsenal에서 옵션을 설정한 뒤 Purge / Deploy하고 게임을 재시작하세요. 별도 연동 모드나 게임 이미지·재질을 포함하지 않습니다. 실제 게임 테스트가 필요합니다. 한국어 옵션 표시 패키지이며 언어 패키지는 하나만 설치하세요.",
+    "Description": "Bingus Shared Loader v18 / API 1이 필요합니다. 자동재장전, 기본 ON인 레일건 위험 게이지 90%·에포크 발사 충전 100% 좌클릭 해제, 게임 아이콘을 사용하는 스트라타젬 원형 메뉴·핫키를 통합했습니다. 스트라타젬의 Hold와 토글 설정을 지원하며 입력 중에는 같은 프레임의 자동재장전과 충전 자동발사를 차단합니다. 현재 손에 든 무기를 50ms 간격으로 읽기 전용 판독합니다. Arsenal에서 옵션을 설정한 뒤 Purge / Deploy하고 게임을 재시작하세요. 별도 연동 모드는 필요 없으며 원본이 있는 항목의 게임 아이콘 PNG는 Arsenal 미리보기용으로만 포함합니다. 아이콘이 없는 항목은 설명과 함께 대체 심볼을 유지합니다. 실제 게임 테스트가 필요합니다. 한국어 옵션 표시 패키지이며 언어 패키지는 하나만 설치하세요.",
     "Default": "기본",
     "Enabled": "활성화",
     "Disabled": "비활성화",
@@ -60,6 +62,8 @@
     "Individual": "개별 설정 사용",
     "IndividualDescription": "저장된 개별 선택값을 적용합니다. 공용·임무 전체 옵션에서는 각 그룹의 설정부터 적용하며 기존 ON/OFF 선택값을 지우지 않습니다.",
     "ScaleDescription": "메뉴 크기 {percent}%. 화면 밖으로 잘리지 않도록 화면에 맞는 최대 크기로 제한합니다.",
+    "NativeIconDescription": "게임 원본 아이콘과 색상을 사용합니다. 여러 변형을 포함하는 토글은 대표 아이콘을 사용하며, 게임에서 같은 그림을 쓰는 항목은 옵션에서도 같은 그림을 표시합니다.",
+    "FallbackIconDescription": "확인한 게임 정의에 원본 아이콘이 지정되어 있지 않습니다. 다른 항목의 그림으로 오인하지 않도록 기존 대체 심볼을 유지합니다.",
     "Options": {
       "enabled": {
         "Name": "자동재장전",

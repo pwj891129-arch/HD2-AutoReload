@@ -23,7 +23,8 @@ Sources and offline tests are included under stratagem/; the combined build is
 self-contained and does not require that separate repository or addon.
 Integration changes defaults and explicit OFF handling, and adds independent
 startup and same-frame reload/charge coordination. Existing icon and mouse
-release fixes are retained. Game assets and captured references are not included.
+release fixes are retained. Original game binaries and captured references are
+not included. Arsenal-only game-derived PNG previews are described separately below.
 
 Native rendering/mouse/input API references (facts only; no third-party code copied):
 https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/lua_ref/obj_stingray_Gui.html
@@ -33,11 +34,29 @@ https://help.autodesk.com/cloudhelp/KOR/Stingray-Help/lua_ref/ns_stingray_Mouse.
 https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
 Local pinned native query and tile code were independently checked read-only.
 Atlas links, resource hashes, palette vectors and layouts are factual references,
-not copied game code/assets. No native game function is invoked by this addon.
+not copied game code. No native game function is invoked by this addon.
 
 Arsenal option preview images: Lucide 0.544.0 / Lucide Contributors and
 Feather / Cole Bemis. https://github.com/lucide-icons/lucide/tree/0.544.0
-The selected vector subset and generated 41 PNG previews are licensed under
+The selected vector subset and remaining functional/fallback PNG symbols are licensed under
 ISC and MIT (Feather-derived portions). The original full notice is included
 unchanged as LUCIDE-LICENSE.txt. Styling and rasterization are by HD2 Helper.
-These UI-only symbols are not game artwork and are not deployed Lua resources.
+These library symbols are not game artwork and are not deployed Lua resources.
+
+Arsenal native stratagem previews: 23 individual option PNGs are converted from
+the locally installed HELLDIVERS 2 UI textures with native definition palettes.
+11 unassigned mission icons retain Lucide fallback symbols. Source identities
+and digests are recorded in GAME-ICON-SOURCES.json; see GAME-ARTWORK.txt for the
+separate artwork notice. Game artwork is not covered by the library licenses.
+Only PNG previews are bundled, not original DDS/shader/material binaries.
+These images are not in game-deployed patch Include folders. Rendering and
+option state logic are unchanged.
+
+Offline texture-container facts were checked against the local HD2SDK texture
+serializer and FileDiver's primary source (no third-party decoder code copied):
+https://github.com/xypwn/filediver/blob/master/stingray/unit/texture/texture.go
+https://github.com/xypwn/filediver/blob/master/extractor/texture/extractor.go
+The extraction utility reuses the existing read-only archive helpers from the
+sibling HD2-Stratagem-Hotkeys source repository and Pillow's maintained DDS
+decoder. Those tools/dependencies are only needed to regenerate previews, not
+to build the committed assets or run the mod.

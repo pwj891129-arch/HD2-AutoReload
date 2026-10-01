@@ -1,0 +1,21 @@
+Arsenal option preview artwork from HELLDIVERS 2
+
+23 individual stratagem previews use native UI texture masks with the game's
+per-definition palette. Only 256x256 PNG option previews are distributed, not
+original DDS textures, materials, shaders, GUI binaries or memory captures.
+The previews are manifest images for Arsenal; they are not included in the
+patch folders deployed to the game. The in-game radial rendering is unchanged.
+
+11 mission types have no icon assigned in the pinned native definitions. Their
+existing Lucide fallback symbols are retained rather than misidentifying them
+with another stratagem's artwork. Functional settings also retain Lucide icons.
+Multiple mission types can legitimately share the same native artwork. A toggle
+that covers several native variants uses the first variant with an assigned icon.
+
+GAME-ICON-SOURCES.json records the native kind, texture hash, palette, source
+dimensions, DDS digest and PNG digest for each preview. The capture digests in
+that record are provenance only; no capture or original texture is bundled.
+
+Game-derived artwork retains its original rights and is not relicensed under
+the addon or Lucide/Feather licenses. The unchanged Lucide/Feather notice is
+included separately as LUCIDE-LICENSE.txt for the remaining library symbols.

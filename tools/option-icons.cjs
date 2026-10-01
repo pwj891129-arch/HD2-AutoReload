@@ -79,11 +79,14 @@ async function main() {
   assert.equal(source.source, 'Lucide 0.544.0');
   assert.deepEqual(Object.keys(source.icons), Object.keys(symbols));
   fs.mkdirSync(output, {recursive: true});
+  const nativeFile = path.join(root, 'assets', 'native-option-icons.json');
+  const native = fs.existsSync(nativeFile) ? JSON.parse(fs.readFileSync(nativeFile, 'utf8')).icons : {};
   const rows = [];
   for (const [id, icon] of Object.entries(source.icons)) {
     assert.equal(icon.symbol, symbols[id]);
-    const image = Buffer.from(svg(id, icon.nodes));
-    await sharp(image).png({compressionLevel: 9}).toFile(path.join(output, id + '.png'));
+    const image = native[id]?.source === 'game' ? fs.readFileSync(path.join(output, id + '.png')) :
+      Buffer.from(svg(id, icon.nodes));
+    if (native[id]?.source !== 'game') await sharp(image).png({compressionLevel: 9}).toFile(path.join(output, id + '.png'));
     const index = rows.length;
     rows.push({input: await sharp(image).resize(96, 96).png().toBuffer(),
       left: (index % 8) * 104 + 4, top: Math.floor(index / 8) * 104 + 4});
@@ -92,6 +95,6 @@ async function main() {
   await sharp({create: {width: 832, height: Math.ceil(rows.length / 8) * 104,
     channels: 4, background: '#151515'}}).composite(rows).png()
     .toFile(path.join(root, 'dist', 'option-icons-contact.png'));
-  console.log(`Rendered ${rows.length} Arsenal-only PNG previews`);
+  console.log(`Checked ${rows.length} Arsenal-only PNG previews; assigned native icons preserved`);
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});

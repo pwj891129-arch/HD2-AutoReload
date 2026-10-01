@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const optionModel = require('./arsenal-options.cjs');
 
 const root = __dirname;
-const version = '0.3.36-test';
+const version = '0.3.37-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -176,23 +176,30 @@ const optionManifest = options.map(({id: name, values, prefix}) => ({
   })
 }));
 const previewFolder = path.join(stage, 'OptionIcons');
+const nativeIcons = JSON.parse(readSource(path.join(root, 'assets/native-option-icons.json')));
 fs.mkdirSync(previewFolder, {recursive: true});
 for (const {id: name} of options) {
-  fs.copyFileSync(path.join(root, 'assets', 'option-icons', name + '.png'), path.join(previewFolder, name + '.png'));
+  const image = path.join(root, 'assets', 'option-icons', name + '.png');
+  if (nativeIcons.icons[name]) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(image)).digest('hex'),
+    nativeIcons.icons[name].pngSha256, `Option preview source mismatch: ${name}`);
+  fs.copyFileSync(image, path.join(previewFolder, name + '.png'));
 }
 fs.copyFileSync(path.join(root, 'assets', 'LUCIDE-LICENSE.txt'), path.join(stage, 'LUCIDE-LICENSE.txt'));
+fs.copyFileSync(path.join(root, 'GAME-ARTWORK.txt'), path.join(stage, 'GAME-ARTWORK.txt'));
+fs.copyFileSync(path.join(root, 'assets/native-option-icons.json'), path.join(stage, 'GAME-ICON-SOURCES.json'));
 const stages = {};
 for (const language of ['en', 'ko']) {
   const text = texts[language];
   for (const key of ['Description', 'Default', 'Enabled', 'Disabled', 'FilterDescription',
-    'Individual', 'IndividualDescription', 'ScaleDescription']) {
+    'Individual', 'IndividualDescription', 'ScaleDescription', 'NativeIconDescription', 'FallbackIconDescription']) {
     assert(typeof text[key] === 'string' && text[key].trim(), `Missing ${language} text: ${key}`);
   }
   stages[language] = path.join(root, 'dist', `HD2-AutoReload-${version}-${language}`);
   if (language !== 'en') fs.cpSync(stage, stages[language], {recursive: true});
   const localizedOptions = {...text.Options};
   for (const filter of filters) localizedOptions[filter.id] = {
-    Name: filter[language], Description: text.FilterDescription
+    Name: filter[language], Description: text.FilterDescription + ' ' +
+      (nativeIcons.icons[filter.id].source === 'game' ? text.NativeIconDescription : text.FallbackIconDescription)
   };
   fs.writeFileSync(path.join(stages[language], 'manifest.json'), JSON.stringify({
     Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload + Stratagems ${version}`,

@@ -2,10 +2,10 @@ param(
     [Parameter(Mandatory)][string[]]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.36-test'
+    [string]$Tag = 'auto-reload-0.3.37-test'
 )
 $ErrorActionPreference = 'Stop'
-$expectedNames = @('HD2-AutoReload-0.3.36-test-en.zip', 'HD2-AutoReload-0.3.36-test-ko.zip')
+$expectedNames = @('HD2-AutoReload-0.3.37-test-en.zip', 'HD2-AutoReload-0.3.37-test-ko.zip')
 $assets = @($AssetPath | ForEach-Object {
     $resolved = (Resolve-Path -LiteralPath $_).Path
     [ordered]@{
@@ -32,17 +32,16 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.36-test
+## HD2 Auto Reload + Stratagems 0.3.37-test
 
-공용·임무 스트라타젬 전체 표시 제어와 원형 메뉴 크기 선택을 추가했습니다.
+Arsenal 옵션의 스트라타젬 미리보기를 게임 원본 아이콘으로 교체했습니다.
 
-- 공용 스트라타젬 전체 ON/OFF 옵션을 추가했습니다. 증원·SOS·보급과 이글 재무장 등 기타 공용 항목을 한 번에 표시하거나 숨깁니다.
-- 임무 스트라타젬 전체 ON/OFF 옵션을 추가했습니다. 현재 임무에 존재하는 등록된 임무 항목을 한 번에 표시하거나 숨깁니다.
-- 공용·임무 스트라타젬 전체 ON/OFF 옵션을 추가했습니다. 두 그룹을 동시에 표시하거나 숨길 수 있습니다.
-- 각 전체 옵션은 ‘개별 설정 사용(기본) / ON / OFF’를 제공합니다. 적용 우선순위는 ‘공용·임무 전체 > 해당 그룹 전체 > 개별 항목’입니다. 개별 선택값은 지우지 않으며 전체 옵션을 ‘개별 설정 사용’으로 돌리면 기존 선택값이 다시 적용됩니다. 개인 슬롯 1~4와 핫키 번호는 변경하지 않습니다.
-- 원형 메뉴 크기를 100%(기본), 150%, 200%, 300%, 400% 중 선택할 수 있습니다. 아이콘·문구·선택 범위가 함께 조절되며 큰 배율은 화면 밖으로 잘리지 않도록 화면에 맞춰 제한합니다. 기존 130% 옵션은 교체되므로 크기 선택을 확인하세요.
-- 기존 개별 토글의 위치·기본값·아이콘·배포 경로는 유지하고, 전체 옵션은 목록 마지막에 아이콘과 함께 추가했습니다. 자동재장전·레일건 90%·에포크 100% 자동발사 및 Hold/토글 입력 동작은 유지합니다.
-- 영어판 `HD2-AutoReload-0.3.36-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.36-test-ko.zip` 중 하나만 설치하세요.
+- 증원·SOS·보급·헬밤·깃발·SEAF 포격 등 원본 아이콘이 지정된 개별 항목 23개를 실제 게임의 텍스처와 색상값으로 변환했습니다. 아이콘을 새로 그리지 않고 원본 도형을 사용합니다.
+- 게임에서 같은 그림을 쓰는 임무들은 옵션에서도 같은 그림을 표시합니다. 하나의 토글에 여러 변형이 있으면 원본이 있는 대표 항목의 아이콘을 사용합니다.
+- 탈출 신호기·교란 장치·원격 폭발물·긴급 탈출·융단 폭격·교란기·즉시 탈출·SEAF 분대·첨탑 살균 장치·발굴 폭약·핵폭탄 등 11개 임무 항목은 확인한 게임 정의에 아이콘이 지정되어 있지 않아 기존 대체 심볼을 유지합니다. 양 언어판 설명에 이 제한을 표시했습니다.
+- 전체 ON/OFF·메뉴 크기 등 기능 설정 10개의 공통 아이콘은 유지합니다. 옵션 이름·순서·기본값·배포 경로와 개별 설정값은 변경하지 않았습니다.
+- 게임 아이콘 PNG는 Arsenal 미리보기 전용이며 게임에 배포되는 패치 폴더에는 넣지 않습니다. 원형 메뉴의 게임 아이콘 표시와 자동재장전·충전 자동발사·Hold/토글 입력 동작은 변경하지 않았습니다.
+- 영어판 `HD2-AutoReload-0.3.37-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.37-test-ko.zip` 중 하나만 설치하세요.
 
 ### 설치
 
@@ -54,21 +53,21 @@ $notes = @'
 
 ### English
 
-Adds Shared: All, Mission: All and Shared + Mission: All visibility controls, each with Individual Settings (default), ON and OFF. Combined takes priority over group controls, then individual choices. Overrides do not erase saved individual selections. Personal slots 1-4 and their number shortcuts are unchanged; unavailable calls are not invented.
+Replaces 23 individual Arsenal previews with the game's native UI texture masks and definition palettes, including Reinforce, SOS, Resupply, Hellbomb, flag and SEAF artillery. Native duplicate artwork is intentionally preserved. Multi-variant toggles use a representative assigned icon.
 
-Replaces the old 100%/130% menu toggle with 100%, 150%, 200%, 300% and 400%. Geometry, icons, labels and selection use one effective scale, limited to fit the screen. Review the size choice after replacing the old package. Existing individual toggle positions, default variants, icons and Include paths are preserved; bulk controls are appended with distinct previews. Reload, charge release and Hold/Toggle input behavior are unchanged.
+11 mission definitions have no assigned icon and retain documented Lucide fallback symbols; the 10 functional settings retain their existing symbols. PNGs are Arsenal-only manifest previews, never in deployed patch folders. Original DDS/shader/material binaries and captures are not bundled. GAME-ICON-SOURCES.json records provenance, and GAME-ARTWORK.txt distinguishes game artwork from the library license. Names, order, defaults, paths, sizes, bulk visibility and runtime behavior are unchanged.
 
 Install **one** ZIP: `-en.zip` for English Arsenal options, or `-ko.zip` for Korean. Replace the previous version, review selections, then Purge / Deploy and restart with Bingus Shared Loader v18 / API 1. At least one setting must be selected.
 
 ### 검증
 
-30,010개 LuaJIT 모의 검사와 언어판별 10,761가지 배포 시나리오를 통과했습니다. 전체 옵션 3개의 모든 생략·개별·ON·OFF 조합과 개별 값 복원, 비정상 옵션 차단을 검사했습니다. 320x240부터 3840x2160까지 100가지 해상도·항목 수·배율 조합의 도형·아이콘·문구 경계와 선택 범위를 검사했고, 44개 옵션 아이콘 및 두 언어판의 동일 본체를 확인했습니다. 실제 Arsenal UI 및 게임 테스트는 추가 확인이 필요하며 설치된 모드·게임 상태는 변경하지 않았습니다.
+30,010개 LuaJIT 모의 검사와 언어판별 10,761가지 배포 시나리오를 통과했습니다. 44개 미리보기의 이미지 경계·불투명 배경·축소 가시성, 34개 항목의 게임 종류·텍스처·색상값 대응과 PNG 해시를 확인했습니다. 이전 버전과의 본체 비교로 버전 문자열 외에 실행 로직 변경이 없음을 확인했습니다. 실제 Arsenal UI 표시 및 게임 테스트는 추가 확인이 필요하며 설치된 모드·게임 상태는 변경하지 않았습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.36-test (Bulk visibility and menu sizes)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.37-test (Native Arsenal stratagem icons)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

@@ -1,4 +1,34 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.36-test
+# HD2 Helper Auto Reload + Stratagems 0.3.37-test
+
+## Native Arsenal Stratagem Previews
+
+0.3.37-test replaces 23 individual Arsenal option previews with the actual
+Helldivers 2 UI texture masks and per-definition palette colors. Reinforce,
+SOS, Resupply, Hellbomb, flag, SEAF artillery and other assigned native icons
+are converted to 256x256 PNG previews with a dark contrast plate. The shape,
+orientation and native color selection come from the game, not a redrawn symbol.
+Native duplicate artwork is preserved: several mission calls share the same
+game icon. Multi-variant toggles use their first variant with an assigned icon.
+
+11 mission toggles have no icon assigned in the captured native definitions:
+Extraction Beacon, Jammed Pinata, Remote Explosives, Emergency Extraction,
+Carpet Bombing, Scrambler, Immediate Extraction, SEAF Squad, Spire Sterilizer,
+Drilling Charge and Nuke. They retain their existing explicit Lucide fallback,
+not another call's artwork. Their descriptions explain that limitation in both
+languages. The 10 functional settings also keep their existing library symbols.
+
+Previews are manifest-only Arsenal images, never in deployed patch Include
+folders. GAME-ICON-SOURCES.json records native kind/texture/palette identities
+and DDS/PNG digests. GAME-ARTWORK.txt distinguishes game artwork from the
+remaining Lucide/Feather symbols; the library license does not relicense game
+artwork. Original DDS, material/shader binaries and memory captures are not
+bundled. The in-game wheel already uses loaded native icons and is unchanged.
+
+Option names, order, paths, defaults, bulk-control precedence, menu sizes and
+all reload/charge/input behavior remain unchanged. Package regression compares
+the previous core after replacing only version strings. Assets were checked
+against 34 native definition mappings and as 32px thumbnails; real Arsenal
+display still needs confirmation. Building/publishing does not install patches.
 
 ## Bulk Visibility And Menu Sizes
 
@@ -114,8 +144,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.36-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.36-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.37-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.37-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
@@ -223,8 +253,9 @@ Selected commands wait for native release before reacquiring List. A held
 physical button and other foreground applications do not receive repair input.
 Neither a normal left/right mouse press nor automatic throwing is sent.
 
-The package does not redistribute game images, shaders, materials or GUI
-binaries, or modify another mod's HUD instances. Labels retain internal English
+The wheel does not redistribute original texture, shader, material or GUI
+binaries, or modify another mod's HUD instances. The package's game-derived PNG
+previews are Arsenal-only and documented separately. Labels retain internal English
 development names. The existing icon fix still needs gameplay confirmation.
 
 ## Reload Behavior
@@ -339,8 +370,12 @@ shared/personal membership reads have regression coverage. The pinned native
 catalog checks all mission kinds when local reference captures are available.
 Manifest checks also confirm that every parent/variant choice has a valid PNG
 reference and that existing individual toggle positions/defaults/paths are
-unchanged when the previous local package is available. Separate image checks verify 44 unique glyphs, 256x256
+unchanged when the previous local package is available. Separate image checks verify 44 previews, 256x256
 dimensions, nonblank pixels, full opacity and 32px thumbnail brightness.
+23 use native artwork, 11 are documented fallbacks and 10 are functional
+settings. Duplicate PNGs are allowed only for the same native texture and
+palette. PNG digests, native kind mappings, color-mask channel conversion and
+unassigned native references are checked. There are 36 distinct previews.
 Bulk tests cover all three controls in omitted/individual/ON/OFF states, mixed
 individual choices, restoration, query/load failure and invalid values. Size
 tests check 100 viewport/count/scale combinations from 320x240 to 3840x2160:
@@ -354,15 +389,25 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.36-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.36-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.36-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.36-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.37-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.37-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.37-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.37-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.
-To regenerate from the committed Lucide vector subset, install Sharp for Node
+To regenerate the functional/fallback Lucide symbols, install Sharp for Node
 and run `node tools/option-icons.cjs`, then `node tools/option-icons.test.cjs`.
+The script preserves assigned native PNGs and includes them in the contact sheet.
 The optional `--import <Arsenal app.asar>` refresh path requires the pinned
 Lucide 0.544.0 bundle and does not modify Arsenal or installed game patches.
+
+Native preview regeneration additionally requires the sibling
+`BingusStratagemHotkeys/tools` read-only archive helpers, its pinned local
+`scratch/game-module.bin` and `scratch/stratagem-settings.bin` captures, the
+matching installed game bundles/DLL, Sharp and a Python executable with Pillow.
+Run `node tools/native-option-icons.cjs '<Python executable>'`, then the two
+option-icons scripts above. Pillow decodes DDS from stdin in a hidden child
+process; no game process is accessed and no installed resource is written.
+Only committed PNGs/provenance are needed for a normal build or release.
 
 Credited HD2 HUD+ 0.1.2 reader sources and original reuse permission are in
 `vendor/` and THIRD_PARTY.txt. Only non-rendering identity support is used at
