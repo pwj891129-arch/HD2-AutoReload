@@ -1,0 +1,74 @@
+{
+  "en": {
+    "Description": "Requires Bingus Shared Loader v18 / API 1. Combined automatic reload, default-on Railgun / Epoch left-mouse release at 90%, and native-icon stratagem radial/hotkeys. Stratagem input blocks reload and charge release in the same frame. Read-only held-object reader at 50 ms intervals. Configure options in Arsenal, then Purge / Deploy and restart. No external companion mod or game assets included. Live testing required. English option labels; install only one language package.",
+    "Default": "Default",
+    "Enabled": "Enabled",
+    "Disabled": "Disabled",
+    "Options": {
+      "enabled": {
+        "Name": "Automatic Reload",
+        "Description": "Default ON. Reloads after magazine exhaustion or complete overheat. Select OFF to disable. An omitted setting also defaults to ON when the core is deployed. Independent of charge release."
+      },
+      "charge90": {
+        "Name": "Railgun / Epoch 90% Charge Release",
+        "Description": "Default ON, including when this setting is omitted. Releases left mouse once at or above 90% of the full danger gauge. Fire must be bound to left mouse. Aiming and the next charge remain manual. Select OFF to disable."
+      },
+      "radial": {
+        "Name": "Stratagem Radial Menu",
+        "Description": "Default ON. Hold the game-configured Stratagem List button, move toward a sector, then release to enter only the command. Supports keyboard and mouse thumb Hold bindings. Aim and throw manually."
+      },
+      "hotkeys": {
+        "Name": "Stratagem Number Hotkeys",
+        "Description": "Default ON. Hold the game-configured Stratagem List button and press number-row 1-4 to enter a personal slot command. Matches the slot numbers shown in the radial. Numpad keys are separate."
+      },
+      "shared": {
+        "Name": "Shared / Mission Stratagems",
+        "Description": "Default OFF. ON includes shared and mission stratagems in the radial menu. Personal slot numbers 1-4 are unchanged."
+      },
+      "large": {
+        "Name": "Large Radial Menu",
+        "Description": "Default OFF (100%). ON displays the radial menu at 130% size."
+      },
+      "slow": {
+        "Name": "30 ms Command Input",
+        "Description": "Default OFF (15 ms). ON uses at least 30 ms for each press and release. The next key is sent only after the game observes the previous direction input."
+      }
+    }
+  },
+  "ko": {
+    "Description": "Bingus Shared Loader v18 / API 1이 필요합니다. 자동재장전, 기본 ON인 레일건·에포크 위험 게이지 90% 좌클릭 해제, 게임 아이콘을 사용하는 스트라타젬 원형 메뉴·핫키를 통합했습니다. 스트라타젬 입력 중에는 같은 프레임의 자동재장전과 충전 자동발사를 차단합니다. 현재 손에 든 무기를 50ms 간격으로 읽기 전용 판독합니다. Arsenal에서 옵션을 설정한 뒤 Purge / Deploy하고 게임을 재시작하세요. 별도 연동 모드나 게임 이미지·재질을 포함하지 않습니다. 실제 게임 테스트가 필요합니다. 한국어 옵션 표시 패키지이며 언어 패키지는 하나만 설치하세요.",
+    "Default": "기본",
+    "Enabled": "활성화",
+    "Disabled": "비활성화",
+    "Options": {
+      "enabled": {
+        "Name": "자동재장전",
+        "Description": "기본 ON. 실탄 소진과 완전 과열 시 자동재장전합니다. 끄려면 OFF를 선택하세요. 본체가 배포된 상태에서는 이 옵션을 선택하지 않아도 기본 ON이며, 충전 자동발사와 독립적입니다."
+      },
+      "charge90": {
+        "Name": "레일건·에포크 90% 충전 자동발사",
+        "Description": "기본 ON. 옵션을 선택하지 않아도 전체 위험 게이지 90% 이상에서 좌클릭을 한 번 해제합니다. 발사키는 좌클릭이어야 하며, 조준과 다음 충전은 수동입니다. 끄려면 OFF를 선택하세요."
+      },
+      "radial": {
+        "Name": "스트라타젬 원형 오버레이",
+        "Description": "기본 ON. 게임에 설정한 스트라타젬 목록 열기 버튼을 누르고 마우스로 선택한 뒤 놓으면 커맨드만 입력합니다. 키보드와 마우스 엄지버튼의 Hold 설정을 지원하며 조준·투척은 수동입니다."
+      },
+      "hotkeys": {
+        "Name": "스트라타젬 숫자 핫키",
+        "Description": "기본 ON. 게임의 목록 열기 버튼 + 숫자열 1~4로 개인 장착 슬롯의 커맨드를 입력합니다. 원형 메뉴에 표시한 슬롯 번호와 일치하며 숫자패드는 별개입니다."
+      },
+      "shared": {
+        "Name": "공용/임무 스트라타젬 표시",
+        "Description": "기본 OFF. ON이면 공용·임무 스트라타젬도 원형 메뉴에 표시합니다. 개인 슬롯 1~4 번호는 유지합니다."
+      },
+      "large": {
+        "Name": "큰 원형 메뉴",
+        "Description": "기본 OFF(100%). ON이면 원형 메뉴 크기를 130%로 표시합니다."
+      },
+      "slow": {
+        "Name": "커맨드 입력: 30ms",
+        "Description": "기본 OFF(15ms). ON이면 누르기·떼기를 최소 30ms로 합니다. 게임이 방향 입력을 감지한 뒤 다음 키를 전송합니다."
+      }
+    }
+  }
+}

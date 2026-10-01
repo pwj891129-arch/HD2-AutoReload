@@ -1,4 +1,25 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.30-test
+# HD2 Helper Auto Reload + Stratagems 0.3.31-test
+
+## Language Packages
+
+Release assets are provided separately:
+
+- `HD2-AutoReload-0.3.31-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.31-test-ko.zip`: Korean Arsenal option names and descriptions.
+
+Install only one ZIP. Both share the same mod GUID, option order, default values,
+include paths and byte-identical game payload. Only manifest display text differs.
+Changing package language replaces the same mod, not an additional addon. Review
+ON/OFF choices after replacement, then Purge / Deploy and restart the game.
+
+Arsenal 0.36.2 displays mod-provided names and descriptions literally; its UI
+language packs do not translate these fields. There is no OS-language detection
+script or automatic language switch in this release. Choose the ZIP yourself.
+The in-game radial labels and runtime logs are unchanged.
+
+한국어로 옵션을 표시하려면 `-ko.zip` 파일만 설치하세요. 영어판은 `-en.zip`입니다.
+두 언어판을 동시에 설치하지 마세요. 언어판 교체 후 ON/OFF 설정을 확인하고
+Purge / Deploy 및 게임 재시작을 진행하세요. OS 언어 자동 감지 파일은 포함하지 않습니다.
 
 ## Combined Mod
 
@@ -42,15 +63,15 @@ Normal reload/error logs remain available.
 Feature settings are configured only in Arsenal. No in-game MODS menu is
 registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 
-- `자동재장전`: `ON (기본)` or `OFF`. An unselected option also means ON.
+- `Automatic Reload` / `자동재장전`: `ON (Default)` / `ON (기본)` or `OFF`. An unselected option also means ON.
   Covers both magazine exhaustion and complete overheat.
-- `레일건·에포크 90% 충전 자동발사`: `ON (기본)` or `OFF`.
+- `Railgun / Epoch 90% Charge Release` / `레일건·에포크 90% 충전 자동발사`: ON by default or OFF.
   An unselected option means ON. Independent of automatic reload.
-- `스트라타젬 원형 오버레이`: ON by default; OFF disables the radial only.
-- `스트라타젬 숫자 핫키`: ON by default; OFF disables number shortcuts only.
-- `공용/임무 스트라타젬 표시`: OFF by default; ON includes shared/mission calls.
-- `큰 원형 메뉴`: OFF (100%) by default; ON uses 130%.
-- `커맨드 입력: 30ms`: OFF (15 ms) by default; ON uses at least 30 ms per edge.
+- `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: ON by default; OFF disables the radial only.
+- `Stratagem Number Hotkeys` / `스트라타젬 숫자 핫키`: ON by default; OFF disables number shortcuts only.
+- `Shared / Mission Stratagems` / `공용/임무 스트라타젬 표시`: OFF by default; ON includes shared/mission calls.
+- `Large Radial Menu` / `큰 원형 메뉴`: OFF (100%) by default; ON uses 130%.
+- `30 ms Command Input` / `커맨드 입력: 30ms`: OFF (15 ms) by default; ON uses at least 30 ms per edge.
 
 Each option's ON/OFF variants are mutually exclusive. Review the choices after
 importing, especially if Arsenal automatically enables new options. Close the
@@ -149,7 +170,7 @@ and its [resource hash names](https://github.com/xypwn/filediver/blob/master/has
 ## Compatibility And Installation
 
 1. Close the game before deploying.
-2. Import the release ZIP into Arsenal and replace the previous version.
+2. Import one language ZIP into Arsenal and replace the previous version.
 3. Enable this addon and Bingus Shared Loader v18 / API 1.
 4. Select the desired ON/OFF variants (at least one), ensure radial is ON, then Purge / Deploy and restart.
 5. Disable/remove separate Stratagem Hotkeys and other automatic-reload implementations to prevent double input.
@@ -188,7 +209,9 @@ and research hotkeys have been removed.
 Requires Node.js, PowerShell and the game's `bin/lua51.dll`. Tests use mocked
 game/input APIs in a separate LuaJIT process, never attach to the game or send
 actual inputs. Package checks enforce the HD2SDK minimum of 256 bytes per
-single-resource archive and all 2,187 valid Arsenal setting combinations.
+single-resource archive and all 2,187 valid Arsenal setting combinations per language.
+They also verify localized text, identical option structure and byte-identical
+game payloads across the English and Korean packages.
 Tests cover both feature runtimes, shared-VM input declarations, callback order,
 default/explicit settings, initialization isolation and input blocking/resumption.
 These are offline mocks; actual combined gameplay and Arsenal UI remain unverified.
@@ -197,7 +220,8 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.30-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.30-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.31-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.31-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.31-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.31-test-ko.zip'
 ```
 
 Credited HD2 HUD+ 0.1.2 reader sources and original reuse permission are in

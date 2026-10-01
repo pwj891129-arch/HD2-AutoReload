@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.30-test';
+const version = '0.3.31-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -99,7 +99,7 @@ const source = readSource(path.join(root, 'combined.lua'))
 assert.equal(source.split('\n')[0], `-- HD2-Addon: ${resource}`);
 assert(!source.includes('00-boot-state') && !source.includes('90-main'), 'HUD test reference must not ship');
 assert(!source.includes('-- @'), 'Combined source has unresolved includes');
-const stage = path.join(root, 'dist', `HD2-AutoReload-${version}`);
+const stage = path.join(root, 'dist', `HD2-AutoReload-${version}-en`);
 fs.mkdirSync(stage, { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'auto_reload.generated.lua'), autoSource);
 fs.writeFileSync(path.join(root, 'dist', 'combined.generated.lua'), source);
@@ -137,20 +137,18 @@ const coreFolder = path.join(stage, 'Core');
 fs.mkdirSync(coreFolder, {recursive: true});
 fs.writeFileSync(path.join(coreFolder, filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(coreFolder, filename + suffix), Buffer.alloc(0));
-const description = `Auto Reload + Stratagems ${version}. Requires Bingus Shared Loader v18 / API 1. ` +
-  'Combined automatic reload, default-on Railgun / Epoch left-mouse release at 90%, and native-icon stratagem radial/hotkeys. Stratagem input blocks reload and charge release in the same frame. Read-only held-object component reader at 50 ms intervals. Arsenal-only settings; no external companion mod or game assets included. Live testing required.';
+const texts = JSON.parse(readSource(path.join(root, 'arsenal-text.json')));
 const options = [
-  ['enabled', '자동재장전', '기본 ON. 실탄 소진과 완전 과열 시 자동재장전합니다. 끄려면 OFF를 선택하세요. 이 옵션을 선택하지 않아도 기본 ON이며, 충전 자동발사와 독립적입니다.', true],
-  ['charge90', '레일건·에포크 90% 충전 자동발사', '기본 ON. 옵션을 선택하지 않아도 전체 위험 게이지 90% 이상에서 좌클릭을 한 번 해제합니다. 발사키는 좌클릭이어야 하며, 조준과 다음 충전은 수동입니다. 끄려면 OFF를 선택하세요.', true],
-  ['radial', '스트라타젬 원형 오버레이', '기본 ON. 게임에 설정한 스트라타젬 목록 열기 버튼을 누르고 마우스로 선택한 뒤 놓으면 커맨드만 입력합니다. 키보드와 마우스 엄지버튼의 Hold 설정을 지원하며 조준·투척은 수동입니다.', true, 'stratagem_option_'],
-  ['hotkeys', '스트라타젬 숫자 핫키', '기본 ON. 게임의 목록 열기 버튼 + 숫자열 1~4로 개인 장착 슬롯의 커맨드를 입력합니다. 원형 메뉴에 표시한 슬롯 번호와 일치하며 숫자패드는 별개입니다.', true, 'stratagem_option_'],
-  ['shared', '공용/임무 스트라타젬 표시', '기본 OFF. ON이면 공용·임무 스트라타젬도 원형 메뉴에 표시합니다. 개인 슬롯 1~4 번호는 유지합니다.', false, 'stratagem_option_'],
-  ['large', '큰 원형 메뉴', '기본 OFF(100%). ON이면 원형 메뉴 크기를 130%로 표시합니다.', false, 'stratagem_option_'],
-  ['slow', '커맨드 입력: 30ms', '기본 OFF(15ms). ON이면 누르기·떼기를 최소 30ms로 합니다. 게임이 방향 입력을 감지한 뒤 다음 키를 전송합니다.', false, 'stratagem_option_'],
+  ['enabled', true],
+  ['charge90', true],
+  ['radial', true, 'stratagem_option_'],
+  ['hotkeys', true, 'stratagem_option_'],
+  ['shared', false, 'stratagem_option_'],
+  ['large', false, 'stratagem_option_'],
+  ['slow', false, 'stratagem_option_'],
 ];
 let optionIndex = 0;
-const optionManifest = options.map(([name, label, help, defaultValue, prefix = 'autoreload_setting_']) => ({
-  Name: label, Description: help,
+const optionManifest = options.map(([name, defaultValue, prefix = 'autoreload_setting_']) => ({
   SubOptions: [defaultValue, !defaultValue].map(value => {
     const folder = `Option_${name}_${value ? 'on' : 'off'}`;
     const bytes = Buffer.from(`return ${value}\n`), module = Buffer.alloc(8 + bytes.length);
@@ -165,16 +163,36 @@ const optionManifest = options.map(([name, label, help, defaultValue, prefix = '
     const patch = `9ba626afa44a3aa3.patch_${++optionIndex}`;
     fs.writeFileSync(path.join(stage, folder, patch), marker);
     for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, folder, patch + suffix), Buffer.alloc(0));
-    return {Name: (value ? 'ON' : 'OFF') + (value === defaultValue ? ' (기본)' : ''),
-      Description: value ? '활성화' : '비활성화', Include: ['Core', folder]};
+    return {Include: ['Core', folder]};
   })
 }));
-fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify({
-  Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload + Stratagems ${version}`,
-  Description: description + ' Feature options are configured in Arsenal only; Purge / Deploy and restart to apply.', Options: optionManifest
-}, null, 2));
+const stages = {};
+for (const language of ['en', 'ko']) {
+  const text = texts[language];
+  for (const key of ['Description', 'Default', 'Enabled', 'Disabled']) {
+    assert(typeof text[key] === 'string' && text[key].trim(), `Missing ${language} text: ${key}`);
+  }
+  stages[language] = path.join(root, 'dist', `HD2-AutoReload-${version}-${language}`);
+  if (language !== 'en') fs.cpSync(stage, stages[language], {recursive: true});
+  fs.writeFileSync(path.join(stages[language], 'manifest.json'), JSON.stringify({
+    Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload + Stratagems ${version}`,
+    Description: `${version}. ${text.Description}`,
+    Options: optionManifest.map((option, index) => {
+      const [name, defaultValue] = options[index];
+      const localized = text.Options[name];
+      for (const key of ['Name', 'Description']) {
+        assert(typeof localized?.[key] === 'string' && localized[key].trim(), `Missing ${language} option: ${name}.${key}`);
+      }
+      return {...localized, SubOptions: option.SubOptions.map((variant, i) => {
+        const value = i === 0 ? defaultValue : !defaultValue;
+        return {...variant, Name: (value ? 'ON' : 'OFF') + (i === 0 ? ` (${text.Default})` : ''),
+          Description: value ? text.Enabled : text.Disabled};
+      })};
+    })
+  }, null, 2));
+}
 const report = { version, resource, resourceHash: hash64(resource).toString(16),
-  archiveBytes: archive.length, sourceBytes: lua.length, stage,
+  archiveBytes: archive.length, sourceBytes: lua.length, stage, stages,
   archiveSha256: crypto.createHash('sha256').update(archive).digest('hex') };
 fs.writeFileSync(path.join(root, 'dist', 'build-report.json'), JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
