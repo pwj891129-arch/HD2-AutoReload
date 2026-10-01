@@ -1,4 +1,22 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.32-test
+# HD2 Helper Auto Reload + Stratagems 0.3.33-test
+
+## Individual Shared And Mission Toggles
+
+0.3.33-test replaces the all-in-one shared/mission visibility switch with
+independent Arsenal ON/OFF settings for Reinforce, SOS Beacon and Resupply,
+plus 31 mission call types. All default to OFF. Each enabled call appears only
+when it actually exists in your current local loadout. Related native variants
+(reinforcement, flag, cargo and ordinary extraction) share the same type toggle.
+Filtering never changes personal slots 1-4 or their number hotkeys, and hidden
+shared calls cannot be selected through the radial command path.
+
+`Other Shared / Mission Calls` controls shared calls without a dedicated toggle.
+Its default is OFF, and it never overrides any known type's individual
+OFF setting. The retired `shared` master marker is ignored. After replacing an
+older package, review the individual choices: the old master ON selection is
+not copied to all new toggles. Purge / Deploy with the game closed and restart.
+Reload and charge-release defaults are unchanged. Real Arsenal UI and mission
+testing remain required.
 
 ## Multiplayer Roster Fix
 
@@ -19,8 +37,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.32-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.32-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.33-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.33-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
@@ -84,9 +102,11 @@ registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
   An unselected option means ON. Independent of automatic reload.
 - `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: ON by default; OFF disables the radial only.
 - `Stratagem Number Hotkeys` / `스트라타젬 숫자 핫키`: ON by default; OFF disables number shortcuts only.
-- `Shared / Mission Stratagems` / `공용/임무 스트라타젬 표시`: OFF by default; ON includes shared/mission calls.
+- `Other Shared / Mission Calls` / `기타 공용/임무 스트라타젬 표시`: OFF by default; controls only types without an individual toggle.
 - `Large Radial Menu` / `큰 원형 메뉴`: OFF (100%) by default; ON uses 130%.
 - `30 ms Command Input` / `커맨드 입력: 30ms`: OFF (15 ms) by default; ON uses at least 30 ms per edge.
+- `Shared: Reinforce`, `Shared: SOS Beacon`, `Shared: Resupply` / `공용: 증원`, `공용: SOS 신호기`, `공용: 보급`: each has its own ON/OFF setting, default OFF.
+- `Mission: ...` / `임무: ...`: 31 independent type toggles, default OFF. Includes Hellbomb, SEAF artillery, flag, drills, data upload, extraction variants and other native mission calls. Unavailable mission calls are never invented by enabling an option.
 
 Each option's ON/OFF variants are mutually exclusive. Review the choices after
 importing, especially if Arsenal automatically enables new options. Close the
@@ -224,9 +244,14 @@ and research hotkeys have been removed.
 Requires Node.js, PowerShell and the game's `bin/lua51.dll`. Tests use mocked
 game/input APIs in a separate LuaJIT process, never attach to the game or send
 actual inputs. Package checks enforce the HD2SDK minimum of 256 bytes per
-single-resource archive and all 2,187 valid Arsenal setting combinations per language.
+single-resource archive. Per language, deployment checks exhaust all 729 base-control
+combinations, every pair of settings in all omitted/ON/OFF states, and all-ON,
+all-OFF and all-default configurations (8,112 scenarios).
 They also verify localized text, identical option structure and byte-identical
-game payloads across the English and Korean packages.
+game payloads across the English and Korean packages. Individual kind filters,
+explicit OFF precedence, hidden command rejection, slot numbering and coherent
+shared/personal membership reads have regression coverage. The pinned native
+catalog checks all mission kinds when local reference captures are available.
 Tests cover both feature runtimes, shared-VM input declarations, callback order,
 default/explicit settings, initialization isolation and input blocking/resumption.
 These are offline mocks; actual combined gameplay and Arsenal UI remain unverified.
@@ -235,8 +260,8 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.32-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.32-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.32-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.32-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.33-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.33-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.33-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.33-test-ko.zip'
 ```
 
 Credited HD2 HUD+ 0.1.2 reader sources and original reuse permission are in

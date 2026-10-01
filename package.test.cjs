@@ -9,9 +9,48 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.32-test';
+const version = '0.3.33-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
-const optionIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared', 'large', 'slow'];
+const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
+const coreIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared_other', 'large', 'slow'];
+const optionIds = [...coreIds, ...filters.map(filter => filter.id)];
+const defaults = optionIds.map((_, index) => index < 4);
+const kinds = filters.flatMap(filter => filter.kinds);
+assert.equal(new Set(optionIds).size, optionIds.length, 'Filter resources are unique');
+assert.equal(new Set(kinds).size, kinds.length, 'Every registered kind has exactly one toggle');
+const capture = path.join(__dirname, '../BingusStratagemHotkeys/scratch');
+if (fs.existsSync(path.join(capture, 'game-module.bin'))) {
+  const image = fs.readFileSync(path.join(capture, 'game-module.bin'));
+  const settings = fs.readFileSync(path.join(capture, 'stratagem-settings.bin'));
+  const base = Number(image.readBigUInt64LE(0x348e8f8));
+  const names = new Map();
+  for (let kind = 1; kind <= 149; kind++) {
+    const record = Number(image.readBigUInt64LE(0x37cb600 + kind * 8)) - base;
+    assert(record >= 0 && record + 400 <= settings.length);
+    const offset = Number(settings.readBigUInt64LE(record + 16)) - base;
+    assert(offset >= 0 && offset < settings.length);
+    names.set(kind, settings.subarray(offset, settings.indexOf(0, offset)).toString());
+  }
+  assert.equal(names.get(124), 'MISSIONS. REINFORCEMENT BEACON');
+  assert.equal(names.get(145), 'MISSIONS. SOS Beacon');
+  assert.equal(names.get(33), 'CONSUMABLES. RESUPPLY');
+  for (const [id, expected] of Object.entries({
+    shared_reinforce: ['TUTORIAL REINFORCEMENT BEACON', 'MISSIONS. REINFORCEMENT BEACON'],
+    shared_sos: ['MISSIONS. SOS Beacon'], shared_resupply: ['CONSUMABLES. RESUPPLY'],
+    mission_hellbomb: ['MISSIONS. HELLBOMB'], mission_seaf: ['MISSIONS. SEAF GUN'],
+    mission_flag: ['MISSIONS. RAISE FLAG', 'MISSIONS. RAISE FLAG NO CLEAR AREA'],
+    mission_cargo: ['MISSIONS. CARGO CONTAINER', 'MISSIONS. CARGO CONTAINER'],
+    mission_discovery: ['MISSIONS. Upload Discovery']
+  })) assert.deepEqual(filters.find(filter => filter.id === id).kinds.map(kind => names.get(kind)), expected,
+    `Toggle matches native identity: ${id}`);
+  for (const [kind, name] of names) {
+    if (/^MISSIONS[. ]/.test(name)) assert(kinds.includes(kind), `Missing mission toggle: ${name}`);
+  }
+  for (const filter of filters.filter(filter => filter.id.startsWith('mission_'))) {
+    for (const kind of filter.kinds) assert(/^(MISSIONS[. ]|\[TUTORIAL\] EXTRACTION|SEAF Squad)/.test(names.get(kind)), 'Mission filter targets a native mission');
+  }
+  console.log('PASS pinned catalog: common identities and complete native mission coverage');
+} else console.log('SKIP pinned catalog: local reference capture unavailable');
 function checkPackage(language) {
   const stage = path.join(__dirname, `dist/HD2-AutoReload-${version}-${language}`);
   const text = texts[language];
@@ -21,18 +60,20 @@ function checkPackage(language) {
   assert.equal(manifest.Name, `HD2 Helper Auto Reload + Stratagems ${version}`);
   assert.equal(manifest.Description, `${version}. ${text.Description}`);
   assert.deepEqual(Object.keys(manifest).sort(), ['Description', 'Guid', 'Name', 'Options', 'Version']);
-  assert.deepEqual(Object.keys(text.Options), optionIds);
-  assert.equal(manifest.Options.length, 7);
+  assert.deepEqual(Object.keys(text.Options), coreIds);
+  assert.equal(manifest.Options.length, optionIds.length);
   assert(!manifest.Options.some(option => /F9|진단|실탄.*OFF|과열.*OFF/.test(option.Name)));
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < optionIds.length; i++) {
     const option = manifest.Options[i], id = optionIds[i];
+    const filter = filters.find(filter => filter.id === id);
+    const localized = filter ? {Name: filter[language], Description: text.FilterDescription} : text.Options[id];
     assert.deepEqual(Object.keys(option).sort(), ['Description', 'Name', 'SubOptions']);
-    assert.equal(option.Name, text.Options[id].Name);
-    assert.equal(option.Description, text.Options[id].Description);
+    assert.equal(option.Name, localized.Name);
+    assert.equal(option.Description, localized.Description);
     assert(option.Name.trim() && option.Description.trim());
     assert.equal(option.SubOptions.length, 2);
     for (const [index, variant] of option.SubOptions.entries()) {
-      const value = index === 0 ? i < 4 : i >= 4;
+      const value = index === 0 ? defaults[i] : !defaults[i];
       assert.deepEqual(Object.keys(variant).sort(), ['Description', 'Include', 'Name']);
       assert.equal(variant.Name, (value ? 'ON' : 'OFF') + (index === 0 ? ` (${text.Default})` : ''));
       assert.equal(variant.Description, value ? text.Enabled : text.Disabled);
@@ -45,7 +86,7 @@ function checkPackage(language) {
   else assert(visibleText.every(value => /[가-힣]/.test(value) || /^(ON|OFF)$/.test(value)), 'Korean UI text is localized');
   const folders = [...new Set(manifest.Options.flatMap(option =>
     option.SubOptions.flatMap(variant => variant.Include)))];
-  assert.equal(folders.length, 15);
+  assert.equal(folders.length, 1 + optionIds.length * 2);
   assert.deepEqual(fs.readdirSync(stage).filter(file => fs.statSync(path.join(stage, file)).isDirectory()).sort(),
     [...folders].sort(), 'No stale addon or diagnostic folders');
   assert(!fs.readdirSync(stage).some(name => /\.patch_\d+$/.test(name)), 'No root-only addon dependency');
@@ -81,6 +122,10 @@ function checkPackage(language) {
       assert(source.includes('INPUT mouse-release-replayed'));
       assert(source.includes('node >= 1048576 or seen[node]'));
       assert(source.includes('sr.Gui.bitmap_uv(icon.gui, data.material'));
+      assert(source.includes('shared_visible(include_shared, kind)'));
+      assert(source.includes('local visibility = {other = option("shared_other", false)}'));
+      assert(!source.includes('option("shared", false)'), 'Retired master toggle cannot override individual choices');
+      for (const filter of filters) assert(source.includes(`{id = "${filter.id}", kinds = {${filter.kinds.join(', ')}}}`));
       assert(!source.includes('node >= capacity'));
       assert(!/WriteProcessMemory|VirtualProtect|set_resource_override/.test(source));
       assert(!source.includes('-- @'));
@@ -98,36 +143,58 @@ function checkPackage(language) {
       assert.equal(fs.statSync(file + suffix).size, 0);
     }
   }
+  const resourceIds = new Set([archives.get('Core').id]);
   for (const option of manifest.Options) {
     for (const variant of option.SubOptions) assert(variant.Include.includes('Core'), 'Every ON/OFF choice deploys the addon');
     const variants = option.SubOptions.map(variant => archives.get(variant.Include.find(folder => folder !== 'Core')));
     assert.equal(variants[0].id, variants[1].id, 'Exclusive ON/OFF variants set one resource');
     assert.notEqual(variants[0].source, variants[1].source);
+    assert(!resourceIds.has(variants[0].id), 'Different settings have different Lua IDs');
+    resourceIds.add(variants[0].id);
   }
-  // Each setting has three valid states: omitted, default, or explicit opposite.
+  // Exhaust base controls; cover every filter and every pair without exponential growth.
   let combinations = 0;
-  function deployment(index, selected) {
-    if (index === manifest.Options.length) {
-      const deployed = [...new Set(selected.flatMap(variant => variant?.Include ?? []))];
-      const ids = deployed.map(folder => archives.get(folder).id);
-      assert.equal(new Set(ids).size, ids.length, 'No duplicate Lua IDs in any valid deployment');
-      assert.equal(deployed.includes('Core'), selected.some(Boolean), 'Any selected setting deploys one common addon');
-      const values = selected.map((variant, i) => variant ?
-        archives.get(variant.Include.find(folder => folder !== 'Core')).source === 'return true\n' : i < 4);
-      if (selected.every(variant => variant === null)) {
-        assert.equal(deployed.length, 0, 'All unchecked intentionally deploys no feature files');
-        assert.deepEqual(values, [true, true, true, true, false, false, false]);
-      }
-      combinations++;
-      return;
+  function checkDeployment(selected) {
+    const deployed = [...new Set(selected.flatMap(variant => variant?.Include ?? []))];
+    const ids = deployed.map(folder => archives.get(folder).id);
+    assert.equal(new Set(ids).size, ids.length, 'No duplicate Lua IDs in any valid deployment');
+    assert.equal(deployed.includes('Core'), selected.some(Boolean), 'Any selected setting deploys one common addon');
+    const values = selected.map((variant, i) => variant ?
+      archives.get(variant.Include.find(folder => folder !== 'Core')).source === 'return true\n' : defaults[i]);
+    for (let i = 0; i < selected.length; i++) {
+      const variant = selected[i];
+      assert.equal(values[i], variant ? variant.Include.includes(`Option_${optionIds[i]}_on`) : defaults[i]);
     }
-    for (const variant of [null, ...manifest.Options[index].SubOptions]) {
-      deployment(index + 1, [...selected, variant]);
+    if (selected.every(variant => variant === null)) {
+      assert.equal(deployed.length, 0, 'All unchecked intentionally deploys no feature files');
+      assert.deepEqual(values, defaults);
+    }
+    combinations++;
+  }
+  const baseIndices = [0, 1, 2, 3, 5, 6];
+  const omitted = () => Array(optionIds.length).fill(null);
+  function deployment(index, selected) {
+    if (index === baseIndices.length) return checkDeployment(selected);
+    const at = baseIndices[index];
+    for (const variant of [null, ...manifest.Options[at].SubOptions]) {
+      const next = [...selected]; next[at] = variant; deployment(index + 1, next);
     }
   }
-  deployment(0, []);
-  assert.equal(combinations, 2187);
-  console.log(`PASS ${language}: localized labels, common Lua-only addon, 14 option archives, 2187 deployment combinations`);
+  deployment(0, omitted());
+  for (let first = 0; first < optionIds.length; first++) {
+    for (let second = first + 1; second < optionIds.length; second++) {
+      for (const a of [null, ...manifest.Options[first].SubOptions]) {
+        for (const b of [null, ...manifest.Options[second].SubOptions]) {
+          const selected = omitted(); selected[first] = a; selected[second] = b; checkDeployment(selected);
+        }
+      }
+    }
+  }
+  for (const value of [true, false]) checkDeployment(manifest.Options.map((option, i) =>
+    option.SubOptions[defaults[i] === value ? 0 : 1]));
+  checkDeployment(manifest.Options.map(option => option.SubOptions[0]));
+  assert.equal(combinations, 3 ** baseIndices.length + 9 * optionIds.length * (optionIds.length - 1) / 2 + 3);
+  console.log(`PASS ${language}: ${optionIds.length} localized toggles, ${optionIds.length * 2} option archives, ${combinations} deployment scenarios`);
   return {stage, manifest};
 }
 const english = checkPackage('en'), korean = checkPackage('ko');
@@ -145,7 +212,7 @@ function packageFiles(folder, relative = '') {
   }).sort();
 }
 const files = packageFiles(english.stage);
-assert.equal(files.length, 49);
+assert.equal(files.length, 7 + optionIds.length * 6);
 assert.deepEqual(files, packageFiles(korean.stage));
 for (const file of files.filter(file => file !== 'manifest.json')) {
   assert(fs.readFileSync(path.join(english.stage, file)).equals(fs.readFileSync(path.join(korean.stage, file))),

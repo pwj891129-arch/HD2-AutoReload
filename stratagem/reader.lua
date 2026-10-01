@@ -293,6 +293,12 @@ function Reader:command_state(binding)
     for direction = 1, 4 do state.directions[direction] = raw:byte(ACTION[direction] * 32 + 1) == 1 end
     return state
 end
+local function shared_visible(filter, kind)
+    if type(filter) ~= "table" then return filter == true end
+    local value = filter[kind]
+    if value == nil then value = filter.other end
+    return value == true
+end
 function Reader:inventory(include_shared)
     local players, counts = self:local_player_manager()
     if not players then return nil, counts end
@@ -324,9 +330,9 @@ function Reader:inventory(include_shared)
         local shared = raw and raw:byte(10)
         if not kind or kind == 0 or kind > 149 or seen[kind] or
             (shared ~= 0 and shared ~= 1) then return nil, "invalid-equipped-slots" end
-        seen[kind], identities[#identities + 1] = true, kind
+        seen[kind], identities[#identities + 1] = true, kind .. "/" .. shared
         if shared == 0 then slots[#slots + 1] = kind end
-        if shared == 0 or include_shared then
+        if shared == 0 or shared_visible(include_shared, kind) then
             rows[#rows + 1] = {kind = kind, address = at, shared = shared == 1, slot = shared == 0 and #slots or nil,
                 uses = word(raw, 4)}
         end
@@ -339,7 +345,10 @@ function Reader:inventory(include_shared)
         return nil, "loadout-changed"
     end
     for index = 0, total - 1 do
-        if self:word(data + 0x188 + index * 0x30) ~= identities[index + 1] then
+        local at = data + 0x188 + index * 0x30
+        local raw = self:read(at, 48)
+        local kind, shared = word(raw, 0), raw and raw:byte(10)
+        if not kind or shared == nil or kind .. "/" .. shared ~= identities[index + 1] then
             return nil, "loadout-changed"
         end
     end

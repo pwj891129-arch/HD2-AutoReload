@@ -147,7 +147,8 @@ return function(equal, read_file, source)
     local menu_override, hover, acknowledge = nil, 1, true
     local game_available, game_token, game_active_override = true, "CHARACTER", nil
     local mouse_latch, up_failures, ignore_up, mouse_observation = nil, 0, false, true
-    local options = {radial = true, hotkeys = false}
+    local options = {radial = true, hotkeys = false, shared_reinforce = true,
+        shared_resupply = false, mission_hellbomb = true, shared_other = true, shared = true}
     local binding = {start_vk = 164, directions = {38, 39, 40, 37}}
     local fake = {base = 1, foreground = function() return focused end,
         down = function(vk) return held[vk] or false end,
@@ -211,9 +212,18 @@ return function(equal, read_file, source)
     local glue = read_file("addon.lua"):gsub('%-%- @PLATFORM@', function() return "return { create = function() return fake end }" end)
         :gsub('%-%- @READER@', function() return "return { new = function() return fake_reader end }" end)
         :gsub('%-%- @POLICY@', function() return read_file("policy.lua") end)
+        :gsub('%-%- @VISIBILITY@', function() return read_file("dist/visibility.generated.lua") end)
         :gsub('%-%- @RADIAL@', function() return "return {new=function() return mock_radial end}" end)
     env.mock_radial = mock_radial
     local init = assert(loadstring(glue)); setfenv(init, env); init()
+    local visibility = env.HD2StratagemHotkeys.config.shared
+    equal(visibility[93], true, "tutorial reinforce follows reinforce toggle")
+    equal(visibility[124], true, "reinforce toggle is independent")
+    equal(visibility[145], false, "omitted SOS stays hidden even with retired master ON")
+    equal(visibility[33], false, "resupply OFF overrides other calls ON")
+    equal(visibility[42], true, "mission Hellbomb independently enabled")
+    equal(visibility[28], false, "omitted SEAF stays hidden")
+    equal(visibility.other, true, "other calls have their own toggle")
     local function step(dt) current = current + dt; env.update() end
     local function finish() for i = 1, 20 do step(0.02) end end
     step(0); held[5], held[117] = true, true; step(0.02)

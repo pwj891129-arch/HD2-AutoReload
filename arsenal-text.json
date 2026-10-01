@@ -4,6 +4,7 @@
     "Default": "Default",
     "Enabled": "Enabled",
     "Disabled": "Disabled",
+    "FilterDescription": "Default OFF. ON shows this call in the radial only when it is present in your current mission. OFF hides only this call; personal slot numbers 1-4 are unchanged. Variants of the same call share one toggle.",
     "Options": {
       "enabled": {
         "Name": "Automatic Reload",
@@ -21,9 +22,9 @@
         "Name": "Stratagem Number Hotkeys",
         "Description": "Default ON. Hold the game-configured Stratagem List button and press number-row 1-4 to enter a personal slot command. Matches the slot numbers shown in the radial. Numpad keys are separate."
       },
-      "shared": {
-        "Name": "Shared / Mission Stratagems",
-        "Description": "Default OFF. ON includes shared and mission stratagems in the radial menu. Personal slot numbers 1-4 are unchanged."
+      "shared_other": {
+        "Name": "Other Shared / Mission Calls",
+        "Description": "Default OFF. ON shows shared calls without a dedicated toggle, such as Eagle Rearm. It does not override any individually configured call or personal slots 1-4."
       },
       "large": {
         "Name": "Large Radial Menu",
@@ -40,6 +41,7 @@
     "Default": "기본",
     "Enabled": "활성화",
     "Disabled": "비활성화",
+    "FilterDescription": "기본 OFF. ON이면 현재 임무에 존재하는 해당 항목만 원형 메뉴에 표시합니다. OFF이면 이 항목만 숨기며 개인 슬롯 1~4 번호는 유지합니다. 동일 항목의 변형은 같은 토글을 사용합니다.",
     "Options": {
       "enabled": {
         "Name": "자동재장전",
@@ -57,9 +59,9 @@
         "Name": "스트라타젬 숫자 핫키",
         "Description": "기본 ON. 게임의 목록 열기 버튼 + 숫자열 1~4로 개인 장착 슬롯의 커맨드를 입력합니다. 원형 메뉴에 표시한 슬롯 번호와 일치하며 숫자패드는 별개입니다."
       },
-      "shared": {
-        "Name": "공용/임무 스트라타젬 표시",
-        "Description": "기본 OFF. ON이면 공용·임무 스트라타젬도 원형 메뉴에 표시합니다. 개인 슬롯 1~4 번호는 유지합니다."
+      "shared_other": {
+        "Name": "기타 공용/임무 스트라타젬 표시",
+        "Description": "기본 OFF. ON이면 이글 재무장 등 개별 토글이 없는 공용 항목을 표시합니다. 개별 항목의 ON/OFF 설정과 개인 슬롯 1~4에는 영향을 주지 않습니다."
       },
       "large": {
         "Name": "큰 원형 메뉴",

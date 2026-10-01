@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.32-test';
+const version = '0.3.33-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -88,7 +88,22 @@ const autoSource = readSource(path.join(root, 'addon.lua'))
   .replace('-- @READER_CORE@', () => core)
   .replace('-- @NUMBERS@', () => compact(numbers));
 const stratagemRoot = path.join(root, 'stratagem');
+const filters = JSON.parse(readSource(path.join(root, 'stratagem-filters.json')));
+const filterIds = new Set(), filterKinds = new Set();
+for (const filter of filters) {
+  assert(/^(shared|mission)_[a-z_]+$/.test(filter.id) && !filterIds.has(filter.id), 'Invalid filter ID');
+  filterIds.add(filter.id);
+  assert(Array.isArray(filter.kinds) && filter.kinds.length > 0, 'Missing filter kinds');
+  for (const kind of filter.kinds) {
+    assert(Number.isInteger(kind) && kind >= 1 && kind <= 149 && !filterKinds.has(kind), 'Invalid or duplicate filter kind');
+    filterKinds.add(kind);
+  }
+  for (const language of ['en', 'ko']) assert(typeof filter[language] === 'string' && filter[language].trim(), 'Missing filter label');
+}
+const filterSource = 'return {\n' + filters.map(filter =>
+  `    {id = "${filter.id}", kinds = {${filter.kinds.join(', ')}}},`).join('\n') + '\n}\n';
 let stratagemSource = readSource(path.join(stratagemRoot, 'addon.lua'));
+stratagemSource = stratagemSource.replace('-- @VISIBILITY@', () => filterSource);
 for (const name of ['platform', 'reader', 'policy', 'radial']) {
   stratagemSource = stratagemSource.replace('-- @' + name.toUpperCase() + '@',
     () => readSource(path.join(stratagemRoot, name + '.lua')));
@@ -105,6 +120,7 @@ fs.writeFileSync(path.join(root, 'dist', 'auto_reload.generated.lua'), autoSourc
 fs.writeFileSync(path.join(root, 'dist', 'combined.generated.lua'), source);
 fs.mkdirSync(path.join(stratagemRoot, 'dist'), {recursive: true});
 fs.writeFileSync(path.join(stratagemRoot, 'dist', 'stratagem_hotkeys.generated.lua'), stratagemSource);
+fs.writeFileSync(path.join(stratagemRoot, 'dist', 'visibility.generated.lua'), filterSource);
 fs.writeFileSync(path.join(root, 'dist', 'reader_core.lua'), core);
 fs.writeFileSync(path.join(root, 'dist', 'numbers.lua'), compact(numbers));
 fs.copyFileSync(path.join(vendor, 'HD2-HUD-0.1.2-original-README.txt'), path.join(stage, 'HD2-HUD-0.1.2-original-README.txt'));
@@ -143,9 +159,10 @@ const options = [
   ['charge90', true],
   ['radial', true, 'stratagem_option_'],
   ['hotkeys', true, 'stratagem_option_'],
-  ['shared', false, 'stratagem_option_'],
+  ['shared_other', false, 'stratagem_option_'],
   ['large', false, 'stratagem_option_'],
   ['slow', false, 'stratagem_option_'],
+  ...filters.map(filter => [filter.id, false, 'stratagem_option_']),
 ];
 let optionIndex = 0;
 const optionManifest = options.map(([name, defaultValue, prefix = 'autoreload_setting_']) => ({
@@ -169,17 +186,21 @@ const optionManifest = options.map(([name, defaultValue, prefix = 'autoreload_se
 const stages = {};
 for (const language of ['en', 'ko']) {
   const text = texts[language];
-  for (const key of ['Description', 'Default', 'Enabled', 'Disabled']) {
+  for (const key of ['Description', 'Default', 'Enabled', 'Disabled', 'FilterDescription']) {
     assert(typeof text[key] === 'string' && text[key].trim(), `Missing ${language} text: ${key}`);
   }
   stages[language] = path.join(root, 'dist', `HD2-AutoReload-${version}-${language}`);
   if (language !== 'en') fs.cpSync(stage, stages[language], {recursive: true});
+  const localizedOptions = {...text.Options};
+  for (const filter of filters) localizedOptions[filter.id] = {
+    Name: filter[language], Description: text.FilterDescription
+  };
   fs.writeFileSync(path.join(stages[language], 'manifest.json'), JSON.stringify({
     Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload + Stratagems ${version}`,
     Description: `${version}. ${text.Description}`,
     Options: optionManifest.map((option, index) => {
       const [name, defaultValue] = options[index];
-      const localized = text.Options[name];
+      const localized = localizedOptions[name];
       for (const key of ['Name', 'Description']) {
         assert(typeof localized?.[key] === 'string' && localized[key].trim(), `Missing ${language} option: ${name}.${key}`);
       }

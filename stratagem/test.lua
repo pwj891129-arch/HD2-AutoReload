@@ -356,6 +356,47 @@ end
 put(second, second_bytes); put(extra, shared_bytes)
 put(extra + 9, "\2")
 equal(reader:loadout(), nil, "invalid shared flag blocked")
+local visibility_options = dofile("dist/visibility.generated.lua")
+local function shared_row(at, kind)
+    put(at, word(kind) .. word(2) .. "\0\1" .. string.rep("\0", 38))
+end
+for _, filter in ipairs(visibility_options) do
+    for _, kind in ipairs(filter.kinds) do
+        shared_row(extra, kind)
+        local selected = {[kind] = true, other = false}
+        equal(#assert(reader:radial(selected)).rows, 5, "individual " .. filter.id .. " ON")
+        equal(assert(reader:request_kind(kind, selected)).kind, kind, "enabled call can be requested")
+        selected[kind], selected.other = false, true
+        equal(#assert(reader:radial(selected)).rows, 4, "explicit OFF wins over other calls ON")
+        equal(reader:request_kind(kind, selected), nil, "hidden call cannot be requested")
+        equal(table.concat(assert(reader:inventory(selected)).slots, ","), "113,101,66,1", "visibility preserves personal order")
+    end
+end
+shared_row(extra, 49)
+equal(#assert(reader:radial({})).rows, 4, "unconfigured shared call defaults OFF")
+equal(#assert(reader:radial({other = true})).rows, 5, "unregistered call uses other toggle")
+equal(#assert(reader:radial({[49] = 1, other = true})).rows, 4, "only true enables an explicit filter")
+local individual = {[124] = true, [145] = false, [33] = false, [42] = false, [28] = true, other = false}
+for index, kind in ipairs({124, 145, 33, 42, 28, 49}) do shared_row(extra + (index - 1) * 48, kind) end
+put(local_data + 0x788, word(10))
+local visible = assert(reader:radial(individual))
+equal(#visible.rows, 6, "only enabled common and mission calls are shown")
+equal(visible.rows[5].kind, 124, "reinforce independent of SOS and resupply")
+equal(visible.rows[6].kind, 28, "SEAF independent of Hellbomb")
+equal(visible.rows[5].slot, nil, "shared entries never acquire personal numbers")
+equal(visible.token, assert(reader:inventory(false)).token, "filters do not alter loadout identity")
+individual.other = true
+equal(#assert(reader:radial(individual)).rows, 7, "other ON does not re-enable individually hidden calls")
+individual[113] = false
+equal(assert(reader:radial(individual)).rows[1].kind, 113, "shared filters never hide personal equipment")
+put(local_data + 0x788, word(5))
+channel.read = function(self, at, size)
+    local raw = original_read(self, at, size)
+    if at == extra then put(extra + 9, "\0") end
+    return raw
+end
+equal(reader:inventory({other = true}), nil, "shared membership change during read is rejected")
+channel.read = original_read
 put(local_data + 0x788, word(4))
 
 -- Validate the parser against the local read-only capture when it is available.
@@ -466,6 +507,7 @@ local source = read_file("addon.lua")
 source = source:gsub('%-%- @PLATFORM@', function() return "return { create = function() return fake end }" end)
 source = source:gsub('%-%- @READER@', function() return "return { new = function() return fake_reader end }" end)
 source = source:gsub('%-%- @POLICY@', function() return read_file("policy.lua") end)
+source = source:gsub('%-%- @VISIBILITY@', function() return read_file("dist/visibility.generated.lua") end)
 source = source:gsub('%-%- @RADIAL@', function() return read_file("radial.lua") end)
 local init = assert(loadstring(source)); setfenv(init, env); init()
 local function step(dt) current = current + dt; return env.update("kept") end
