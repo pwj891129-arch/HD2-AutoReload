@@ -1,6 +1,14 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.29-test
+# HD2 Helper Auto Reload + Stratagems 0.3.30-test
 
 ## Combined Mod
+
+0.3.30-test fixes a deployment failure in 0.3.29-test: the current Arsenal
+0.36.2 BETA imported the root addon but deployed only seven setting markers.
+The loader listed neither helper component, and both feature logs were stale.
+The executable addon now lives in Core/, explicitly included by every ON/OFF
+variant. Selected variants share one common addon, not duplicate resources.
+Choose at least one setting in Arsenal; all options unchecked now intentionally
+deploys nothing. OFF still includes the core and disables only that setting.
 
 This package includes the Stratagem Hotkeys 0.1.13-test implementation alongside
 automatic reload. Import only this ZIP: disable/remove the separate HD2
@@ -9,18 +17,18 @@ Deploy. There is one loader addon resource, with independently guarded startup
 for both features. Stratagem input updates its gate before reload and charge
 processing in the same frame; both retain existing callback return values.
 
-Automatic reload and Railgun/Epoch 90% charge release now default to ON,
-including when no option modules are deployed. The radial and number hotkeys
+Automatic reload and Railgun/Epoch 90% charge release default to ON when the
+core is deployed and their individual settings are omitted. The radial and number hotkeys
 also default to ON. Explicit OFF settings are honored. Arsenal may retain the
 previous charge-OFF selection for this mod's existing GUID; review and select
 ON when replacing an earlier version. No deployed files are changed by building.
 
 ## Default-On Reload And Diagnostic Removal
 
-Automatic reload is now ON whenever this mod is enabled. Its Lua archive lives
-at the package root, so leaving every Arsenal feature option unchecked still
-deploys the addon. See
-[Arsenal's always-on file documentation](https://docs.rsnl.gg/mod-builder/creating-mods#always-on-files-vs-option-files).
+Automatic reload defaults to ON unless explicitly set to OFF. The package
+uses explicit Core includes instead of depending on root-file auto-deployment.
+Arsenal's documented root-file behavior did not match the observed option-based
+deployment in 0.36.2 BETA. At least one ON/OFF setting must be selected.
 
 The separate ammo-OFF and heat-OFF checkboxes have been removed. Old option
 resources do not control this version. F9 type checks, tank field scanning,
@@ -143,7 +151,7 @@ and its [resource hash names](https://github.com/xypwn/filediver/blob/master/has
 1. Close the game before deploying.
 2. Import the release ZIP into Arsenal and replace the previous version.
 3. Enable this addon and Bingus Shared Loader v18 / API 1.
-4. Review reload, charge release and stratagem options, then Purge / Deploy and restart.
+4. Select the desired ON/OFF variants (at least one), ensure radial is ON, then Purge / Deploy and restart.
 5. Disable/remove separate Stratagem Hotkeys and other automatic-reload implementations to prevent double input.
 
 HD2 HUD+ is optional. This addon replaces no HUD texture, GUI, boot script,
@@ -189,7 +197,7 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.29-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.29-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.30-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.30-test.zip'
 ```
 
 Credited HD2 HUD+ 0.1.2 reader sources and original reuse permission are in

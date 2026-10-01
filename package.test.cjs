@@ -9,7 +9,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const stage = path.join(__dirname, 'dist/HD2-AutoReload-0.3.29-test');
+const stage = path.join(__dirname, 'dist/HD2-AutoReload-0.3.30-test');
 const manifest = JSON.parse(fs.readFileSync(path.join(stage, 'manifest.json'), 'utf8'));
 assert.equal(manifest.Options.length, 7);
 assert(!manifest.Options.some(option => /F9|진단|실탄.*OFF|과열.*OFF/.test(option.Name)));
@@ -18,11 +18,12 @@ assert.equal(manifest.Options[1].SubOptions[0].Name, 'ON (기본)');
 for (let i = 0; i < 7; i++) {
   assert.equal(manifest.Options[i].SubOptions[0].Name, i < 4 ? 'ON (기본)' : 'OFF (기본)');
 }
-const folders = ['.', ...manifest.Options.flatMap(option =>
-  option.SubOptions.flatMap(variant => variant.Include))];
+const folders = [...new Set(manifest.Options.flatMap(option =>
+  option.SubOptions.flatMap(variant => variant.Include)))];
 assert.equal(folders.length, 15);
 assert.deepEqual(fs.readdirSync(stage).filter(file => fs.statSync(path.join(stage, file)).isDirectory()).sort(),
-  folders.slice(1).sort(), 'No stale addon or diagnostic folders');
+  [...folders].sort(), 'No stale addon or diagnostic folders');
+assert(!fs.readdirSync(stage).some(name => /\.patch_\d+$/.test(name)), 'No root-only addon dependency');
 const archives = new Map();
 for (const folder of folders) {
   const files = fs.readdirSync(path.join(stage, folder)).filter(name => /\.patch_\d+$/.test(name));
@@ -43,9 +44,9 @@ for (const folder of folders) {
   assert.equal(bytes.readUInt32LE(offset + 4), 2);
   assert.equal(bytes.readUInt32LE(offset), size - 8);
   const source = bytes.subarray(offset + 8, offset + size).toString('utf8');
-  if (folder === '.') {
+  if (folder === 'Core') {
     assert(source.startsWith('-- HD2-Addon: mods/hd2_helper/auto_reload\n'));
-    assert(source.includes('local VERSION = "0.3.29-test"'));
+    assert(source.includes('local VERSION = "0.3.30-test"'));
     assert(source.includes('start_feature("stratagem", function()'));
     assert(source.includes('start_feature("autoreload", function()'));
     assert(source.indexOf('start_feature("stratagem", function()') < source.indexOf('start_feature("autoreload", function()'));
@@ -73,7 +74,8 @@ for (const folder of folders) {
   }
 }
 for (const option of manifest.Options) {
-  const variants = option.SubOptions.map(variant => archives.get(variant.Include[0]));
+  for (const variant of option.SubOptions) assert(variant.Include.includes('Core'), 'Every ON/OFF choice deploys the addon');
+  const variants = option.SubOptions.map(variant => archives.get(variant.Include.find(folder => folder !== 'Core')));
   assert.equal(variants[0].id, variants[1].id, 'Exclusive ON/OFF variants set one resource');
   assert.notEqual(variants[0].source, variants[1].source);
 }
@@ -81,13 +83,14 @@ for (const option of manifest.Options) {
 let combinations = 0;
 function deployment(index, selected) {
   if (index === manifest.Options.length) {
-    const deployed = ['.', ...selected.flatMap(variant => variant?.Include ?? [])];
+    const deployed = [...new Set(selected.flatMap(variant => variant?.Include ?? []))];
     const ids = deployed.map(folder => archives.get(folder).id);
     assert.equal(new Set(ids).size, ids.length, 'No duplicate Lua IDs in any valid deployment');
-    assert(deployed.includes('.'), 'Default addon must deploy even with all options unchecked');
+    assert.equal(deployed.includes('Core'), selected.some(Boolean), 'Any selected setting deploys one common addon');
     const values = selected.map((variant, i) => variant ?
-      archives.get(variant.Include[0]).source === 'return true\n' : i < 4);
+      archives.get(variant.Include.find(folder => folder !== 'Core')).source === 'return true\n' : i < 4);
     if (selected.every(variant => variant === null)) {
+      assert.equal(deployed.length, 0, 'All unchecked intentionally deploys no feature files');
       assert.deepEqual(values, [true, true, true, true, false, false, false]);
     }
     combinations++;
@@ -99,4 +102,4 @@ function deployment(index, selected) {
 }
 deployment(0, []);
 assert.equal(combinations, 2187);
-console.log('PASS combined Lua-only root addon, 14 exclusive option archives, 2187 deployment combinations');
+console.log('PASS explicitly included common Lua-only addon, 14 exclusive option archives, 2187 deployment combinations');

@@ -2,12 +2,12 @@ param(
     [Parameter(Mandatory)][string]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.29-test'
+    [string]$Tag = 'auto-reload-0.3.30-test'
 )
 $ErrorActionPreference = 'Stop'
 $AssetPath = (Resolve-Path -LiteralPath $AssetPath).Path
 $assetName = [IO.Path]::GetFileName($AssetPath)
-if ($assetName -ne 'HD2-AutoReload-0.3.29-test.zip') { throw 'Unexpected addon package name.' }
+if ($assetName -ne 'HD2-AutoReload-0.3.30-test.zip') { throw 'Unexpected addon package name.' }
 if ($Commit -notmatch '^[0-9a-f]{40}$') { throw 'A full source commit hash is required.' }
 if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Invalid repository name.' }
 $credentialLines = "protocol=https`nhost=github.com`n`n" | git -c "safe.directory=$PSScriptRoot" credential fill
@@ -22,11 +22,14 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.29-test
+## HD2 Auto Reload + Stratagems 0.3.30-test
 
-자동재장전과 스트라타젬 원형 메뉴·숫자 핫키를 한 모드로 통합했습니다. 레일건·에포크 90% 충전 자동발사는 기본 ON으로 변경했습니다.
+0.3.29-test 통합 버전에서 모드 본체가 Arsenal 배포에서 빠져 스트라타젬 휠과 자동재장전이 시작되지 않는 문제를 수정했습니다.
 
-- 별도 HD2 Stratagem Hotkeys 모드를 설치하지 않아도 원형 메뉴와 목록 열기 버튼 + 숫자열 1~4 커맨드 입력을 사용할 수 있습니다. 최신 0.1.13-test의 누락 아이콘 조회 수정과 엄지버튼 해제 보완을 포함했습니다.
+- 현재 Arsenal 0.36.2 BETA에서는 가져온 ZIP에 본체가 있었지만 실제 게임에는 설정 파일 7개만 배포된 것을 확인했습니다. Shared Loader에도 통합 모드의 로드 기록이 없었습니다.
+- 본체를 공통 Core 폴더로 옮기고 모든 ON/OFF 선택에 명시적으로 포함했습니다. 여러 설정을 선택해도 본체는 공통 폴더에서 한 번만 포함됩니다. OFF는 해당 기능만 끄고 본체 포함은 유지합니다.
+- 원형 오버레이 ON 등 원하는 설정을 하나 이상 선택해야 합니다. 모든 옵션을 선택 해제하면 배포할 파일이 없습니다. 본체가 배포된 상태에서 선택하지 않은 개별 기능은 기존 기본값을 사용합니다.
+- 별도 HD2 Stratagem Hotkeys 모드를 설치할 필요는 없습니다. 최신 0.1.13-test의 아이콘 조회 수정과 엄지버튼 해제 보완을 유지했습니다.
 - 자동재장전과 레일건·에포크 90% 충전 자동발사는 기본 ON입니다. 옵션을 선택하지 않아도 켜지며, 각각 OFF로 끌 수 있습니다. 충전 자동발사는 좌클릭을 한 번 놓는 방식이며 조준과 다음 충전은 수동입니다.
 - 원형 메뉴와 숫자 핫키도 기본 ON입니다. 공용/임무 스트라타젬 표시, 큰 메뉴(130%), 30ms 커맨드 입력은 기본 OFF이며 Arsenal에서 선택할 수 있습니다. 기본 커맨드 입력 간격은 15ms입니다.
 - 스트라타젬 입력 상태를 같은 프레임의 자동재장전·충전 검사보다 먼저 갱신해 두 기능의 입력이 끼어들지 않도록 했습니다. 한 기능의 초기화 실패나 OFF 설정이 다른 기능을 막지 않도록 분리했습니다.
@@ -38,18 +41,18 @@ $notes = @'
 ### 설치
 
 게임을 종료하고 Arsenal에서 이전 Auto Reload 버전을 이 통합 ZIP으로 교체하세요. **별도 HD2 Stratagem Hotkeys 모드는 비활성화하거나 제거**한 뒤 Bingus Shared Loader v18 / API 1과 함께 반드시 Purge / Deploy 하세요. 이전 옵션 파일이 남지 않도록 해야 합니다.
-자동재장전·충전 자동발사·원형 메뉴·숫자 핫키는 기본 ON입니다. 다만 Arsenal에서 이전에 선택했던 충전 OFF가 유지될 수 있으므로 가져온 후 **90% 충전 자동발사 ON**을 확인하세요. 명시한 OFF 설정을 자동으로 덮어쓰지 않습니다. 옵션 변경 후에도 재배포와 게임 재시작이 필요합니다.
+Arsenal에서 **스트라타젬 원형 오버레이 ON을 선택**하고 원하는 다른 설정도 선택하세요. 적어도 하나 이상의 ON/OFF 선택이 필요합니다. 자동재장전·충전 자동발사·원형 메뉴·숫자 핫키의 기본값은 ON입니다. 이전에 선택했던 충전 OFF가 유지될 수 있으므로 **90% 충전 자동발사 ON**도 확인하세요. 명시한 OFF 설정을 자동으로 덮어쓰지 않습니다. 옵션 변경 후에도 재배포와 게임 재시작이 필요합니다.
 게임의 스트라타젬 목록 열기 버튼은 **누르고 있기(Hold)**로 설정하세요. 키보드와 앞·뒤 마우스 엄지버튼을 지원합니다. 기존 외부 헬퍼의 동일 기능과 다른 자동장전 스크립트는 꺼서 중복 입력을 막으세요. Mod Options Menu와 Mod Bindings Menu는 필요하지 않습니다.
 자동재장전 로그: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`
 스트라타젬 로그: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_stratagem_hotkeys.log`
 
-총 4,757개 LuaJIT 모의 검사(자동재장전·충전 738개, 통합 실행·입력 69개, 스트라타젬 3,950개)와 패키지 크기·내용·설정 조합 2,187가지 검사를 통과했습니다. 기본 ON 및 명시적 OFF, 같은 Lua 환경의 입력 구조, 콜백 순서, 엄지버튼 메뉴 종료 후 장전 복귀와 초기화 실패 격리를 확인했습니다. 실제 통합 게임 동작과 Arsenal 화면은 재검증이 필요합니다. 50ms 판독과 프레임·입력 지연으로 충전 발사 해제 시점은 90%를 넘을 수 있으며 폭발 방지를 보장하지 않습니다. 설치된 모드 파일은 자동으로 변경하지 않았습니다.
+총 4,757개 LuaJIT 모의 검사와 설정 조합 2,187가지 패키지 검사를 통과했습니다. 모든 ON/OFF 선택의 본체 포함, 공통 본체 중복 방지와 모두 선택 해제한 상태를 확인했습니다. 현재 배포 기록과 설치 파일은 읽기 전용으로 확인했으며 변경하지 않았습니다. 새 패키지의 실제 Arsenal 재배포와 인게임 동작은 확인이 필요합니다. 기존 50ms 판독과 프레임·입력 지연으로 충전 해제 시점은 90%를 넘을 수 있으며 폭발 방지를 보장하지 않습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.29-test (combined, default-on charge release)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.30-test (explicit core deployment fix)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

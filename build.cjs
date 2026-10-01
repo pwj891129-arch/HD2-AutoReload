@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.29-test';
+const version = '0.3.30-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -132,9 +132,11 @@ archive.writeUInt32LE(16, 172);
 archive.writeUInt32LE(16, 176);
 payload.copy(archive, offset);
 const filename = '9ba626afa44a3aa3.patch_0';
-// Root patches deploy whenever the mod is enabled, independently of option checkboxes.
-fs.writeFileSync(path.join(stage, filename), archive);
-for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, filename + suffix), Buffer.alloc(0));
+// Arsenal 0.36.2 BETA omitted root patches when deploying option-only selections.
+const coreFolder = path.join(stage, 'Core');
+fs.mkdirSync(coreFolder, {recursive: true});
+fs.writeFileSync(path.join(coreFolder, filename), archive);
+for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(coreFolder, filename + suffix), Buffer.alloc(0));
 const description = `Auto Reload + Stratagems ${version}. Requires Bingus Shared Loader v18 / API 1. ` +
   'Combined automatic reload, default-on Railgun / Epoch left-mouse release at 90%, and native-icon stratagem radial/hotkeys. Stratagem input blocks reload and charge release in the same frame. Read-only held-object component reader at 50 ms intervals. Arsenal-only settings; no external companion mod or game assets included. Live testing required.';
 const options = [
@@ -164,7 +166,7 @@ const optionManifest = options.map(([name, label, help, defaultValue, prefix = '
     fs.writeFileSync(path.join(stage, folder, patch), marker);
     for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, folder, patch + suffix), Buffer.alloc(0));
     return {Name: (value ? 'ON' : 'OFF') + (value === defaultValue ? ' (기본)' : ''),
-      Description: value ? '활성화' : '비활성화', Include: [folder]};
+      Description: value ? '활성화' : '비활성화', Include: ['Core', folder]};
   })
 }));
 fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify({
