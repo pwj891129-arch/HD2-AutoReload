@@ -9,7 +9,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.33-test';
+const version = '0.3.34-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const coreIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared_other', 'large', 'slow'];
@@ -67,14 +67,19 @@ function checkPackage(language) {
     const option = manifest.Options[i], id = optionIds[i];
     const filter = filters.find(filter => filter.id === id);
     const localized = filter ? {Name: filter[language], Description: text.FilterDescription} : text.Options[id];
-    assert.deepEqual(Object.keys(option).sort(), ['Description', 'Name', 'SubOptions']);
+    assert.deepEqual(Object.keys(option).sort(), ['Description', 'Image', 'Name', 'SubOptions']);
     assert.equal(option.Name, localized.Name);
     assert.equal(option.Description, localized.Description);
     assert(option.Name.trim() && option.Description.trim());
+    assert.equal(option.Image, `OptionIcons/${id}.png`);
+    const image = fs.readFileSync(path.join(stage, option.Image));
+    assert(image.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')));
+    assert.equal(image.readUInt32BE(16), 256); assert.equal(image.readUInt32BE(20), 256);
     assert.equal(option.SubOptions.length, 2);
     for (const [index, variant] of option.SubOptions.entries()) {
       const value = index === 0 ? defaults[i] : !defaults[i];
-      assert.deepEqual(Object.keys(variant).sort(), ['Description', 'Include', 'Name']);
+      assert.deepEqual(Object.keys(variant).sort(), ['Description', 'Image', 'Include', 'Name']);
+      assert.equal(variant.Image, option.Image);
       assert.equal(variant.Name, (value ? 'ON' : 'OFF') + (index === 0 ? ` (${text.Default})` : ''));
       assert.equal(variant.Description, value ? text.Enabled : text.Disabled);
       assert.deepEqual(variant.Include, ['Core', `Option_${id}_${value ? 'on' : 'off'}`]);
@@ -88,7 +93,17 @@ function checkPackage(language) {
     option.SubOptions.flatMap(variant => variant.Include)))];
   assert.equal(folders.length, 1 + optionIds.length * 2);
   assert.deepEqual(fs.readdirSync(stage).filter(file => fs.statSync(path.join(stage, file)).isDirectory()).sort(),
-    [...folders].sort(), 'No stale addon or diagnostic folders');
+    [...folders, 'OptionIcons'].sort(), 'Only patch folders and image previews are packaged');
+  assert.deepEqual(fs.readdirSync(path.join(stage, 'OptionIcons')).sort(), optionIds.map(id => id + '.png').sort());
+  assert(fs.readFileSync(path.join(stage, 'LUCIDE-LICENSE.txt')).equals(
+    fs.readFileSync(path.join(__dirname, 'assets/LUCIDE-LICENSE.txt'))), 'Unmodified icon license ships');
+  const previousStage = path.join(__dirname, `dist/HD2-AutoReload-0.3.33-test-${language}`);
+  if (fs.existsSync(path.join(previousStage, 'manifest.json'))) {
+    const previous = JSON.parse(fs.readFileSync(path.join(previousStage, 'manifest.json'), 'utf8'));
+    const withoutImages = option => Object.fromEntries(Object.entries(option).filter(([key]) => key !== 'Image')
+      .map(([key, value]) => [key, key === 'SubOptions' ? value.map(withoutImages) : value]));
+    assert.deepEqual(manifest.Options.map(withoutImages), previous.Options, 'Existing order, text, defaults and includes are unchanged');
+  }
   assert(!fs.readdirSync(stage).some(name => /\.patch_\d+$/.test(name)), 'No root-only addon dependency');
   const archives = new Map();
   for (const folder of folders) {
@@ -112,6 +127,13 @@ function checkPackage(language) {
     const source = bytes.subarray(offset + 8, offset + size).toString('utf8');
     if (folder === 'Core') {
       assert(source.startsWith('-- HD2-Addon: mods/hd2_helper/auto_reload\n'));
+      const previousFile = path.join(previousStage, 'Core', files[0]);
+      if (fs.existsSync(previousFile)) {
+        const previous = fs.readFileSync(previousFile);
+        const at = Number(previous.readBigUInt64LE(120)), length = previous.readUInt32LE(160);
+        const previousSource = previous.subarray(at + 8, at + length).toString('utf8');
+        assert.equal(source, previousSource.replaceAll('0.3.33-test', version), 'Only version metadata changes in the game Lua');
+      }
       assert(source.includes(`local VERSION = "${version}"`));
       assert(source.includes('start_feature("stratagem", function()'));
       assert(source.includes('start_feature("autoreload", function()'));
@@ -212,7 +234,7 @@ function packageFiles(folder, relative = '') {
   }).sort();
 }
 const files = packageFiles(english.stage);
-assert.equal(files.length, 7 + optionIds.length * 6);
+assert.equal(files.length, 8 + optionIds.length * 7);
 assert.deepEqual(files, packageFiles(korean.stage));
 for (const file of files.filter(file => file !== 'manifest.json')) {
   assert(fs.readFileSync(path.join(english.stage, file)).equals(fs.readFileSync(path.join(korean.stage, file))),

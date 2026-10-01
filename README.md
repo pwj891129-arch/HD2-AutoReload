@@ -1,4 +1,25 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.33-test
+# HD2 Helper Auto Reload + Stratagems 0.3.34-test
+
+## Arsenal Option Icons
+
+0.3.34-test adds 41 distinct 256x256 PNG previews to the existing Arsenal
+options and their ON/OFF choices. Bright cyan identifies general features,
+yellow identifies shared calls and mint identifies mission calls. Each symbol
+uses an opaque dark contrast plate and remains legible as a small thumbnail.
+These are functional Lucide symbols for the settings UI, not the game's native
+stratagem artwork. In-game wheel art is unchanged.
+
+The current option order, labels, default values and Include paths are retained.
+Individual toggles remain independent: no mutually exclusive mission group is
+introduced. Arsenal's [option documentation](https://docs.rsnl.gg/mod-builder/options)
+limits sub-options to one level and exclusive variants, so it cannot contain a
+further independent ON/OFF group for every mission call. This release adds
+icons while retaining the existing arrangement.
+
+Preview PNGs are referenced only by manifest Image fields, not by Lua or patch
+Include paths. They do not add game resources or change reload, charge release
+or stratagem behavior. The Lucide/Feather license is bundled unchanged as
+LUCIDE-LICENSE.txt. Live Arsenal thumbnail display still needs confirmation.
 
 ## Individual Shared And Mission Toggles
 
@@ -37,8 +58,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.33-test-en.zip`: English Arsenal option names and descriptions (default distribution).
-- `HD2-AutoReload-0.3.33-test-ko.zip`: Korean Arsenal option names and descriptions.
+- `HD2-AutoReload-0.3.34-test-en.zip`: English Arsenal option names and descriptions (default distribution).
+- `HD2-AutoReload-0.3.34-test-ko.zip`: Korean Arsenal option names and descriptions.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and byte-identical game payload. Only manifest display text differs.
@@ -252,6 +273,10 @@ game payloads across the English and Korean packages. Individual kind filters,
 explicit OFF precedence, hidden command rejection, slot numbering and coherent
 shared/personal membership reads have regression coverage. The pinned native
 catalog checks all mission kinds when local reference captures are available.
+Manifest checks also confirm that every parent/ON/OFF choice has a valid PNG
+reference and that the previous option layout is unchanged when its local
+package is available. Separate image checks verify 41 unique glyphs, 256x256
+dimensions, nonblank pixels, full opacity and 32px thumbnail brightness.
 Tests cover both feature runtimes, shared-VM input declarations, callback order,
 default/explicit settings, initialization isolation and input blocking/resumption.
 These are offline mocks; actual combined gameplay and Arsenal UI remain unverified.
@@ -260,9 +285,15 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.33-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.33-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.33-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.33-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.34-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.34-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.34-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.34-test-ko.zip'
 ```
+
+PNG assets are committed, so ordinary builds do not require an image library.
+To regenerate from the committed Lucide vector subset, install Sharp for Node
+and run `node tools/option-icons.cjs`, then `node tools/option-icons.test.cjs`.
+The optional `--import <Arsenal app.asar>` refresh path requires the pinned
+Lucide 0.544.0 bundle and does not modify Arsenal or installed game patches.
 
 Credited HD2 HUD+ 0.1.2 reader sources and original reuse permission are in
 `vendor/` and THIRD_PARTY.txt. Only non-rendering identity support is used at

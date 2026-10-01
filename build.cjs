@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
 const root = __dirname;
-const version = '0.3.33-test';
+const version = '0.3.34-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -183,6 +183,12 @@ const optionManifest = options.map(([name, defaultValue, prefix = 'autoreload_se
     return {Include: ['Core', folder]};
   })
 }));
+const previewFolder = path.join(stage, 'OptionIcons');
+fs.mkdirSync(previewFolder, {recursive: true});
+for (const [name] of options) {
+  fs.copyFileSync(path.join(root, 'assets', 'option-icons', name + '.png'), path.join(previewFolder, name + '.png'));
+}
+fs.copyFileSync(path.join(root, 'assets', 'LUCIDE-LICENSE.txt'), path.join(stage, 'LUCIDE-LICENSE.txt'));
 const stages = {};
 for (const language of ['en', 'ko']) {
   const text = texts[language];
@@ -204,9 +210,10 @@ for (const language of ['en', 'ko']) {
       for (const key of ['Name', 'Description']) {
         assert(typeof localized?.[key] === 'string' && localized[key].trim(), `Missing ${language} option: ${name}.${key}`);
       }
-      return {...localized, SubOptions: option.SubOptions.map((variant, i) => {
+      const image = `OptionIcons/${name}.png`;
+      return {...localized, Image: image, SubOptions: option.SubOptions.map((variant, i) => {
         const value = i === 0 ? defaultValue : !defaultValue;
-        return {...variant, Name: (value ? 'ON' : 'OFF') + (i === 0 ? ` (${text.Default})` : ''),
+        return {...variant, Image: image, Name: (value ? 'ON' : 'OFF') + (i === 0 ? ` (${text.Default})` : ''),
           Description: value ? text.Enabled : text.Disabled};
       })};
     })

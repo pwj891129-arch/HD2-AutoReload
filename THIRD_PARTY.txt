@@ -34,3 +34,10 @@ https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinpu
 Local pinned native query and tile code were independently checked read-only.
 Atlas links, resource hashes, palette vectors and layouts are factual references,
 not copied game code/assets. No native game function is invoked by this addon.
+
+Arsenal option preview images: Lucide 0.544.0 / Lucide Contributors and
+Feather / Cole Bemis. https://github.com/lucide-icons/lucide/tree/0.544.0
+The selected vector subset and generated 41 PNG previews are licensed under
+ISC and MIT (Feather-derived portions). The original full notice is included
+unchanged as LUCIDE-LICENSE.txt. Styling and rasterization are by HD2 Helper.
+These UI-only symbols are not game artwork and are not deployed Lua resources.
