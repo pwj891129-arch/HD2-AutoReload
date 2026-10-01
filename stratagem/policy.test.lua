@@ -131,4 +131,3 @@ return function(equal)
     longest.keys[13], longest.directions[13] = 38, 1
     equal(p:start(longest, 2), false, "overlong command declined")
 end
-

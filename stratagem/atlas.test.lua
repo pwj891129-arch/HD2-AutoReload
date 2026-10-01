@@ -76,4 +76,3 @@ return function(equal)
     put(record + 184, word(2)); put(channel.base + 0x21e89e0, vector(13, 0, 0, 0))
     equal(reader:icon({record = record}, picture), nil, "incorrect color constant location cannot become shader data")
 end
-

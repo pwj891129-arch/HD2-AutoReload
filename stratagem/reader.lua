@@ -391,4 +391,3 @@ function Reader:request(slot)
     return {token = loadout.token, kind = kind, keys = keys, directions = definition.command, bindings = bindings}, "ready"
 end
 return Reader
-

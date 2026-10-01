@@ -302,4 +302,3 @@ function Radial:draw(inventory)
     return true
 end
 return Radial
-

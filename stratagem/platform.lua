@@ -160,4 +160,3 @@ function Platform.create(ffi)
     }
 end
 return Platform
-

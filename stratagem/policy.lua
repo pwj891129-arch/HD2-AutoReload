@@ -94,4 +94,3 @@ function Policy:step(now, allowed)
     return nil, observed
 end
 return Policy
-

@@ -209,4 +209,3 @@ return function(equal)
     local stale = Radial.new(sr, channel); equal(stale:open(inventory(4)), true)
     worlds = {1}; stale:dispose(); equal(#stale.ids, 0); equal(next(stale.icons), nil)
 end
-
