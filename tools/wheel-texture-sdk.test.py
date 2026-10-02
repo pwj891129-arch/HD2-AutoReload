@@ -17,7 +17,7 @@ for name, directory in [("offline_sdk", sdk), ("offline_sdk.utils", sdk / "utils
 Texture = importlib.import_module("offline_sdk.stingray.texture").StingrayTexture
 Stream = importlib.import_module("offline_sdk.utils.memoryStream").MemoryStream
 for language in ["en", "ko"]:
-    file = root / f"dist/HD2-AutoReload-0.3.45-test-{language}/Core/9ba626afa44a3aa3.patch_56"
+    file = root / f"dist/HD2-AutoReload-0.3.46-test-{language}/Core/9ba626afa44a3aa3.patch_56"
     packed = file.read_bytes()
     offset, size = struct.unpack_from("<Q", packed, 120)[0], struct.unpack_from("<I", packed, 160)[0]
     main, gpu = packed[offset:offset + size], Path(str(file) + ".gpu_resources").read_bytes()

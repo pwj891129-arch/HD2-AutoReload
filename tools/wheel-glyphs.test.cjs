@@ -35,7 +35,7 @@ const root = path.resolve(__dirname, '..');
     }
   }
   for (const language of ['en', 'ko']) {
-    const stage = path.join(root, `dist/HD2-AutoReload-0.3.45-test-${language}`), name = 'Core/9ba626afa44a3aa3.patch_56';
+    const stage = path.join(root, `dist/HD2-AutoReload-0.3.46-test-${language}`), name = 'Core/9ba626afa44a3aa3.patch_56';
     const bytes = fs.readFileSync(path.join(stage, name)), offset = Number(bytes.readBigUInt64LE(120));
     assert.equal(bytes.readBigUInt64LE(104), hash64(m.resource)); assert.equal(bytes.readBigUInt64LE(112), hash64('texture'));
     assert.equal(bytes.readUInt32LE(160), 340); assert.equal(bytes.readUInt32LE(168), gpu.length);

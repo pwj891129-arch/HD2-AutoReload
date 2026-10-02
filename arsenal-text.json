@@ -33,7 +33,7 @@
       },
       "scale": {
         "Name": "Radial Menu Size",
-        "Description": "Choose 100% (default), 150%, 200%, 300% or 400%. Large sizes are limited to fit the screen. Apply in Arsenal, then Purge / Deploy and restart."
+        "Description": "Choose 100% (default), 125%, 150%, 200% or 300%. Large sizes are limited to fit the screen. Apply in Arsenal, then Purge / Deploy and restart."
       },
       "slow": {
         "Name": "Command Input Interval",
@@ -87,7 +87,7 @@
       },
       "scale": {
         "Name": "원형 메뉴 크기",
-        "Description": "100%(기본), 150%, 200%, 300%, 400% 중 선택합니다. 큰 배율은 화면 밖으로 잘리지 않도록 제한됩니다. Arsenal에서 설정한 뒤 Purge / Deploy하고 게임을 재시작하세요."
+        "Description": "100%(기본), 125%, 150%, 200%, 300% 중 선택합니다. 큰 배율은 화면 밖으로 잘리지 않도록 제한됩니다. Arsenal에서 설정한 뒤 Purge / Deploy하고 게임을 재시작하세요."
       },
       "slow": {
         "Name": "커맨드 입력 간격",

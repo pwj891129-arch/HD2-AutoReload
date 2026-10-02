@@ -2,10 +2,10 @@ param(
     [Parameter(Mandatory)][string[]]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.45-test'
+    [string]$Tag = 'auto-reload-0.3.46-test'
 )
 $ErrorActionPreference = 'Stop'
-$expectedNames = @('HD2-AutoReload-0.3.45-test-en.zip', 'HD2-AutoReload-0.3.45-test-ko.zip')
+$expectedNames = @('HD2-AutoReload-0.3.46-test-en.zip', 'HD2-AutoReload-0.3.46-test-ko.zip')
 $assets = @($AssetPath | ForEach-Object {
     $resolved = (Resolve-Path -LiteralPath $_).Path
     [ordered]@{
@@ -32,17 +32,15 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.45-test
+## HD2 Auto Reload + Stratagems 0.3.46-test
 
-한글 이름이 정상 표시된 0.3.44를 바탕으로, 스트라타젬 휠의 글자 크기와 대비를 개선한 테스트 버전입니다.
+스트라타젬 휠의 확대 배율 선택지를 조정한 테스트 버전입니다.
 
-- 이름의 기준 크기를 14px → 24px, 상태 표시를 12px → 16px, 중앙 선택 이름을 16px → 20px로 늘렸습니다. 실제 크기는 항목 수·화면 크기·메뉴 배율·이름 길이에 맞춰 조정됩니다.
-- 이름을 밝고 불투명하게 표시하고 어두운 그림자를 추가했습니다. 쿨다운 중에도 이름을 지나치게 흐리게 표시하지 않으며, 아이콘과 상태 표시로 사용 가능 여부를 구분합니다.
-- 슬롯 번호를 이름 옆에서 상태 표시 줄로 옮겨 이름이 사용할 수 있는 너비를 늘렸습니다. 긴 이름은 두 줄로 나누어 휠 안에 표시합니다.
-- 커진 글씨와 아이콘이 겹치지 않도록 배치를 조정했습니다. 아이콘은 공간에 따라 최대 84px까지 표시하며, 기본 반지름을 25px 늘리고 화면 밖으로 나가지 않도록 크기 제한을 유지했습니다.
-- 한국어는 게임 한글 폰트로 우선 표시합니다. 이미지 대체 경로에도 같은 크기·그림자 규칙을 적용했으며, 그리기 실패 시 남은 그림자와 글자를 정리한 뒤 대체 표시합니다. 공용 HUD 재질과 원본 게임 파일은 변경하지 않습니다.
-- 스트라타젬 선택 방향·커맨드·장착 슬롯 번호·표시 옵션 및 자동재장전/배낭 장전 동작은 그대로 유지합니다.
-- 영어판 `HD2-AutoReload-0.3.45-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.45-test-ko.zip` 중 하나만 설치하세요. 옵션 순서·기본값·저장 경로는 유지했습니다. 한글 이름은 한국어 ZIP에서 표시합니다.
+- 원형 메뉴 크기 옵션을 **100%, 125%, 150%, 200%, 300%**로 변경했습니다. 125%를 추가하고 400%를 제거했습니다.
+- 영어·한국어 옵션 이름/설명과 실제 게임 적용값을 함께 변경했습니다. 기본값은 100%이며, 화면 밖으로 잘리지 않도록 제한하는 기능은 유지합니다.
+- 이전 400% 설정 파일이 남아 있으면 100% 기본값으로 처리합니다. 하위 선택지 순서가 바뀌었으므로 ZIP 교체 후 Arsenal에서 원하는 배율을 다시 확인하세요. 유지된 네 배율의 리소스 경로와 나머지 옵션의 위치·기본값은 그대로입니다.
+- 0.3.45의 글자 크기·그림자·한글 폰트 표시·아이콘 배치와 스트라타젬 입력, 자동재장전/배낭 장전, 충전 자동발사 동작은 유지합니다. 게임의 정지 재장전 설정값을 변경하는 기능은 추가하지 않았습니다.
+- 영어판 `HD2-AutoReload-0.3.46-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.46-test-ko.zip` 중 하나만 설치하세요.
 
 ### 설치
 
@@ -54,21 +52,21 @@ Arsenal은 새 옵션을 처음 가져올 때 체크합니다. 이제 체크된 
 
 ### English
 
-The user confirmed visible native Korean text in 0.3.44. This build raises nominal name/status/center sizes from 14/12/16px to 24/16/20px, adds opaque dark shadows and keeps cooldown names bright. Actual text still fits sector count, viewport, scale and long names. Slot numbers move beside status so names can use the full width. Icons grow up to 84px; the base radius grows by 25px while retaining viewport clamps. Shadows and foregrounds are fitted together and partial draws are removed before fallback. Native Korean remains preferred, with the existing OFL raster fallback retained. No original game font/atlas/UI binary or shared HUD material is changed.
+Radial Menu Size now offers **100%, 125%, 150%, 200% and 300%**. 125% is added and 400% is removed in both manifests, descriptions, deployment markers and runtime validation. The default stays at 100%, with the existing viewport clamp. An old deployed 400% marker falls back to 100%. Retained scale resource paths and other option positions/defaults are unchanged, but Arsenal may preserve a suboption by position: review the size selection after replacing the ZIP, then Purge / Deploy with the game closed.
 
-Command input, selection angles, slot matching, visibility, settings and automatic/backpack reload remain unchanged.
+The 0.3.45 label contrast, native Korean text, icons, input, slot matching, visibility, automatic/backpack reload and charge release are retained. This update does not change any weapon's in-game movement/reload configuration.
 
 Install **one** ZIP: `-en.zip` or `-ko.zip`. Arsenal initially checks new options, so review checkbox states and uncheck unwanted calls. Use Individual Settings in the bulk controls to honor individual checks. Replace the previous version, then Purge / Deploy and restart with the game closed and Bingus Shared Loader v18 / API 1. At least one setting must be selected.
 
 ### 검증
 
-LuaJIT 모의 검사와 언어판별 배포 검사를 통과했습니다. 1~16개 항목, 여러 화면 해상도와 배율에서 한글 폰트·영문·이미지 대체 경로의 글자/그림자/아이콘/번호가 각 칸 안에 들어가고 서로 겹치지 않는지 검사했습니다. 글자와 그림자 그리기 실패 시 정리·대체 표시와 DDS/GPU 배포 검사도 통과했습니다. 오프라인 미리보기의 가독성을 확인했으며, 이번 변경의 실제 게임 가독성은 적용 후 확인이 필요합니다. 설치된 모드·게임 상태는 변경하지 않았습니다.
+LuaJIT 모의 검사와 언어판별 배포 검사를 통과했습니다. 새 다섯 배율을 모두 적용하고 400% 값이 거부되는지 검사했습니다. 125%를 포함하여 1~16개 항목과 여러 해상도에서 이름·그림자·아이콘·번호가 겹치지 않고 화면 안에 들어가는지 검사했습니다. 두 언어판의 선택지 순서·설명·적용값과 기존 설정 경로, DDS/GPU 배포 검사도 통과했습니다. 실제 게임 및 Arsenal UI 적용은 사용자가 확인해야 하며, 설치된 모드·게임 상태는 변경하지 않았습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.45-test (Readable wheel labels)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.46-test (125 percent wheel scale)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

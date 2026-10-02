@@ -71,7 +71,7 @@ return function(equal)
             local inventory = {rows = {}}
             for index = 1, count do inventory.rows[index] = {kind = index, name = labels[(index - 1) % #labels + 1],
                 status = index % 2 == 0 and "12345s" or "READY", slot = index <= 4 and index or nil, ready = true} end
-            for _, scale in ipairs({1, 1.5, 2, 3, 4}) do
+            for _, scale in ipairs({1, 1.25, 1.5, 2, 3}) do
                 radial.scale, radial.signature = scale, nil
                 equal(radial:draw(inventory), true)
                 local radius = count > 8 and 235 or 190

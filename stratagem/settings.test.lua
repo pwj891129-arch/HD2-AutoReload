@@ -79,8 +79,8 @@ return function(equal, read_file)
             end
         end
     end
-    for _, scale in ipairs({1, 1.5, 2, 3, 4}) do equal(configure({scale = scale}).scale, scale, "exact size setting") end
-    for _, invalid in ipairs({true, false, "2", 0, -1, 1.3, 2.5, math.huge, 0 / 0, {}}) do
+    for _, scale in ipairs({1, 1.25, 1.5, 2, 3}) do equal(configure({scale = scale}).scale, scale, "exact size setting") end
+    for _, invalid in ipairs({true, false, "2", "1.25", 0, -1, 1.3, 2.5, 4, math.huge, 0 / 0, {}}) do
         equal(configure({scale = invalid}).scale, 1, "invalid size falls back to 100%")
         equal(configure({shared_mission_all = invalid == false and "bad" or invalid}).shared[124],
             invalid == true, "invalid master cannot enable hidden calls")
@@ -92,8 +92,9 @@ return function(equal, read_file)
         equal(configure(saved, id).shared[group], false, "failed bulk query hides its group")
         equal(configure(saved, nil, id).shared[group], false, "failed bulk load hides its group")
     end
-    equal(configure({scale = 4}, "scale").scale, 1)
-    equal(configure({scale = 4}, nil, "scale").scale, 1)
+    equal(configure({scale = 1.25}, "scale").scale, 1)
+    equal(configure({scale = 1.25}, nil, "scale").scale, 1)
+    equal(configure({scale = 4}).scale, 1, "retired 400% marker falls back to the 100% default")
     equal(configure({large = true}).scale, 1, "retired 130% marker cannot override the new selector")
     equal(configure({radial = false}).radial, false, "unchecked radial stays disabled with hotkeys enabled")
     equal(configure({hotkeys = false}).hotkeys, false, "unchecked hotkeys stay disabled with radial enabled")

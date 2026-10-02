@@ -1,4 +1,19 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.45-test
+# HD2 Helper Auto Reload + Stratagems 0.3.46-test
+
+## Wheel Scale Choices
+
+Radial Menu Size now offers 100% (default), 125%, 150%, 200% and 300%.
+125% replaces the removed 400% choice. English/Korean manifests, descriptions,
+deployment markers, runtime validation and geometry tests use the same values.
+An old deployed 400% marker is rejected and falls back to the 100% default.
+The four retained scale values keep their resource paths. The top-level option
+position, package GUID, other settings and defaults are unchanged, but Arsenal
+may retain a suboption by position; review the scale after replacing the ZIP.
+Purge / Deploy with the game closed to remove the previous version's files.
+
+The 0.3.45 labels, native Korean rendering, icons, input, automatic/backpack
+reload and charge-release behavior are unchanged. No game configuration value
+or installed mod is modified by this update's development tools.
 
 ## Readable Wheel Labels
 
@@ -91,7 +106,7 @@ Regenerate them with `tools/wheel-glyphs.py` (Pillow) and `tools/wheel-texture.c
 
 Offline tests cover all 149 Korean names, exact DDS/GPU mipmap sizes, atlas binding,
 glyph bearing alignment, fallback/partial draw cleanup, 1-16 calls, 320x240 through
-3840x2160 and every 100-400% menu size. Actual Lua draw geometry and glyph UVs were
+3840x2160 and every supported menu size. Actual Lua draw geometry and glyph UVs were
 exported and rendered offline together with native icons for visual verification.
 Logs distinguish `glyph-source`, `glyph-drawn` and `glyph-draw-failed`. Actual gameplay
 still needs verification; no installed mod, game process or game input was changed.
@@ -262,10 +277,10 @@ ON includes all shared calls, including unclassified entries; combined OFF hides
 them all. Calls still must exist in the local current mission. Personal slots
 1-4 and their hotkeys are never hidden or renumbered by these controls.
 
-Radial Menu Size replaces the old 100%/130% toggle with 100% (default), 150%,
-200%, 300% and 400%. Geometry, native icons, labels and the selection dead zone
+Radial Menu Size replaces the old 100%/130% toggle with 100% (default), 125%,
+150%, 200% and 300%. Geometry, native icons, labels and the selection dead zone
 use the same effective scale. Large sizes are limited to fit the viewport;
-400% needs a sufficiently large display to render at the full requested size.
+the requested size may be reduced on smaller displays.
 The obsolete `large` marker is ignored. Review the size selection after replacing
 the package; Arsenal may retain a former size choice by its option position.
 
@@ -360,8 +375,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.45-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.45-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.46-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.46-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -427,7 +442,7 @@ registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 - `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: checked is ON; uncheck to disable the radial only.
 - `Stratagem Number Hotkeys` / `스트라타젬 숫자 핫키`: checked is ON; uncheck to disable number shortcuts only.
 - `Other Shared / Mission Calls` / `기타 공용/임무 스트라타젬 표시`: checked is ON; controls only types without an individual toggle.
-- `Radial Menu Size` / `원형 메뉴 크기`: 100% by default; 150%, 200%, 300% or 400%, limited to fit the screen.
+- `Radial Menu Size` / `원형 메뉴 크기`: 100% by default; 125%, 150%, 200% or 300%, limited to fit the screen.
 - `Command Input Interval` / `커맨드 입력 간격`: 15 ms by default; choose 30 ms for a longer press/release interval.
 - `Shared: Reinforce`, `Shared: SOS Beacon`, `Shared: Resupply` / `공용: 증원`, `공용: SOS 신호기`, `공용: 보급`: check to show, uncheck to hide. No ON/OFF submenu.
 - `Mission: ...` / `임무: ...`: 31 independent direct checkboxes. Includes Hellbomb, SEAF artillery, flag, drills, data upload, extraction variants and other native mission calls. Unavailable mission calls are never invented by enabling an option.
@@ -618,8 +633,8 @@ node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
 node tools/reload-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.45-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.45-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.45-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.45-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.46-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.46-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.46-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.46-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

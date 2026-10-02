@@ -164,7 +164,7 @@ return function(equal, read_file, source)
             for index = 1, count do items.rows[index] = {kind = index, ready = true,
                 name = "LONG STRATAGEM NAME", status = "READY", slot = index <= 4 and index or nil} end
             equal(sized:open(items), true, "scaled native GUI opens")
-            for _, scale in ipairs({1, 1.5, 2, 3, 4}) do
+            for _, scale in ipairs({1, 1.25, 1.5, 2, 3}) do
                 sized.scale = scale
                 x, y = 0.5, 0.95
                 local drawn = next_id

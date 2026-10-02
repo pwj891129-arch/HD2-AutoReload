@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.45-test';
+const version = '0.3.46-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -25,7 +25,7 @@ const variantCount = definitions.reduce((sum, option) => sum + option.values.len
 assert.equal(optionIds.length, 44);
 assert.equal(variantCount, 55);
 assert.equal(definitions.filter(option => option.toggle).length, 39);
-assert.deepEqual(definitions.find(option => option.id === 'scale').values, [1, 1.5, 2, 3, 4]);
+assert.deepEqual(definitions.find(option => option.id === 'scale').values, [1, 1.25, 1.5, 2, 3]);
 for (const id of ['shared_all', 'mission_all', 'shared_mission_all']) {
   assert.deepEqual(definitions.find(option => option.id === id).values, ['individual', true, false]);
 }
@@ -136,6 +136,15 @@ function checkPackage(language) {
         assert.deepEqual(manifest.Options[i].Include,
           previous.Options[i].Include,
           'Direct checkbox preserves the previous ON resource path');
+      } else if (optionIds[i] === 'scale') {
+        const oldChoices = previous.Options[i].SubOptions;
+        for (const variant of manifest.Options[i].SubOptions) {
+          if (variant.Include.includes('Option_scale_125')) continue;
+          assert(oldChoices.some(old => JSON.stringify(old.Include) === JSON.stringify(variant.Include)),
+            'Unchanged scale values retain their existing resource paths');
+        }
+        assert(manifest.Options[i].SubOptions.some(variant => variant.Include.includes('Option_scale_125')));
+        assert(!manifest.Options[i].SubOptions.some(variant => variant.Include.includes('Option_scale_400')));
       } else {
         assert.deepEqual(manifest.Options[i].SubOptions.map(variant => variant.Include),
           previous.Options[i].SubOptions.map(variant => variant.Include), 'Existing choice resource paths remain unchanged');
@@ -185,6 +194,8 @@ function checkPackage(language) {
       assert(source.includes('content/fonts/core_sans') && source.includes('e007454455e2d2bb'));
       assert(source.includes('font = resource, material = FONT_MATERIAL'), 'Native text uses the bound GUI-local resource, not the instance pointer');
       assert(source.includes('renderer=resource-text') && source.includes('renderer=mask-bitmap'), 'Native and raster routes are distinguishable');
+      assert(source.includes('value == 1 or value == 1.25 or value == 1.5 or value == 2 or value == 3'));
+      assert(!source.includes('value == 4'), 'Removed 400% cannot be accepted at runtime');
       assert(source.includes('84 * unit, 24 * unit, 16 * unit, 4 * unit'));
       assert(source.includes('draw(sr.Color(255, 0, 0, 0), shadow, -shadow, 12)'));
       assert(source.includes('draw(colour, 0, 0, 13)'));

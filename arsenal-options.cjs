@@ -7,7 +7,7 @@ function definitions(filters) {
     bool('enabled', 'autoreload_setting_'),
     bool('charge90', 'autoreload_setting_'),
     bool('radial'), bool('hotkeys'), bool('shared_other'),
-    {id: 'scale', prefix: 'stratagem_option_', values: [1, 1.5, 2, 3, 4]},
+    {id: 'scale', prefix: 'stratagem_option_', values: [1, 1.25, 1.5, 2, 3]},
     {id: 'slow', prefix: 'stratagem_option_', values: [false, true]},
     ...filters.map(filter => bool(filter.id)),
     bulk('shared_all'), bulk('mission_all'), bulk('shared_mission_all')
