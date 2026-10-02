@@ -2,10 +2,10 @@ param(
     [Parameter(Mandatory)][string[]]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.46-test'
+    [string]$Tag = 'auto-reload-0.3.47-test'
 )
 $ErrorActionPreference = 'Stop'
-$expectedNames = @('HD2-AutoReload-0.3.46-test-en.zip', 'HD2-AutoReload-0.3.46-test-ko.zip')
+$expectedNames = @('HD2-AutoReload-0.3.47-test-en.zip', 'HD2-AutoReload-0.3.47-test-ko.zip')
 $assets = @($AssetPath | ForEach-Object {
     $resolved = (Resolve-Path -LiteralPath $_).Path
     [ordered]@{
@@ -32,41 +32,36 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.46-test
+## HD2 Auto Reload + Stratagems 0.3.47-test
 
-스트라타젬 휠의 확대 배율 선택지를 조정한 테스트 버전입니다.
+차량 자동재장전을 별도 옵션으로 추가한 테스트 버전입니다.
 
-- 원형 메뉴 크기 옵션을 **100%, 125%, 150%, 200%, 300%**로 변경했습니다. 125%를 추가하고 400%를 제거했습니다.
-- 영어·한국어 옵션 이름/설명과 실제 게임 적용값을 함께 변경했습니다. 기본값은 100%이며, 화면 밖으로 잘리지 않도록 제한하는 기능은 유지합니다.
-- 이전 400% 설정 파일이 남아 있으면 100% 기본값으로 처리합니다. 하위 선택지 순서가 바뀌었으므로 ZIP 교체 후 Arsenal에서 원하는 배율을 다시 확인하세요. 유지된 네 배율의 리소스 경로와 나머지 옵션의 위치·기본값은 그대로입니다.
-- 0.3.45의 글자 크기·그림자·한글 폰트 표시·아이콘 배치와 스트라타젬 입력, 자동재장전/배낭 장전, 충전 자동발사 동작은 유지합니다. 게임의 정지 재장전 설정값을 변경하는 기능은 추가하지 않았습니다.
-- 영어판 `HD2-AutoReload-0.3.46-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.46-test-ko.zip` 중 하나만 설치하세요.
+- **Vehicle Automatic Reload / 차량 자동 재장전** 체크박스를 추가했습니다. 일반 자동재장전과 별도로 켜고 끌 수 있습니다. 기존 옵션의 저장 위치와 리소스 경로를 유지하기 위해 목록 끝에 배치했습니다.
+- FRV·바스티온·마엘스트롬의 안정된 포수/파일럿석에 연결된 첫 번째 차량 무기를 판독합니다. 탱크 주포 등 장전 가능한 차량 무기가 대상이며, 모든 차량 무기 지원을 보장하는 버전은 아닙니다.
+- 탄창과 약실이 모두 비어 있고 여분탄이 확인될 때만 장전합니다. 장전 중, 수동 장전 중, 좌석 전환, 차량 무기 입력 불가 상태에서는 시도하지 않습니다. 장전 불가·과열 방식·판독 불가 차량 무기는 제외합니다.
+- 발사 버튼을 놓으면 장전을 확인합니다. 빈 차량 무기에 좌클릭을 다시 누르면 발사 입력을 해제한 뒤 장전을 시도할 수 있습니다. 탄 소진 1회당 자동 시도는 한 번으로 제한하며, 다시 클릭하면 재시도할 수 있습니다.
+- 탱크 부사수석에서 몸을 내밀어 쓰는 개인 총기는 기존 일반 자동재장전 옵션을 따릅니다. 일반 무기 장전·배낭 장전·레일건/에포크 자동발사·스트라타젬 휠 설정은 유지합니다.
+- 게임 메모리는 읽기 전용이며 탄약·차량 상태·운전 권한을 변경하지 않습니다. 다른 HUD 모드의 차량/무기 목록은 필요하지 않습니다.
 
 ### 설치
 
-**언어별 ZIP 중 하나만 설치하세요.** 이전 Auto Reload 버전을 교체하고 Arsenal의 체크 상태를 확인한 뒤, 게임을 종료한 상태에서 Purge / Deploy하고 재시작하세요. Bingus Shared Loader v18 / API 1이 필요합니다.
-
-Arsenal은 새 옵션을 처음 가져올 때 체크합니다. 이제 체크된 개별 항목은 ON이므로 표시하지 않을 항목은 해제하세요. 새로 가져온 자동재장전·충전 자동발사도 체크된 ON 상태로 시작합니다. 이전 선택이 유지될 수 있으므로 교체 후 다시 확인하세요. 프로그램 설정 변경은 Arsenal에서만 가능하며 인게임 옵션 메뉴는 추가하지 않았습니다.
-
-개별 체크값을 사용하려면 공용/임무 전체 표시 모드를 ‘개별 설정 사용’으로 두세요. 전체 ON/OFF 모드는 체크값을 덮어쓰되 지우지는 않습니다. 원형 메뉴를 사용하려면 **Stratagem Radial Menu / 스트라타젬 원형 오버레이**를 체크하세요. 하나 이상의 옵션이 선택되어야 공통 Core가 배포됩니다. 별도 HD2 Stratagem Hotkeys 모드와 중복 자동재장전 기능은 비활성화하거나 제거하세요. 조준·투척은 수동입니다.
+영어판 `HD2-AutoReload-0.3.47-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.47-test-ko.zip` 중 **하나만** 설치하세요. 이전 버전을 교체하고 차량 옵션 체크 상태를 확인한 뒤, 게임을 종료한 상태에서 Arsenal의 Purge / Deploy를 수행하고 재시작하세요. Bingus Shared Loader v18 / API 1이 필요합니다. 새 체크박스는 처음 가져올 때 ON 상태일 수 있습니다. 차량 장전이 필요 없다면 새 옵션만 해제하세요. 개발·게시 과정에서는 설치된 모드와 실행 중인 게임을 변경하지 않았습니다.
 
 ### English
 
-Radial Menu Size now offers **100%, 125%, 150%, 200% and 300%**. 125% is added and 400% is removed in both manifests, descriptions, deployment markers and runtime validation. The default stays at 100%, with the existing viewport clamp. An old deployed 400% marker falls back to 100%. Retained scale resource paths and other option positions/defaults are unchanged, but Arsenal may preserve a suboption by position: review the size selection after replacing the ZIP, then Purge / Deploy with the game closed.
+Adds an independent **Vehicle Automatic Reload** checkbox at the end of Arsenal options, preserving previous option positions and resource paths. The experimental path reads slot-0 reloadable mounts in settled FRV, Bastion and Maelstrom gunner/pilot seats. It requires an empty magazine AND chamber, known positive reserve, native vehicle weapon-control permission and no active reload. Native weapon-owner/animation links provide mounted reload state; personal avatar reload flags are not substituted for cannon state.
 
-The 0.3.45 label contrast, native Korean text, icons, input, slot matching, visibility, automatic/backpack reload and charge release are retained. This update does not change any weapon's in-game movement/reload configuration.
+Held firing defers reload. Fire release or an empty left-mouse click can request it; a confirmed empty mount on seating can request one attempt. Automatic attempts are limited per empty episode, with explicit empty clicks able to retry. Passenger lean-out personal weapons continue to follow the personal reload checkbox. Unsupported seats, heat-only, non-reloadable and ambiguous mounts are excluded. All memory reads remain read-only and binary-hash pinned. Install one language ZIP and review the new checkbox before Purge / Deploy with the game closed.
 
-Install **one** ZIP: `-en.zip` or `-ko.zip`. Arsenal initially checks new options, so review checkbox states and uncheck unwanted calls. Use Individual Settings in the bulk controls to honor individual checks. Replace the previous version, then Purge / Deploy and restart with the game closed and Bingus Shared Loader v18 / API 1. At least one setting must be selected.
+### 검증 및 테스트 범위
 
-### 검증
-
-LuaJIT 모의 검사와 언어판별 배포 검사를 통과했습니다. 새 다섯 배율을 모두 적용하고 400% 값이 거부되는지 검사했습니다. 125%를 포함하여 1~16개 항목과 여러 해상도에서 이름·그림자·아이콘·번호가 겹치지 않고 화면 안에 들어가는지 검사했습니다. 두 언어판의 선택지 순서·설명·적용값과 기존 설정 경로, DDS/GPU 배포 검사도 통과했습니다. 실제 게임 및 Arsenal UI 적용은 사용자가 확인해야 하며, 설치된 모드·게임 상태는 변경하지 않았습니다.
+LuaJIT 모의 검사, 차량/개인 옵션 독립성, 장전 중·여분탄 없음·탑승 전환·입력 차단 검사, 기존 게임 캡처의 네이티브 명령 확인 및 영어/한국어 배포 검사를 통과했습니다. 새 옵션 파일은 기존 휠 텍스처와 겹치지 않는 번호를 사용합니다. **실제 차량 장전과 멀티플레이·Solo Vehicle Driver 동시 사용은 아직 검증하지 않았습니다.** 탱크 주포와 FRV 포수석에서 탄 소진 후 장전, 여분탄 0일 때 미작동, 부사수 개인 총기의 기존 장전을 확인해 주세요.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.46-test (125 percent wheel scale)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.47-test (Vehicle Reload)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

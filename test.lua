@@ -6,6 +6,7 @@ local function equal(actual, expected, name)
     count = count + 1
 end
 dofile("native_reader.test.lua")(api, equal)
+dofile("vehicle_reload.test.lua")(api, equal)
 dofile("backpack_reserve.test.lua")(api, equal)
 dofile("reload_movement.test.lua")(api, equal)
 dofile("charge_policy.test.lua")(api, equal)
@@ -591,8 +592,9 @@ control, rotation = true, true
 equal(reader:sample().active, true, "controlled grip70 uses held native weapon")
 resolved.grip = 40
 local before = native_calls
-equal(reader:sample().active, false, "mounted cannon stays excluded")
-equal(native_calls, before, "unsupported grip is not sampled")
+equal(reader:sample().active, false, "unsupported personal grip cannot authorize reload")
+equal(native_calls, before + 1, "native seat classification runs before the personal grip gate")
+before = native_calls
 resolved.grip = 15
 resolved.underbarrel = { goid = 5 }
 equal(reader:sample().active, false, "underbarrel cannot use main ammo")

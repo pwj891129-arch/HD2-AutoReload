@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.46-test"
+local VERSION = "0.3.47-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -49,11 +49,6 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
         self.native_pending = nil
         return nil, "no-avatar"
     end
-    if type(resolved.grip) ~= "number" or resolved.grip == 0 or
-        resolved.grip == 40 then
-        self.native_pending = nil
-        return nil, "unsupported-grip"
-    end
     local ok, sample, reason = pcall(self.native.sample, self.native)
     if not ok or not sample or sample.avatar ~= resolved.avatar.goid then
         if self.native.disabled then
@@ -67,12 +62,17 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
     local rotation_free = boolean(self.identity:rotation_free(session, resolved.avatar))
     local seated_fire = allow_seated_fire and in_control == false and
         rotation_free == false and resolved.grip ~= 70
-    if (in_control ~= true or rotation_free ~= true) and not seated_fire then
+    if sample.vehicle ~= true and (type(resolved.grip) ~= "number" or
+        resolved.grip == 0 or resolved.grip == 40) then
+        self.native_pending = nil
+        return nil, "unsupported-grip"
+    end
+    if sample.vehicle ~= true and (in_control ~= true or rotation_free ~= true) and not seated_fire then
         self.native_pending = nil
         return nil, "no-player-control", { in_control = in_control,
             rotation_free = rotation_free, held_reason = resolved.reason }
     end
-    sample.seated_fire = seated_fire
+    sample.seated_fire = sample.vehicle ~= true and seated_fire or false
     sample.grip = resolved.grip
     sample.slot = nil
     local empty = (sample.mode == "heat" and sample.overheated == true) or
@@ -198,7 +198,7 @@ if not ok then log("DISABLED reader initialization: " .. tostring(reader)); retu
 local sr = rawget(_G, "stingray") or {}
 local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {}
 local config = Options.read(App, require)
-if not config.enabled and not config.charge90 then log("DISABLED Arsenal options off"); return end
+if not config.enabled and not config.charge90 and not config.vehicle then log("DISABLED Arsenal options off"); return end
 config.fire_vk, config.reload_vk, config.pause_vk = 1, 82, 119
 local appdata = os.getenv("APPDATA")
 local config_path = appdata and (appdata .. "\\HD2AutoReload.ini")
@@ -262,6 +262,7 @@ local function status(reason, sample)
         " mode=" .. tostring(sample and sample.mode) ..
         " slot=" .. tostring(sample and sample.slot) ..
         " seated_fire=" .. tostring(sample and sample.seated_fire)
+        .. " vehicle=" .. tostring(sample and sample.vehicle)
     if sample and sample.mode == "heat" then
         label = label .. " overheat=" .. tostring(sample.overheated) ..
             " reserve=" .. tostring(sample.reserve) ..
@@ -511,4 +512,5 @@ if not install_hooks(_G, guarded_tick, function() pcall(release) end) then
 end
 log("START " .. VERSION .. " Arsenal-only options enabled=" .. tostring(config.enabled) ..
     " charge90=" .. tostring(config.charge90) ..
+    " vehicle=" .. tostring(config.vehicle) ..
     " fire_vk=" .. config.fire_vk .. " reload_vk=" .. config.reload_vk)

@@ -6,7 +6,7 @@ const optionModel = require('./arsenal-options.cjs');
 const wheelTexture = require('./tools/wheel-texture.cjs');
 
 const root = __dirname;
-const version = '0.3.46-test';
+const version = '0.3.47-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -185,7 +185,10 @@ const optionManifest = options.map(({id: name, values, prefix, toggle}) => {
     marker.writeBigUInt64LE(hash64('mods/hd2_helper/' + prefix + name), 104);
     marker.writeUInt32LE(module.length, 160); module.copy(marker, 192);
     fs.mkdirSync(path.join(stage, folder), {recursive: true});
-    const patch = `9ba626afa44a3aa3.patch_${++optionIndex}`;
+    // patch_56 is the always-deployed wheel texture; never reuse its filename.
+    optionIndex++;
+    if (optionIndex === 56) optionIndex++;
+    const patch = `9ba626afa44a3aa3.patch_${optionIndex}`;
     fs.writeFileSync(path.join(stage, folder, patch), marker);
     for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(stage, folder, patch + suffix), Buffer.alloc(0));
     return {Include: ['Core', folder]};

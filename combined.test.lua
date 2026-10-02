@@ -36,6 +36,7 @@ local combined_source = read("combined.lua")
 local function fixture(flags, list_vk, fail_reload, fail_stratagem, start_mode)
     flags, list_vk = flags or {}, list_vk or 5
     local selected = {autoreload_setting_enabled = true, autoreload_setting_charge90 = true,
+        autoreload_setting_vehicle = true,
         stratagem_option_radial = true, stratagem_option_hotkeys = true}
     for key, value in pairs(flags) do
         if value == false then selected[key] = nil else selected[key] = value end
@@ -146,6 +147,7 @@ end
 local f = fixture()
 equal(f.env.HD2HelperAutoReload.config.enabled, true, "combined default reload on")
 equal(f.env.HD2HelperAutoReload.config.charge90, true, "combined default charge on")
+equal(f.env.HD2HelperAutoReload.config.vehicle, true, "fresh checked vehicle option is on")
 equal(f.env.HD2StratagemHotkeys.config.radial, true, "combined default radial on")
 equal(f.env.HD2StratagemHotkeys.config.hotkeys, true, "combined default hotkeys on")
 local a, b, c = f.step(0.06)
@@ -292,7 +294,8 @@ f = fixture(); f.step(0.06); f.keys[5] = true; charge(f, "epoch")
 equal(#f.events, 0, "stratagem hold blocks high-charge mouse release")
 f.env.shutdown()
 
-f = fixture({autoreload_setting_enabled = false, autoreload_setting_charge90 = false})
+f = fixture({autoreload_setting_enabled = false, autoreload_setting_charge90 = false,
+    autoreload_setting_vehicle = false})
 equal(f.env.HD2HelperAutoReload, nil, "reload and charge can both be disabled")
 equal(f.env.HD2StratagemHotkeys ~= nil, true, "stratagem startup independent of disabled reload")
 f.step(0.06); f.keys[5], f.keys[49] = true, true; f.step(0.02); finish(f); assert_command(f); f.env.shutdown()
@@ -311,6 +314,7 @@ f.step(0.06); f.keys[5], f.keys[49] = true, true; f.step(0.02); finish(f)
 equal(f.env.TEST_RADIAL.opened, true, "radial still available with hotkeys OFF")
 equal(#f.events, 0, "hotkey OFF does not send number shortcut"); f.env.shutdown()
 f = fixture({autoreload_setting_enabled = false, autoreload_setting_charge90 = false,
+    autoreload_setting_vehicle = false,
     stratagem_option_radial = false, stratagem_option_hotkeys = false})
 equal(f.env.HD2HelperAutoReload, nil, "all-off reload absent")
 equal(f.env.HD2StratagemHotkeys, nil, "all-off stratagems absent")
@@ -323,4 +327,39 @@ f.step(0.06); f.keys[5], f.keys[49] = true, true; f.step(0.02); finish(f); asser
 f = fixture(nil, 5, false, true)
 equal(f.env.HD2HelperCombined.stratagem_error ~= nil, true, "stratagem init failure isolated")
 charge(f, "epoch"); equal(f.events[1].route, "charge", "charge survives stratagem init failure"); f.env.shutdown()
+for _, personal in ipairs({false, true}) do
+    for _, vehicle in ipairs({false, true}) do
+        f = fixture({autoreload_setting_enabled = personal, autoreload_setting_vehicle = vehicle,
+            autoreload_setting_charge90 = false, stratagem_option_radial = false, stratagem_option_hotkeys = false})
+        f.shot.vehicle, f.shot.weapon, f.shot.ammo = true, "vehicle:600:43:2:5:100:900:1", 0
+        f.shot.reload_allow_move = nil
+        f.step(0.06); finish(f)
+        equal(#f.events, vehicle and 2 or 0, "only vehicle toggle authorizes mounted reload")
+        finish(f); equal(#f.events, vehicle and 2 or 0, "mounted empty episode emits only one pulse")
+        f.env.shutdown()
+    end
+end
+f = fixture({autoreload_setting_enabled = false, autoreload_setting_charge90 = false,
+    stratagem_option_radial = false, stratagem_option_hotkeys = false})
+f.step(0.06); f.shot.ammo = 0; finish(f)
+equal(#f.events, 0, "vehicle-only runtime cannot reload personal weapons")
+f.shot.vehicle, f.shot.weapon, f.shot.ammo = true, "vehicle:600:43:2:5:100:900:1", 1
+f.step(0.06); f.keys[1] = true; f.step(0.02); f.shot.ammo = 0; finish(f)
+equal(#f.events, 0, "mounted held firing blocks reload")
+f.keys[1] = false; f.step(0.02); finish(f)
+equal(#f.events, 2, "mounted fire release starts one reload")
+equal(f.events[1].down, true, "mounted reload press"); equal(f.events[2].down, false, "mounted reload release")
+for _, event in ipairs(f.events) do equal(event.fire_held, false, "mounted R never sent while firing") end
+f.env.shutdown()
+for _, fault in ipairs({"reserve", "reloading", "focus", "menu"}) do
+    f = fixture({autoreload_setting_enabled = false, autoreload_setting_charge90 = false})
+    f.shot.vehicle, f.shot.weapon, f.shot.ammo = true, "vehicle:600:43:2:5:100:900:1", 0
+    if fault == "reserve" then f.shot.reserve = 0
+    elseif fault == "reloading" then f.shot.reloading = true
+    elseif fault == "focus" then f.focus(false)
+    else f.keys[5] = true end
+    f.step(0.06); finish(f)
+    equal(#f.events, 0, "mounted runtime guard: " .. fault)
+    f.env.shutdown()
+end
 print("PASS " .. checks .. " combined startup/input checks; no OS input sent")

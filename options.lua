@@ -10,10 +10,12 @@ function Options.read(app, load)
         return loaded and value == true
     end
     -- Unchecked Arsenal checkboxes deploy no marker; absence must mean OFF.
-    return {enabled = setting("enabled", false), charge90 = setting("charge90", false)}
+    return {enabled = setting("enabled", false), charge90 = setting("charge90", false),
+        vehicle = setting("vehicle", false)}
 end
 function Options.allow(config, sample)
-    return config.enabled == true and sample ~= nil and
-        (sample.mode == "ammo" or sample.mode == "heat")
+    if not sample then return false end
+    if sample.vehicle == true then return config.vehicle == true and sample.mode == "ammo" end
+    return config.enabled == true and (sample.mode == "ammo" or sample.mode == "heat")
 end
 return Options

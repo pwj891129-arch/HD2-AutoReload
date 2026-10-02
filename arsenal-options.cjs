@@ -10,7 +10,8 @@ function definitions(filters) {
     {id: 'scale', prefix: 'stratagem_option_', values: [1, 1.25, 1.5, 2, 3]},
     {id: 'slow', prefix: 'stratagem_option_', values: [false, true]},
     ...filters.map(filter => bool(filter.id)),
-    bulk('shared_all'), bulk('mission_all'), bulk('shared_mission_all')
+    bulk('shared_all'), bulk('mission_all'), bulk('shared_mission_all'),
+    bool('vehicle', 'autoreload_setting_')
   ];
 }
 function suffix(value) {

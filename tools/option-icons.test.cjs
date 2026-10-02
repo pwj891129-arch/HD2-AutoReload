@@ -7,7 +7,7 @@ const sharp = require('sharp');
 async function main() {
   const folder = path.resolve(__dirname, '../assets/option-icons');
   const files = fs.readdirSync(folder).sort();
-  assert.equal(files.length, 44);
+  assert.equal(files.length, 45);
   const filters = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../stratagem-filters.json'), 'utf8'));
   const provenance = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../assets/native-option-icons.json'), 'utf8'));
   const native = provenance.icons, hashes = new Map();
@@ -68,6 +68,6 @@ async function main() {
     }
     console.log('PASS pinned native reference: all 34 option kinds, texture identities and palettes');
   } else console.log('SKIP pinned native reference: local captures unavailable');
-  console.log(`PASS 44 previews (${hashes.size} distinct): 23 native, 11 documented fallbacks, 10 settings; pixels, contrast and thumbnail downscaling`);
+  console.log(`PASS 45 previews (${hashes.size} distinct): 23 native, 11 documented fallbacks, 11 settings; pixels, contrast and thumbnail downscaling`);
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});

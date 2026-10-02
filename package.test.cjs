@@ -11,20 +11,20 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.46-test';
+const version = '0.3.47-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
 const coreIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared_other', 'scale', 'slow',
-  'shared_all', 'mission_all', 'shared_mission_all'];
+  'shared_all', 'mission_all', 'shared_mission_all', 'vehicle'];
 const definitions = optionModel.definitions(filters);
 const optionIds = definitions.map(option => option.id);
 const defaults = definitions.map(option => option.toggle ? false : option.values[0]);
 const variantsFor = option => option.SubOptions ?? [option];
 const variantCount = definitions.reduce((sum, option) => sum + option.values.length, 0);
-assert.equal(optionIds.length, 44);
-assert.equal(variantCount, 55);
-assert.equal(definitions.filter(option => option.toggle).length, 39);
+assert.equal(optionIds.length, 45);
+assert.equal(variantCount, 56);
+assert.equal(definitions.filter(option => option.toggle).length, 40);
 assert.deepEqual(definitions.find(option => option.id === 'scale').values, [1, 1.25, 1.5, 2, 3]);
 for (const id of ['shared_all', 'mission_all', 'shared_mission_all']) {
   assert.deepEqual(definitions.find(option => option.id === id).values, ['individual', true, false]);
@@ -153,8 +153,13 @@ function checkPackage(language) {
   }
   assert(!fs.readdirSync(stage).some(name => /\.patch_\d+$/.test(name)), 'No root-only addon dependency');
   const archives = new Map();
+  const deployedPatchNames = new Set();
   for (const folder of folders) {
     const allFiles = fs.readdirSync(path.join(stage, folder)).filter(name => /\.patch_\d+$/.test(name));
+    for (const name of allFiles) {
+      assert(!deployedPatchNames.has(name), 'Lua option archives must not collide with the wheel texture');
+      deployedPatchNames.add(name);
+    }
     assert.equal(allFiles.length, folder === 'Core' ? 2 : 1);
     if (folder === 'Core') {
       assert(allFiles.includes('9ba626afa44a3aa3.patch_56'), 'Mod-owned glyph texture always deploys with Core');
@@ -215,6 +220,10 @@ function checkPackage(language) {
       assert(source.includes('start_feature("autoreload", function()'));
       assert(source.indexOf('start_feature("stratagem", function()') < source.indexOf('start_feature("autoreload", function()'));
       assert(source.includes('charge90 = setting("charge90", false)'));
+      assert(source.includes('vehicle = setting("vehicle", false)'));
+      assert(source.includes('seater = 0x3326d78, weapon_owner = 0x3326730, animation = 0x3326640'));
+      assert(source.includes('return self:finish_vehicle(sample, vehicle, avatar, avatar_record, wield, held, record, identity)'));
+      assert(source.includes('if sample.vehicle == true then return config.vehicle == true and sample.mode == "ammo" end'));
       assert(source.includes('radial = option("radial", false), hotkeys = option("hotkeys", false)'));
       assert(source.includes('local fire_pressed = fire and not state.fire'));
       assert(source.includes('OVERLAY click center'));
@@ -280,7 +289,7 @@ function checkPackage(language) {
     }
     combinations++;
   }
-  const baseIndices = [0, 1, 2, 3, 5, 6];
+  const baseIndices = [0, 1, 2, 3, 5, 6, optionIds.indexOf('vehicle')];
   const omitted = () => Array(optionIds.length).fill(null);
   function deployment(index, selected) {
     if (index === baseIndices.length) return checkDeployment(selected);

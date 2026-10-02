@@ -12,6 +12,7 @@ local RVA = {
     magazine = 53634632, rounds = 53636336, heat = 53636424,
     charge = 53636128, authored = 0x346bf98, reload = 0x3326a70,
     assisted = 0x3326be8, inventory = 0x3326738, deposit = 0x33265e8,
+    seater = 0x3326d78, weapon_owner = 0x3326730, animation = 0x3326640,
 }
 local COMPONENTS = {
     equipment = { map = 32, back = 56 },
@@ -24,6 +25,9 @@ local COMPONENTS = {
     assisted = { map = 24, back = 48 },
     inventory = { map = 40, back = 64, rows = 80, stride = 48 },
     deposit = { map = 32, back = 56, rows = 80, stride = 8 },
+    seater = { map = 32, back = 56, rows = 72, stride = 64 },
+    weapon_owner = { map = 24, back = 48, rows = 56, stride = 4 },
+    animation = { map = 24, back = 48, rows = 56, stride = 224 },
 }
 local CHARGE_WEAPONS = {
     ["2e9d0bdc48b09e60"] = "railgun",
@@ -303,7 +307,8 @@ function Reader:with_charge(sample, held, record, wield)
     return sample
 end
 
-function Reader:reload_config(component, held, type_bytes)
+function Reader:reload_config(component, held, type_bytes, size)
+    size = size or 2
     -- Native resolver 0x4fd220 prefers entity overrides, then authored type data.
     local index, why = self:lookup(component.manager + 0x60, held)
     if index and index ~= 0xffffffff then
@@ -312,7 +317,7 @@ function Reader:reload_config(component, held, type_bytes)
         if not capacity or capacity > 1000000 or index >= capacity or not rows then
             return nil, "reload-instance-unavailable"
         end
-        return self:read(rows + index * 80, 2), "instance"
+        return self:read(rows + index * 80, size), "instance"
     elseif why ~= "not-found" and index ~= 0xffffffff then
         return nil, "reload-instance-map-unavailable"
     end
@@ -333,7 +338,7 @@ function Reader:reload_config(component, held, type_bytes)
         if row:sub(1, 8) == type_bytes then
             local slot = u32(row, 8)
             if not slot or slot >= capacity then return nil, "reload-authored-index-invalid" end
-            return self:read(rows + capacity * 16 + slot * 80, 2), "authored"
+            return self:read(rows + capacity * 16 + slot * 80, size), "authored"
         end
     end
     return nil, "reload-authored-probe-limit"
@@ -428,6 +433,7 @@ function Reader:backpack_reserve(sample, held, record, wield, avatar, avatar_ide
 end
 
 function Reader:with_metadata(sample, held, record, wield, avatar, avatar_identity)
+    if sample.vehicle then return sample end
     local identity = self:read(record, 24)
     local component = identity and self:component("reload", held, record)
     local length = component and self:word(component.manager + 0xc)
@@ -444,6 +450,97 @@ function Reader:with_metadata(sample, held, record, wield, avatar, avatar_identi
     else sample.reload_reason = raw and "reload-movement-invalid" or source or "reload-movement-unavailable" end
     self:backpack_reserve(sample, held, record, wield, avatar, avatar_identity)
     return self:with_charge(sample, held, record, wield)
+end
+
+local function valid_entity(value)
+    return value and value ~= 0 and value ~= 0x7fff and
+        value ~= 0x800000 and value ~= 0xffffffff
+end
+
+local function same_component(current, previous)
+    return current and previous and current.manager == previous.manager and
+        current.index == previous.index and current.record == previous.record
+end
+
+function Reader:vehicle_context(avatar, avatar_identity)
+    local manager = self:root("seater")
+    if not manager then return nil end
+    local index, why = self:lookup(manager + 32, avatar)
+    if why == "not-found" or index == 0xffffffff then return nil end
+    if not index then return nil, "vehicle-seat-map-unavailable" end
+    local component = self:component("seater", avatar)
+    local identity = component and self:read(component.record, 24)
+    local length = self:word(manager + 16)
+    local raw = component and length and component.index < length and length <= 1000000 and
+        self:field(component, 0, 64)
+    if identity ~= avatar_identity or not raw then return nil, "vehicle-seat-unavailable" end
+    local collection, kind, role, seat = u32(raw, 0), u32(raw, 4), u32(raw, 8), u32(raw, 28)
+    if not valid_entity(collection) then return nil end
+    if raw:byte(49) ~= 0 then return nil, "vehicle-seat-transition" end
+    -- Passenger lean-out uses personal weapons and the personal reload checkbox.
+    if role == 3 then return nil end
+    if (role ~= 2 and role ~= 4) or
+        (kind ~= 0x1a and kind ~= 0x2b and kind ~= 0x2c) or
+        not seat or seat > 31 or raw:byte(50) ~= 0 then
+        return nil, "vehicle-seat-unsupported"
+    end
+    -- +0x1c is the current seat INDEX, not a role. Only settled gunner/pilot seats.
+    return {component = component, raw = raw, avatar_identity = avatar_identity,
+        collection = collection, kind = kind, role = role, seat = seat,
+        token = collection .. ":" .. kind .. ":" .. role .. ":" .. seat}
+end
+
+function Reader:vehicle_reloading(held, record)
+    -- Mirror native 0x776010: weapon -> animation owner -> configured reload state.
+    -- No native game function is called; all three component links are read-only.
+    local identity = self:read(record, 24)
+    local reload = self:component("reload", held, record)
+    local length = reload and self:word(reload.manager + 12)
+    if not reload or not length or length > 1000000 or reload.index >= length then
+        return nil, "vehicle-reload-component-unavailable"
+    end
+    local config = identity and self:reload_config(reload, held, identity:sub(1, 8), 8)
+    local reload_state = u32(config, 4)
+    if not reload_state then return nil, "vehicle-reload-config-unavailable" end
+    if reload_state == 0 then return false end
+    local owner = self:component("weapon_owner", held, record)
+    local entity = owner and u32(self:field(owner, 0, 4), 0)
+    local animation = valid_entity(entity) and self:component("animation", entity)
+    local animation_identity = animation and self:read(animation.record, 24)
+    local rows = animation and self:field(animation, 0, 17)
+    local active = rows and rows:byte(17)
+    if not animation_identity or u32(animation_identity, 8) ~= entity or
+        (active ~= 0 and active ~= 1) or not u32(rows, 0) then
+        return nil, "vehicle-reload-animation-unavailable"
+    end
+    if self:read(record, 24) ~= identity or
+        not same_component(self:component("reload", held, record), reload) or
+        self:reload_config(reload, held, identity:sub(1, 8), 8) ~= config or
+        not same_component(self:component("weapon_owner", held, record), owner) or
+        not same_component(self:component("animation", entity), animation) or
+        u32(self:field(owner, 0, 4), 0) ~= entity or
+        self:read(animation.record, 24) ~= animation_identity or
+        self:field(animation, 0, 17) ~= rows then
+        return nil, "vehicle-reload-identity-changed"
+    end
+    return active == 1 and u32(rows, 0) == reload_state
+end
+
+function Reader:finish_vehicle(sample, context, avatar, avatar_identity, wield, held, record, identity)
+    local current = self:vehicle_context(avatar, avatar_identity)
+    if not current or current.token ~= context.token or current.raw ~= context.raw or
+        not same_component(current.component, context.component) or
+        not same_component(self:component("wielder", avatar), wield) or
+        self:word(context.control_at) ~= context.control_flags or
+        self:read(record, 24) ~= identity or
+        self:read(wield.record, 24) ~= avatar_identity or
+        u32(self:field(wield, 0, 4), 0) ~= held then
+        return nil, "vehicle-identity-changed"
+    end
+    sample.vehicle, sample.vehicle_token, sample.vehicle_kind = true, context.token, context.kind
+    sample.vehicle_role, sample.vehicle_seat, sample.reserve_source = context.role, context.seat, "weapon"
+    sample.weapon = "vehicle:" .. context.token .. ":" .. avatar .. ":" .. held .. ":" .. sample.goid
+    return sample, "ready"
 end
 
 function Reader:sample()
@@ -468,6 +565,8 @@ function Reader:sample()
         self:word(avatars + 5495040 + seat * 4664 + 2948) ~= avatar then
         return nil, "avatar-identity-mismatch"
     end
+    local vehicle, vehicle_reason = self:vehicle_context(avatar, avatar_record)
+    if vehicle_reason then return nil, vehicle_reason end
     local wield = self:component("wielder", avatar)
     local held = wield and u32(self:field(wield, 0, 4), 0)
     if not held or held == 0 or held == 0x7fff or held == 0xffffffff then
@@ -475,12 +574,27 @@ function Reader:sample()
     end
     local record, goid = self:held_record(held)
     if not record or not goid then return nil, "held-record-unavailable" end
-    local reload_byte = self:read(avatars + 5535792 + seat * 120 + 23, 1)
-    if not reload_byte then return nil, "reload-state-unavailable" end
-    local reloading = math.floor(reload_byte:byte(1) / 2) % 2 == 1
+    local identity = self:read(record, 24)
+    local reloading
+    if vehicle then
+        -- Both seated branches check bit 32 of avatar state +0xfd0.
+        vehicle.control_at = avatars + 5495040 + seat * 4664 + 0xfd4
+        vehicle.control_flags = self:word(vehicle.control_at)
+        if not vehicle.control_flags or vehicle.control_flags % 2 ~= 1 then
+            return nil, "vehicle-input-blocked"
+        end
+        if self:read(wield.record, 24) ~= avatar_record then return nil, "vehicle-wielder-mismatch" end
+        reloading, why = self:vehicle_reloading(held, record)
+        if reloading == nil then return nil, why end
+    else
+        local reload_byte = self:read(avatars + 5535792 + seat * 120 + 23, 1)
+        if not reload_byte then return nil, "reload-state-unavailable" end
+        reloading = math.floor(reload_byte:byte(1) / 2) % 2 == 1
+    end
     local heat, heat_fault = self:component("heat", held, record)
     if heat_fault then return nil, heat_fault end
     if heat then
+        if vehicle then return nil, "vehicle-heat-unsupported" end
         local raw = self:field(heat, 0, 12)
         local reserve, flag = u32(raw, 0), raw and raw:byte(9)
         if not count(reserve) or (flag ~= 0 and flag ~= 1) then
@@ -515,10 +629,14 @@ function Reader:sample()
         if chamber == nil then return nil, chamber_reason end
         if chamber then ammo = 1 end
     end
-    return self:with_metadata({ active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,
+    local sample = { active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,
         avatar = avatar_goid, goid = goid, reserve = reserve,
         ammo = ammo, reloading = reloading, native = true,
-        feed = magazine and "magazine" or "rounds" }, held, record, wield, avatar, avatar_record), "ready"
+        feed = magazine and "magazine" or "rounds" }
+    if vehicle then
+        return self:finish_vehicle(sample, vehicle, avatar, avatar_record, wield, held, record, identity)
+    end
+    return self:with_metadata(sample, held, record, wield, avatar, avatar_record), "ready"
 end
 
 return Reader

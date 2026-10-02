@@ -22,10 +22,11 @@ const symbols = {
   mission_immediate: 'AlarmClock', mission_seaf_squad: 'Users', mission_spire: 'TestTubeDiagonal',
   mission_destroyer: 'Ship', mission_discovery: 'Upload', mission_drilling_charge: 'Drill',
   mission_nuke: 'Radiation',
-  shared_all: 'Layers', mission_all: 'ListChecks', shared_mission_all: 'Combine'
+  shared_all: 'Layers', mission_all: 'ListChecks', shared_mission_all: 'Combine', vehicle: 'Truck'
 };
 
 function importVectors(asar) {
+  if (asar.endsWith('.js')) return saveVectors(fs.readFileSync(asar, 'utf8'));
   const fd = fs.openSync(asar, 'r');
   let library;
   try {
@@ -42,6 +43,9 @@ function importVectors(asar) {
     assert.equal(fs.readSync(fd, bytes, 0, bytes.length, 8 + header.readUInt32LE(4) + Number(entry.offset)), bytes.length);
     library = bytes.toString();
   } finally { fs.closeSync(fd); }
+  saveVectors(library);
+}
+function saveVectors(library) {
   assert(library.includes('@license lucide v0.544.0 - ISC'), 'Pinned Lucide version required');
   const exports = {};
   vm.runInNewContext(library, {exports, module: {exports}}, {timeout: 2000});

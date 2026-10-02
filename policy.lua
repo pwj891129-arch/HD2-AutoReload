@@ -18,16 +18,18 @@ function Policy:reset()
 end
 
 function Policy:step(sample, now)
-    local stationary = sample and sample.reload_allow_move == false
+    local vehicle = sample and sample.vehicle == true
+    local stationary = sample and not vehicle and sample.reload_allow_move == false
+    local press_reload = stationary or vehicle
     local released = sample and sample.fire_released == true
-    local block_release = released and sample.reload_allow_move ~= true and
+    local block_release = released and not vehicle and sample.reload_allow_move ~= true and
         (stationary or sample.native == true)
-    if stationary and sample.fire_pressed == true then
+    if press_reload and sample.fire_pressed == true then
         self.press_wait = {weapon = sample.weapon, until_time = now + 0.25}
     end
-    local waiting_press = stationary and self.press_wait and
+    local waiting_press = press_reload and self.press_wait and
         self.press_wait.weapon == sample.weapon and now <= self.press_wait.until_time
-    local pending_press = stationary and self.pending and self.pending.press_intent and
+    local pending_press = press_reload and self.pending and self.pending.press_intent and
         self.pending.weapon == sample.weapon and now <= self.pending.until_time
     -- The game ignores reload while firing; inspect only the initial press until release.
     if sample and sample.fire_held == true and sample.fire_pressed ~= true and
@@ -77,6 +79,7 @@ function Policy:step(sample, now)
         self.heat_sent_weapon = nil
     end
     local swapped = self.weapon ~= nil and self.weapon ~= weapon
+    local entered_vehicle = vehicle and self.weapon ~= weapon
     local exhausted = self.weapon == weapon and self.mode == mode and
         self.empty == false and empty
     self.weapon, self.mode, self.empty, self.seen_at = weapon, mode, empty, now
@@ -86,18 +89,21 @@ function Policy:step(sample, now)
         return nil
     end
     if not empty then
+        if vehicle then self.vehicle_sent_weapon = nil end
         self.pending, self.fire_wait_until = nil, nil
         self.press_wait = nil
         return nil
     end
     if mode == "heat" and self.heat_sent_weapon == weapon then return nil end
+    if vehicle and self.vehicle_sent_weapon == weapon and not waiting_press and not fire_edge then return nil end
     if self.pending and (self.pending.weapon ~= weapon or self.pending.mode ~= mode or
         now > self.pending.until_time or
         (self.pending.fire_release and (sample.fire_released ~= true or block_release)) or
-        (self.pending.press_intent and sample.reload_allow_move ~= false)) then
+        (self.pending.press_intent and not press_reload)) then
         self.pending = nil
     end
     local reason = waiting_press and "fire-attempt" or
+        entered_vehicle and "vehicle-empty" or
         not block_release and exhausted and (mode == "heat" and "overheated" or "ammo-exhausted") or
         swapped and "weapon-swapped" or
         sample.switch_ready and "weapon-swapped" or
@@ -108,9 +114,10 @@ function Policy:step(sample, now)
     if reason and not (self.pending and self.pending.weapon == weapon and
         self.pending.mode == mode and self.pending.reason == reason) then
         self.pending = { weapon = weapon, mode = mode, reason = reason,
+            vehicle = vehicle,
             since = now, reserve = sample.reserve, until_time = now + 0.35,
             fire_release = sample.fire_released == true and not block_release,
-            press_intent = stationary and waiting_press and true or nil }
+            press_intent = press_reload and waiting_press and true or nil }
     end
     if not self.pending then return nil end
     if sample.manual_reload then
@@ -119,6 +126,7 @@ function Policy:step(sample, now)
         return nil
     end
     if sample.reloading == true then
+        if vehicle then self.pending = nil; return nil end
         if mode ~= "heat" or self.pending.reserve ~= sample.reserve then
             self.pending = nil
             return nil
@@ -145,6 +153,9 @@ function Policy:released_fire(now)
 end
 
 function Policy:sent(now)
+    if self.pending and self.pending.vehicle then
+        self.vehicle_sent_weapon = self.weapon
+    end
     if self.pending and self.pending.mode == "heat" then
         self.heat_sent_weapon = self.pending.weapon
     end

@@ -1,4 +1,46 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.46-test
+# HD2 Helper Auto Reload + Stratagems 0.3.47-test
+
+## Vehicle Automatic Reload
+
+0.3.47-test adds a separate `Vehicle Automatic Reload` / `차량 자동 재장전`
+checkbox at the end of the Arsenal options. It is independent of the existing
+personal Automatic Reload checkbox. Previous option positions, resource paths
+and the package GUID are retained. New checkboxes start checked on a fresh
+Arsenal import; review the new option before deploying.
+
+The test path targets the first mounted weapon in settled FRV (0x1a), Bastion
+(0x2b) and Maelstrom (0x2c) gunner/pilot seats. It binds the local avatar,
+SeatComponent collection/current seat index and WeaponWielderComponent slot 0.
+It reads magazine/rounds and chamber ammunition from that weapon. A verified
+WeaponReloadComponent and positive weapon-local reserve are required. Passenger
+lean-out personal weapons still use the existing personal option. Other vehicle
+types, driver-only seats, seat transitions, unknown feeds, non-reloadable and
+heat-only mounts are excluded; this is not universal support for all vehicles.
+
+Mounted reload activity follows the native weapon-owner/animation relation and
+the configured reload animation state, rather than assuming the personal
+avatar's reload flag covers the cannon. Native seated weapon-control permission
+is required. Links, seat state and ownership are rechecked before accepting a
+sample. Two coherent empty readings are required, including an empty chamber.
+
+A confirmed empty mount on seating, observed ammo exhaustion, fire release or
+an empty-weapon click can request reload. A held fire button defers R. With
+left-mouse firing, an explicit empty click may release fire before R, as for the
+existing stationary-weapon path. There is only one automatic R attempt per
+empty episode; another explicit empty click can retry, and observed loaded
+ammo rearms it. No spare ammo, active/manual reload, focus loss, chat,
+stratagem input and unavailable vehicle control block requests.
+
+The existing 50 ms reader cadence and 40 ms configured reload-key pulse are
+retained. No vehicle state, ammunition or driving rights are written, and no
+internal game function is invoked. The same binary-hash pin remains required.
+The new option marker uses patch_57, avoiding the wheel texture's patch_56.
+
+Vehicle fixtures, option independence, native instruction layout and both
+language packages pass offline tests. Actual FRV/tank reload, solo-driver
+compatibility and multiplayer behavior remain unverified. Install one language
+ZIP, check the vehicle option, close the game and Purge / Deploy before testing.
+Development and publishing do not apply the mod or operate the running game.
 
 ## Wheel Scale Choices
 
@@ -375,8 +417,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.46-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.46-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.47-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.47-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -437,6 +479,8 @@ registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 
 - `Automatic Reload` / `자동재장전`: checked is ON; unchecked is OFF.
   Covers both magazine exhaustion and complete overheat.
+- `Vehicle Automatic Reload` / `차량 자동 재장전`: independent checkbox at the end.
+  Experimental reloadable FRV/tank primary mounts; unchecked disables only vehicles.
 - `Railgun 90% / Epoch 100% Release` / `레일건 90%·에포크 100% 자동발사`: checked is ON; unchecked is OFF.
   Independent of automatic reload.
 - `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: checked is ON; uncheck to disable the radial only.
@@ -523,11 +567,13 @@ observed overheat episode; cooling or confirmed weapon change rearms it.
 
 Requests use a 40 ms Windows SendInput reload-key pulse. The game state and
 ammunition are never written. Input success does not confirm the game performed
-a reload. An initial empty reading alone is not an event.
+a reload. An initial personal-weapon empty reading alone is not an event;
+the separate vehicle path can request one attempt on confirmed empty seating.
 
 The seated-passenger exception requires right-click aim, recent fire and a
-personal held weapon. Tank cannons, mounted weapons, underbarrels, throwables
-and melee remain excluded; no tank field discovery runs in this package.
+personal held weapon. Mounted primaries use the independent vehicle path
+described above. Underbarrels, throwables, melee and unsupported vehicle weapons
+remain excluded; no tank field discovery runs in this package.
 A controlled on-foot grip70 weapon can use the native reader. Identity recovery
 after a new game or respawn and the seated-personal-weapon path are retained.
 
@@ -632,16 +678,17 @@ node build.cjs
 node package.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
 node tools/reload-layout.test.cjs
+node tools/vehicle-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.46-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.46-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.46-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.46-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.47-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.47-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.47-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.47-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.
 To regenerate the functional/fallback Lucide symbols, install Sharp for Node
 and run `node tools/option-icons.cjs`, then `node tools/option-icons.test.cjs`.
 The script preserves assigned native PNGs and includes them in the contact sheet.
-The optional `--import <Arsenal app.asar>` refresh path requires the pinned
+The optional `--import <Arsenal app.asar or lucide.min.js>` refresh path requires the pinned
 Lucide 0.544.0 bundle and does not modify Arsenal or installed game patches.
 
 Native preview regeneration additionally requires the sibling
