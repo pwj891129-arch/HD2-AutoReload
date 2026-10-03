@@ -393,7 +393,8 @@ function Reader:radial(include_shared, read_icons)
             reuse_due ~= nil and call_due <= now and reuse_due <= now
         row.seconds = call_due and reuse_due and math.ceil(math.max(0, call_due - now, reuse_due - now) / 1000000)
         row.status = row.uses == 0 and "EMPTY" or (row.seconds and row.seconds > 0 and
-            tostring(row.seconds) .. "s" or (row.ready and "READY" or "UNKNOWN"))
+            string.format("%d:%02d", math.floor(row.seconds / 60), row.seconds % 60) or
+            (row.ready and "READY" or "UNKNOWN"))
     end
     local current = self:inventory(include_shared)
     if not current or current.token ~= inventory.token then return nil, "loadout-changed" end

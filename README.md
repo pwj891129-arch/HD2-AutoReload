@@ -1,4 +1,12 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.48-test
+# HD2 Helper Auto Reload + Stratagems 0.3.49-test
+
+## Wheel Countdown Format
+
+0.3.49-test shows wheel cooldown/call-in countdowns as `minutes:seconds`, with
+two-digit seconds (`0:03`, `1:05`, `12:30`). Positive fractions still round up
+before display, and minutes may exceed 59. Internal seconds, availability and
+command input are unchanged; `READY`, `EMPTY` and `UNKNOWN` retain their meanings.
+Both language packages use the same format. Vehicle reload logic is unchanged.
 
 ## Vehicle Reload Correction
 
@@ -438,8 +446,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.48-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.48-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.49-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.49-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -701,8 +709,8 @@ node package.test.cjs
 node tools/reload-layout.test.cjs
 node tools/vehicle-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.48-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.48-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.48-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.48-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.49-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.49-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.49-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.49-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

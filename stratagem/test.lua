@@ -336,8 +336,22 @@ equal(snapshot.rows[1].picture, "0000000100000001", "texture hash")
 equal(snapshot.rows[1].ready, true, "native ready state")
 local row1 = local_data + 0x188
 put(row1 + 24, pointer(12500000))
-equal(assert(reader:radial(false)).rows[1].status, "3s", "cooldown rounds up")
+equal(assert(reader:radial(false)).rows[1].status, "0:03", "cooldown rounds up with padded seconds")
 equal(reader:request_kind(113, false), nil, "cooldown blocks release request")
+for _, seconds in ipairs({0.1, 1, 9, 10, 59, 59.1, 60, 60.1, 61, 119, 120, 3599, 3600, 12345}) do
+    local total = math.ceil(seconds)
+    put(row1 + 24, pointer(10000000 + seconds * 1000000))
+    local row = assert(reader:radial(false)).rows[1]
+    equal(row.status, string.format("%d:%02d", math.floor(total / 60), total % 60),
+        "minute rollover and long cooldown " .. seconds)
+    equal(row.seconds, total, "seconds stay numeric for native availability")
+    equal(row.ready, false, "formatting never makes cooldown ready")
+end
+put(row1 + 24, pointer(0))
+equal(assert(reader:radial(false)).rows[1].status, "READY", "elapsed cooldown retains ready label")
+put(row1 + 32, pointer(75000000))
+equal(assert(reader:radial(false)).rows[1].status, "1:05", "call-in and reuse delays use the same time format")
+put(row1 + 32, pointer(0))
 put(row1 + 24, pointer(0)); put(row1 + 4, word(0))
 equal(assert(reader:radial(false)).rows[1].status, "EMPTY", "zero uses blocks")
 put(row1 + 4, word(3)); put(row1 + 32, string.rep("\255", 8))

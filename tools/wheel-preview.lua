@@ -28,7 +28,7 @@ local rows = {
     {kind = 88, name = "돌파구 엑소슈트", slot = 4}, {kind = 50, name = "마엘스트롬"},
 }
 for index, row in ipairs(rows) do
-    row.ready, row.status, row.name_english = index ~= 5, index == 5 and "399s" or "READY", "STRATAGEM"
+    row.ready, row.status, row.name_english = index ~= 5, index == 5 and "6:39" or "READY", "STRATAGEM"
 end
 assert(radial:draw({rows = rows}))
 local function json(value)
