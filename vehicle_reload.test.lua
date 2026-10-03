@@ -42,8 +42,8 @@ return function(api, equal)
     map(owner + 15871688, 42, 0); map(avatars + 248, avatar, 0)
     put(avatars + 108, word(1)); put(avatars + 5495040 + 2948, word(avatar))
     put(avatars + 5535792 + 23, zero)
-    local gunner_control, pilot_control = avatars + 5495040 + 0xfd4, avatars + 5495040 + 0xfd4
-    put(gunner_control, word(1)); put(pilot_control, word(1))
+    local gunner_control, pilot_control = avatars + 0x53e88c, avatars + 0x53e88c
+    put(gunner_control, word(262144)); put(pilot_control, word(262144))
     local function component(rva, key, record, spec)
         local manager = allocate(256)
         put(channel.base + rva, ptr(manager)); map(manager + spec.map, key, 0)
@@ -89,7 +89,9 @@ return function(api, equal)
     put(gunner_control, word(0))
     local blocked, blocked_reason = reader:sample()
     equal(blocked, nil); equal(blocked_reason, "vehicle-input-blocked", "native vehicle weapon control is required")
-    put(gunner_control, word(1))
+    put(gunner_control, word(262144))
+    put(avatars + 0x53e884, word(0))
+    equal(reader:sample().vehicle, true, "firing-only permission is not required by native mounted reload")
     put(animation_rows + 16, string.char(1))
     equal(reader:sample().reloading, true, "mounted reload uses native animation, not avatar flag")
     put(animation_rows, word(78))
@@ -117,7 +119,7 @@ return function(api, equal)
             equal(reader:sample().vehicle, true, "FRV/tank gunner and pilot primary")
             local control = role == 2 and gunner_control or pilot_control
             put(control, word(0)); equal(reader:sample(), nil, "each seated role requires its native control flag")
-            put(control, word(1))
+            put(control, word(262144))
         end
     end
     seat(0x2b, 3)
@@ -143,6 +145,14 @@ return function(api, equal)
     end
     equal(reader:sample(), nil, "seat changing during read invalidates whole sample")
     channel.read = original; seat()
+    function channel:read(at, size)
+        local raw = original(self, at, size)
+        if at == ammo_rows and size == 8 then put(players + 936, word(43)) end
+        return raw
+    end
+    local changed, changed_reason = reader:sample()
+    equal(changed, nil); equal(changed_reason, "vehicle-identity-changed", "local actor changing during read blocks mounted input")
+    channel.read = original; put(players + 936, word(42))
 
     local config_options = {enabled = false, vehicle = true}
     equal(api.Options.allow(config_options, shot), true, "vehicle-only automatic reload")
@@ -205,6 +215,15 @@ return function(api, equal)
     local resolved = {avatar = {goid = 100}, grip = 0}
     equal(wrapper:sample_native(resolved, 1).unconfirmed, true, "vehicle accepts settled native seat despite personal grip")
     equal(wrapper:sample_native(resolved, 1).unconfirmed, false, "mounted empty confirmation is coherent")
+    equal(wrapper:sample_native(nil, 1).vehicle, true, "native local seat does not depend on personal hand resolver")
+    local mismatch, mismatch_reason = wrapper:sample_native({avatar = {goid = 101}, grip = 0}, 1)
+    equal(mismatch, nil); equal(mismatch_reason, "avatar-mismatch", "vehicle cannot bypass disagreeing avatar identity")
+    identity_core.resolve = function() return {status = "absent", reason = "grip=0-nothing-held"} end
+    equal(wrapper:sample(1).vehicle, true, "full adapter accepts independently verified mounted weapon")
+    put(gunner_control, word(0))
+    local failed, failed_reason = wrapper:sample(1)
+    equal(failed.active, false); equal(failed_reason, "vehicle-input-blocked", "vehicle refusal is not hidden by personal-grip text")
+    put(gunner_control, word(262144))
     seat(0x2b, 3); resolved.grip = 15
     local no_control = wrapper:sample_native(resolved, 1, false)
     equal(no_control, nil, "passenger cannot bypass personal control gate")

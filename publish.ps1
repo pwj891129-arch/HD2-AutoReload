@@ -2,10 +2,10 @@ param(
     [Parameter(Mandatory)][string[]]$AssetPath,
     [Parameter(Mandatory)][string]$Commit,
     [string]$Repository = 'pwj891129-arch/HD2-AutoReload',
-    [string]$Tag = 'auto-reload-0.3.47-test'
+    [string]$Tag = 'auto-reload-0.3.48-test'
 )
 $ErrorActionPreference = 'Stop'
-$expectedNames = @('HD2-AutoReload-0.3.47-test-en.zip', 'HD2-AutoReload-0.3.47-test-ko.zip')
+$expectedNames = @('HD2-AutoReload-0.3.48-test-en.zip', 'HD2-AutoReload-0.3.48-test-ko.zip')
 $assets = @($AssetPath | ForEach-Object {
     $resolved = (Resolve-Path -LiteralPath $_).Path
     [ordered]@{
@@ -32,11 +32,14 @@ $headers = @{ Authorization = 'Bearer ' + $credential['password']; Accept = 'app
     'User-Agent' = 'HD2-Helper-Addon-Release'; 'X-GitHub-Api-Version' = '2022-11-28' }
 $api = "https://api.github.com/repos/$Repository/releases"
 $notes = @'
-## HD2 Auto Reload + Stratagems 0.3.47-test
+## HD2 Auto Reload + Stratagems 0.3.48-test
 
-차량 자동재장전을 별도 옵션으로 추가한 테스트 버전입니다.
+차량 자동재장전의 입력 상태 확인을 수정한 테스트 버전입니다.
 
-- **Vehicle Automatic Reload / 차량 자동 재장전** 체크박스를 추가했습니다. 일반 자동재장전과 별도로 켜고 끌 수 있습니다. 기존 옵션의 저장 위치와 리소스 경로를 유지하기 위해 목록 끝에 배치했습니다.
+- 차량 장전 경로에서 사격 전용 허용 플래그를 사용하던 검사를 실제 차량 입력 상태 플래그로 변경했습니다. 차량 상태 배열의 기준 위치가 달라 잘못된 위치를 읽던 부분도 수정했습니다.
+- 개인 총기/그립 인식이 실패해도 자체 네이티브 리더가 로컬 플레이어·탑승 좌석·차량 무기를 확인하면 차량 장전을 검사합니다. 본인 식별이 서로 다르면 입력하지 않습니다.
+- 차량 판독 실패 이유가 개인 무기 인식 메시지에 덮이지 않도록 로그를 수정했습니다. 재현 시 어느 단계에서 막혔는지 확인할 수 있습니다.
+- **Vehicle Automatic Reload / 차량 자동 재장전**은 일반 자동재장전과 별도 체크박스로 유지합니다. 옵션 순서, GUID와 리소스 경로는 바꾸지 않았습니다.
 - FRV·바스티온·마엘스트롬의 안정된 포수/파일럿석에 연결된 첫 번째 차량 무기를 판독합니다. 탱크 주포 등 장전 가능한 차량 무기가 대상이며, 모든 차량 무기 지원을 보장하는 버전은 아닙니다.
 - 탄창과 약실이 모두 비어 있고 여분탄이 확인될 때만 장전합니다. 장전 중, 수동 장전 중, 좌석 전환, 차량 무기 입력 불가 상태에서는 시도하지 않습니다. 장전 불가·과열 방식·판독 불가 차량 무기는 제외합니다.
 - 발사 버튼을 놓으면 장전을 확인합니다. 빈 차량 무기에 좌클릭을 다시 누르면 발사 입력을 해제한 뒤 장전을 시도할 수 있습니다. 탄 소진 1회당 자동 시도는 한 번으로 제한하며, 다시 클릭하면 재시도할 수 있습니다.
@@ -45,23 +48,25 @@ $notes = @'
 
 ### 설치
 
-영어판 `HD2-AutoReload-0.3.47-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.47-test-ko.zip` 중 **하나만** 설치하세요. 이전 버전을 교체하고 차량 옵션 체크 상태를 확인한 뒤, 게임을 종료한 상태에서 Arsenal의 Purge / Deploy를 수행하고 재시작하세요. Bingus Shared Loader v18 / API 1이 필요합니다. 새 체크박스는 처음 가져올 때 ON 상태일 수 있습니다. 차량 장전이 필요 없다면 새 옵션만 해제하세요. 개발·게시 과정에서는 설치된 모드와 실행 중인 게임을 변경하지 않았습니다.
+영어판 `HD2-AutoReload-0.3.48-test-en.zip`과 한국어판 `HD2-AutoReload-0.3.48-test-ko.zip` 중 **하나만** 설치하세요. 이전 버전을 교체하고 차량 옵션 체크 상태를 확인한 뒤, 게임을 종료한 상태에서 Arsenal의 Purge / Deploy를 수행하고 재시작하세요. Bingus Shared Loader v18 / API 1이 필요합니다. 개발·게시 과정에서는 설치된 모드와 실행 중인 게임을 변경하지 않았습니다. 개인용 Solo Vehicle Driver 수정본은 이 릴리즈에 포함하지 않으며 별도로 적용해야 합니다.
 
 ### English
 
-Adds an independent **Vehicle Automatic Reload** checkbox at the end of Arsenal options, preserving previous option positions and resource paths. The experimental path reads slot-0 reloadable mounts in settled FRV, Bastion and Maelstrom gunner/pilot seats. It requires an empty magazine AND chamber, known positive reserve, native vehicle weapon-control permission and no active reload. Native weapon-owner/animation links provide mounted reload state; personal avatar reload flags are not substituted for cannon state.
+Corrects the mounted reload permission read to the native seated-input predicate (bit 50 at avatar manager +0x53e888, stride 0x1238). The previous read used a firing-only flag with an incorrect row origin. Verified mounted samples no longer require personal hand/grip recognition; disagreement with a known network avatar still blocks input. Vehicle failure reasons are no longer hidden behind personal identity messages.
+
+The independent **Vehicle Automatic Reload** checkbox and all previous option positions/resource paths remain unchanged. The experimental path reads slot-0 reloadable mounts in settled FRV, Bastion and Maelstrom gunner/pilot seats. An empty magazine AND chamber, positive reserve, native seated-input permission and no active reload remain required. Native weapon-owner/animation links provide mounted reload state.
 
 Held firing defers reload. Fire release or an empty left-mouse click can request it; a confirmed empty mount on seating can request one attempt. Automatic attempts are limited per empty episode, with explicit empty clicks able to retry. Passenger lean-out personal weapons continue to follow the personal reload checkbox. Unsupported seats, heat-only, non-reloadable and ambiguous mounts are excluded. All memory reads remain read-only and binary-hash pinned. Install one language ZIP and review the new checkbox before Purge / Deploy with the game closed.
 
 ### 검증 및 테스트 범위
 
-LuaJIT 모의 검사, 차량/개인 옵션 독립성, 장전 중·여분탄 없음·탑승 전환·입력 차단 검사, 기존 게임 캡처의 네이티브 명령 확인 및 영어/한국어 배포 검사를 통과했습니다. 새 옵션 파일은 기존 휠 텍스처와 겹치지 않는 번호를 사용합니다. **실제 차량 장전과 멀티플레이·Solo Vehicle Driver 동시 사용은 아직 검증하지 않았습니다.** 탱크 주포와 FRV 포수석에서 탄 소진 후 장전, 여분탄 0일 때 미작동, 부사수 개인 총기의 기존 장전을 확인해 주세요.
+LuaJIT 모의 검사, 개인 무기 인식 실패 시 차량 경로, 사격 허용 OFF/차량 입력 ON, 좌석·아바타 변경·여분탄 없음·장전 중 검사, 기존 게임 캡처의 네이티브 명령 확인 및 영어/한국어 배포 검사를 통과했습니다. **실제 바스티온 주포 자동장전과 멀티플레이·Solo Vehicle Driver 동시 사용은 아직 재검증하지 않았습니다.** 이전 로그는 차량 옵션 ON을 확인했지만 판독 실패 이유가 숨겨져 있어, 이번 수정만으로 실제 게임 문제가 모두 해결되었다고 단정하지 않습니다. 재현 시 새 차량 로그로 추가 원인을 확인할 수 있습니다.
 '@
 try {
     $releases = Invoke-RestMethod -Uri ($api + '?per_page=100') -Headers $headers
     $release = $releases | Where-Object tag_name -eq $Tag | Select-Object -First 1
     if (-not $release) {
-        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.47-test (Vehicle Reload)';
+        $body = @{ tag_name = $Tag; target_commitish = $Commit; name = 'HD2 Auto Reload + Stratagems 0.3.48-test (Vehicle Reload Fix)';
             body = $notes; draft = $true; prerelease = $true } | ConvertTo-Json
         $release = Invoke-RestMethod -Method Post -Uri $api -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
     }

@@ -1,4 +1,25 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.47-test
+# HD2 Helper Auto Reload + Stratagems 0.3.48-test
+
+## Vehicle Reload Correction
+
+0.3.48-test corrects the mounted reload input-state check. The old check used
+the firing-only flag and an incorrect row-origin offset. The new read mirrors
+the native seated-input predicate (bit 50 at avatar manager +0x53e888,
+stride 0x1238), independently of the firing flag. No game function is called.
+
+Verified mounted samples no longer depend on personal hand/grip recognition or
+its network avatar result. Native local-unit, avatar, seat, weapon, reload,
+reserve and empty chamber checks remain required; a disagreeing network avatar
+blocks input. Personal weapons retain their existing identity/control gates.
+Vehicle read failures are now logged as `vehicle-...` instead of being hidden
+behind a personal `grip` or `no-on-body-object` message.
+
+Offline tests cover firing permission OFF with seated permission ON, missing
+personal identity, blocked native input and identity changes during reads.
+The previous gameplay log had vehicle ON but no accepted mounted samples, so
+the exact remaining in-game blocker is not established. Actual Bastion reload
+and multiplayer behavior must be retested. This package does not change or
+include the separately maintained private Solo Vehicle Driver replacement.
 
 ## Vehicle Automatic Reload
 
@@ -19,7 +40,7 @@ heat-only mounts are excluded; this is not universal support for all vehicles.
 
 Mounted reload activity follows the native weapon-owner/animation relation and
 the configured reload animation state, rather than assuming the personal
-avatar's reload flag covers the cannon. Native seated weapon-control permission
+avatar's reload flag covers the cannon. Native seated-input permission
 is required. Links, seat state and ownership are rechecked before accepting a
 sample. Two coherent empty readings are required, including an empty chamber.
 
@@ -417,8 +438,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.47-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.47-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.48-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.48-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -680,8 +701,8 @@ node package.test.cjs
 node tools/reload-layout.test.cjs
 node tools/vehicle-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.47-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.47-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.47-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.47-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.48-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.48-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.48-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.48-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

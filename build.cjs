@@ -6,7 +6,7 @@ const optionModel = require('./arsenal-options.cjs');
 const wheelTexture = require('./tools/wheel-texture.cjs');
 
 const root = __dirname;
-const version = '0.3.47-test';
+const version = '0.3.48-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;

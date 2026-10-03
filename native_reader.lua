@@ -534,6 +534,12 @@ function Reader:finish_vehicle(sample, context, avatar, avatar_identity, wield, 
         self:word(context.control_at) ~= context.control_flags or
         self:read(record, 24) ~= identity or
         self:read(wield.record, 24) ~= avatar_identity or
+        self:root("players") ~= context.players or self:root("owner") ~= context.owner or
+        self:root("avatars") ~= context.avatars or
+        self:word(context.players + 936) ~= context.unit or
+        self:lookup(context.owner + 15871688, context.unit) ~= context.avatar_index or
+        self:read(context.avatar_at, 24) ~= avatar_identity or
+        self:lookup(context.avatars + 248, avatar) ~= context.avatar_dense or
         u32(self:field(wield, 0, 4), 0) ~= held then
         return nil, "vehicle-identity-changed"
     end
@@ -570,19 +576,24 @@ function Reader:sample()
     local wield = self:component("wielder", avatar)
     local held = wield and u32(self:field(wield, 0, 4), 0)
     if not held or held == 0 or held == 0x7fff or held == 0xffffffff then
-        return nil, "no-held-weapon"
+        return nil, vehicle and "vehicle-no-held-weapon" or "no-held-weapon"
     end
     local record, goid = self:held_record(held)
-    if not record or not goid then return nil, "held-record-unavailable" end
+    if not record or not goid then return nil, vehicle and
+        "vehicle-held-record-unavailable" or "held-record-unavailable" end
     local identity = self:read(record, 24)
     local reloading
     if vehicle then
-        -- Both seated branches check bit 32 of avatar state +0xfd0.
-        vehicle.control_at = avatars + 5495040 + seat * 4664 + 0xfd4
+        -- Native 0xa7d450 checks bit 50 at manager +0x53e888 + index*0x1238.
+        -- Use the absolute layout: the seated branch's row origin differs by 0x50.
+        vehicle.control_at = avatars + 0x53e88c + seat * 4664
         vehicle.control_flags = self:word(vehicle.control_at)
-        if not vehicle.control_flags or vehicle.control_flags % 2 ~= 1 then
+        if not vehicle.control_flags or math.floor(vehicle.control_flags / 262144) % 2 ~= 1 then
             return nil, "vehicle-input-blocked"
         end
+        vehicle.players, vehicle.owner, vehicle.avatars, vehicle.unit = players, owner, avatars, unit
+        vehicle.avatar_index, vehicle.avatar_at, vehicle.avatar_dense = index,
+            owner + 15937304 + index * 24, seat
         if self:read(wield.record, 24) ~= avatar_record then return nil, "vehicle-wielder-mismatch" end
         reloading, why = self:vehicle_reloading(held, record)
         if reloading == nil then return nil, why end
@@ -607,8 +618,8 @@ function Reader:sample()
     end
     local magazine, mag_fault = self:component("magazine", held, record)
     local rounds, rounds_fault = self:component("rounds", held, record)
-    if mag_fault or rounds_fault then return nil, "stale-ammo-component" end
-    if magazine and rounds then return nil, "ambiguous-feed" end
+    if mag_fault or rounds_fault then return nil, vehicle and "vehicle-stale-ammo-component" or "stale-ammo-component" end
+    if magazine and rounds then return nil, vehicle and "vehicle-ambiguous-feed" or "ambiguous-feed" end
     local raw = magazine and self:field(magazine, 0, 8) or
         rounds and self:field(rounds, 0, 16)
     local reserve, ammo = u32(raw, 0), u32(raw, 4)
@@ -622,11 +633,11 @@ function Reader:sample()
             return nil, "alternate-feed-unknown"
         end
     end
-    if not count(reserve) or not count(ammo) then return nil, "ammo-unavailable" end
+    if not count(reserve) or not count(ammo) then return nil, vehicle and "vehicle-ammo-unavailable" or "ammo-unavailable" end
     if ammo == 0 then
         local chamber, chamber_reason = self:chambered(magazine or rounds,
             magazine and "magazine" or "rounds")
-        if chamber == nil then return nil, chamber_reason end
+        if chamber == nil then return nil, vehicle and "vehicle-" .. chamber_reason or chamber_reason end
         if chamber then ammo = 1 end
     end
     local sample = { active = true, mode = "ammo", weapon = "native:" .. avatar .. ":" .. held,

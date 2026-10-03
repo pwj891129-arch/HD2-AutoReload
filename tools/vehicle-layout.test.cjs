@@ -14,6 +14,11 @@ if (!fs.existsSync(capture)) {
     [0xa7d76f, '4869c138120000'],
     [0xa7d809, '488b3568958a02'],
     [0xa7d83f, '49c1e5064c036e48'],
+    [0xa7d501, '4a8b841088e85300'],
+    [0xa7d509, '48c1e832'],
+    [0xa7f480, '48b9040000000b000000'],
+    [0xa7f49e, '7413'],
+    [0xa7f4ae, 'e8ad56cfff'],
     [0xa7f269, '488b0db0718a02'],
     [0xa7f1d5, '4881c6d00f0000'],
     [0xa7f1df, '4889742478'],
@@ -40,5 +45,7 @@ if (!fs.existsSync(capture)) {
     assert.equal(at + 7 + image.readInt32LE(at + 3), root, 'Reviewed vehicle component root');
   }
   assert.equal(0x7761a5 + 5 + image.readInt32LE(0x7761a5 + 1), 0x7cbe60);
-  console.log('PASS pinned mounted-primary, seated control and native reload-animation layout');
+  assert.equal(0x53e888 - 5495040, 0xf88, 'Seated branch and cached avatar-row origins differ by 0x50');
+  assert.equal(0x53e888 + 4, 0x53e88c, 'Bit 50 lives at bit 18 of the high word');
+  console.log('PASS pinned mounted-primary, native seated-input permission and reload-animation layout');
 }

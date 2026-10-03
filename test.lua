@@ -598,11 +598,12 @@ before = native_calls
 resolved.grip = 15
 resolved.underbarrel = { goid = 5 }
 equal(reader:sample().active, false, "underbarrel cannot use main ammo")
-equal(native_calls, before)
+equal(native_calls, before + 1, "native classification still runs for an underbarrel; personal main ammo remains blocked")
 resolved.underbarrel = nil
 resolved.avatar = nil
+before = native_calls
 equal(reader:sample().active, false, "missing avatar blocks")
-equal(native_calls, before)
+equal(native_calls, before + 1, "native local seat is checked even when personal identity is absent")
 resolved.avatar = { goid = 100 }
 native_avatar = 101
 local mismatch, mismatch_reason = reader:sample()

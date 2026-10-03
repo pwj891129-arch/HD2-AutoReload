@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.47-test"
+local VERSION = "0.3.48-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -45,25 +45,34 @@ function Reader.new(parts, fragment, native_reader)
 end
 
 function Reader:sample_native(resolved, session, allow_seated_fire)
-    if not self.native or not resolved or not resolved.avatar then
+    if not self.native then
         self.native_pending = nil
         return nil, "no-avatar"
     end
     local ok, sample, reason = pcall(self.native.sample, self.native)
-    if not ok or not sample or sample.avatar ~= resolved.avatar.goid then
+    local avatar = resolved and resolved.avatar
+    if not ok or not sample or (avatar and sample.avatar ~= avatar.goid) or
+        (not avatar and sample.vehicle ~= true) then
         if self.native.disabled then
             self.native_refusal = ok and reason or tostring(sample)
         end
         self.native_pending = nil
         return nil, not ok and "native-read-error" or
-            (not sample and (reason or "native-unavailable") or "avatar-mismatch")
+            (not sample and (reason or "native-unavailable") or
+                (not avatar and "no-avatar" or "avatar-mismatch"))
     end
-    local in_control = boolean(self.identity:in_control(session, resolved.avatar))
-    local rotation_free = boolean(self.identity:rotation_free(session, resolved.avatar))
+    if sample.vehicle ~= true and resolved.underbarrel and resolved.hand_weapon and
+        resolved.underbarrel.goid == resolved.hand_weapon.goid then
+        self.native_pending = nil
+        return nil, "underbarrel-not-supported"
+    end
+    local in_control = sample.vehicle ~= true and boolean(self.identity:in_control(session, avatar))
+    local rotation_free = sample.vehicle ~= true and boolean(self.identity:rotation_free(session, avatar))
+    local grip = resolved and resolved.grip
     local seated_fire = allow_seated_fire and in_control == false and
-        rotation_free == false and resolved.grip ~= 70
-    if sample.vehicle ~= true and (type(resolved.grip) ~= "number" or
-        resolved.grip == 0 or resolved.grip == 40) then
+        rotation_free == false and grip ~= 70
+    if sample.vehicle ~= true and (type(grip) ~= "number" or
+        grip == 0 or grip == 40) then
         self.native_pending = nil
         return nil, "unsupported-grip"
     end
@@ -73,7 +82,7 @@ function Reader:sample_native(resolved, session, allow_seated_fire)
             rotation_free = rotation_free, held_reason = resolved.reason }
     end
     sample.seated_fire = sample.vehicle ~= true and seated_fire or false
-    sample.grip = resolved.grip
+    sample.grip = grip
     sample.slot = nil
     local empty = (sample.mode == "heat" and sample.overheated == true) or
         (sample.mode == "ammo" and sample.ammo == 0)
@@ -93,12 +102,6 @@ end
 function Reader:sample(session, world, peer, allow_seated_fire)
     local resolved = self.identity:resolve(session, world, peer)
     if self.native then
-        if resolved and resolved.underbarrel and resolved.hand_weapon and
-            resolved.underbarrel.goid == resolved.hand_weapon.goid then
-            self.native_pending = nil
-            return { active = false, avatar = resolved.avatar and resolved.avatar.goid,
-                grip = resolved.grip }, "underbarrel-not-supported"
-        end
         local sample, native_reason, control = self:sample_native(resolved, session,
             allow_seated_fire)
         if sample then return sample, native_reason end
@@ -108,6 +111,10 @@ function Reader:sample(session, world, peer, allow_seated_fire)
             in_control = control and control.in_control,
             rotation_free = control and control.rotation_free,
             held_reason = control and control.held_reason }
+        if native_reason == "underbarrel-not-supported" or
+            (native_reason and native_reason:find("^vehicle%-")) then
+            return inactive, native_reason
+        end
         if not resolved or resolved.status ~= "resolved" then
             return inactive, resolved and resolved.reason or native_reason
         end
