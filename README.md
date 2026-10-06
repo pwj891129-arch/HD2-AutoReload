@@ -1,4 +1,29 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.51-test
+# HD2 Helper Auto Reload + Stratagems 0.3.52-test
+
+0.3.52-test replaces the permanent wheel-error latch with recoverable cleanup.
+After a caught Lua error, pending selections and partial commands are cancelled,
+owned inputs are released and the failed overlay is disposed. Recovery retries
+after 0.5 seconds, backing off to 1, 2 and at most 4 seconds if cleanup still fails.
+A clean wheel instance is created only after owned input and cursor release
+complete. Successful GUI deletions are recorded immediately, so partial cleanup
+can retry without double-destroying shapes or losing child GUI ownership.
+
+Recovery does not replay the failed selection or automatically enter a command.
+With Hold, release the list key and press it again. With Toggle, close the game's
+existing stratagem list and open it again. An already held number shortcut is not
+replayed. The original update callback continues during cooldown, and recovery
+wait/success events are written to the stratagem log without per-frame error spam.
+Actual game crashes or native access violations are not caught by Lua recovery.
+
+Hold/Toggle, keyboard/XBUTTON1/XBUTTON2, persistent cleanup/factory errors,
+partial command cancellation, failed key release, deferred cursor restoration
+and partial shape/font GUI disposal have mock regression coverage. Live visual
+and multiplayer recovery after installing this package still need validation.
+Auto reload, charge thresholds, wheel visibility options and language defaults
+are unchanged. Install one 0.3.52-test language ZIP using Arsenal with the game
+closed. No installed patches or running game state are changed during development.
+
+## 0.3.51 Changes
 
 0.3.51-test fixes missing Super Earth Flag and other location-restricted mission
 calls. The native objective hash table has 0x1b2 (434) buckets, not 438. The old
@@ -497,8 +522,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.51-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.51-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.52-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.52-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -767,8 +792,8 @@ node tools/mission-location-layout.test.cjs
 node tools/reload-layout.test.cjs
 node tools/vehicle-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.51-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.51-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.51-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.51-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.52-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.52-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.52-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.52-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

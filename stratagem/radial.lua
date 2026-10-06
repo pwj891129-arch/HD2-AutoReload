@@ -33,8 +33,11 @@ function Radial:world_live(world)
 end
 function Radial:clear()
     local live = self.gui and self:world_live(self.world)
-    if live then
-        for _, item in ipairs(self.ids) do self.sr.Gui["destroy_" .. item[1]](item[3] or self.gui, item[2]) end
+    -- Remove each successful deletion immediately so a retry never destroys it twice.
+    for index = #self.ids, 1, -1 do
+        local item = self.ids[index]
+        if live then self.sr.Gui["destroy_" .. item[1]](item[3] or self.gui, item[2]) end
+        self.ids[index] = nil
     end
     for _, icon in pairs(self.icons) do
         if live and icon.id ~= nil then self.sr.Gui.destroy_bitmap(icon.gui, icon.id) end
@@ -56,14 +59,14 @@ function Radial:close()
         self:clear()
         if self.gui and self:world_live(self.world) then
             for _, icon in pairs(self.icons) do
-                if icon.gui then self.sr.World.destroy_gui(self.world, icon.gui) end
+                if icon.gui then self.sr.World.destroy_gui(self.world, icon.gui); icon.gui = nil end
             end
             for _, font in pairs(self.fonts) do
-                if font.gui then self.sr.World.destroy_gui(self.world, font.gui) end
+                if font.gui then self.sr.World.destroy_gui(self.world, font.gui); font.gui = nil end
             end
         end
     end)
-    self.icons, self.fonts = {}, {}
+    if good then self.icons, self.fonts = {}, {} end
     self.icon_reasons, self.icon_report = {}, nil
     self.glyph_failed = nil
     self.native_font_failed = nil

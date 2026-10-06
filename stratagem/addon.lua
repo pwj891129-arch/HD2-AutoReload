@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.51-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.52-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -73,9 +73,9 @@ local policy = Policy.new(channel.command_key, function(binding) return reader:c
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
 if not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.51-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.52-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.51-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.52-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("OVERLAY mission-location=native-stage-and-radius; refresh=50ms; no native calls or game writes")
@@ -126,7 +126,6 @@ local function recover_mouse(now, focused)
     end
 end
 local function stop()
-    policy:cancel()
     state.pending = nil
     state.open_pending = nil
     state.toggle_close = nil
@@ -134,10 +133,55 @@ local function stop()
     state.radial_binding = nil
     state.radial_menu_token = nil
     state.highlight = nil
+    local cancelled, cancel_error = pcall(policy.cancel, policy)
     local good, why = pcall(close_radial)
     state.release_due = 0
-    release_start()
+    local released, release_error = pcall(release_start)
+    if not cancelled then error(cancel_error) end
     if not good then error(why) end
+    if not released then error(release_error) end
+end
+local function recovery_cleanup(now)
+    local stopped, stop_error = pcall(stop)
+    local disposed, dispose_error = pcall(radial.dispose, radial)
+    local mouse_ok, mouse_error = pcall(function() recover_mouse(now, channel.foreground()) end)
+    state.blocking_inputs = policy.held ~= nil or state.owned_start ~= nil or
+        state.mouse_release ~= nil or radial.mouse ~= nil
+    if not stopped or not disposed or not mouse_ok then
+        return false, stop_error or dispose_error or mouse_error
+    end
+    if state.blocking_inputs then return false, "input-or-cursor-release-pending" end
+    return true
+end
+local function recover_radial(now)
+    if now < state.radial_retry_at then return end
+    local cleaned, why = recovery_cleanup(now)
+    if cleaned then
+        local good, replacement = pcall(Radial.new, sr, channel, config.scale, log)
+        if good and type(replacement) == "table" then
+            radial = replacement
+            state.radial_failed, state.radial_retry_at, state.radial_retry_delay = nil, nil, nil
+            state.bindings, state.binding_due, state.list_ready = nil, nil, false
+            state.keys, state.modifier, state.overlay = {}, nil, nil
+            state.radial_rearm = true
+            state.toggle_suppressed = true
+            note("OVERLAY recovered; waiting for fresh list-key activation")
+            return
+        end
+        why = replacement
+    end
+    state.radial_retry_delay = math.min(4, state.radial_retry_delay * 2)
+    state.radial_retry_at = now + state.radial_retry_delay
+    note("OVERLAY recovery-wait delay=" .. state.radial_retry_delay .. " reason=" .. tostring(why))
+end
+local function radial_error(why)
+    if state.radial_failed then return end
+    state.radial_failed, state.radial_retry_delay = true, 0.5
+    local now = state.radial_now or 0
+    state.radial_retry_at = now + state.radial_retry_delay
+    recovery_cleanup(now)
+    log("ERROR " .. tostring(why))
+    note("OVERLAY recovery-wait delay=0.5")
 end
 local function same_binding(a, b)
     if not a or not b or a.start_vk ~= b.start_vk or a.owner ~= b.owner or
@@ -164,7 +208,9 @@ local function close_toggle_selection(row, binding, token, menu_token, now)
 end
 local function tick()
     local now = app.time_since_launch()
-    if type(now) ~= "number" then return end
+    if type(now) ~= "number" or now ~= now or now == math.huge or now < 0 then return end
+    state.radial_now = now
+    if state.radial_failed then recover_radial(now); return end
     local radial_was_open = radial.opened
     local focused = channel.foreground()
     if state.release_due and (now >= state.release_due or not focused) then release_start() end
@@ -209,13 +255,16 @@ local function tick()
         game, game_why = reader:game_menu()
     end
     local native_active = game and game.active == true
+    if state.radial_rearm and (not toggle and not modifier or toggle and game and not native_active) then
+        state.radial_rearm = nil
+    end
     if not native_active and not state.pending and not policy.job and not state.toggle_close and
         not state.click_selection and not state.owned_start then
         state.toggle_suppressed = nil
     end
     if binding and not modifier then state.list_ready = true end
     -- An injected list-key hold finishes a command; it must not reopen the radial.
-    local overlay = config.radial and state.list_ready and
+    local overlay = config.radial and state.list_ready and not state.radial_rearm and
         (toggle and native_active and not state.toggle_suppressed or not toggle and modifier) and
         not state.owned_start and not state.mouse_release or false
     local overlay_pressed, overlay_released = overlay and not state.overlay, not overlay and state.overlay
@@ -284,7 +333,7 @@ local function tick()
         end
     end
     -- Number shortcuts take priority over the radial on the same list-key hold.
-    local shortcut = config.hotkeys and state.list_ready and (modifier or toggle and native_active) and
+    local shortcut = config.hotkeys and state.list_ready and not state.radial_rearm and (modifier or toggle and native_active) and
         not fire and pressed and count == 1 and not policy.job and not state.pending and
         not state.owned_start and not state.toggle_close
     if shortcut and game then
@@ -498,10 +547,7 @@ local previous = rawget(_G, "update")
 rawset(_G, "update", function(...)
     local good, why = pcall(tick)
     if not good then
-        pcall(stop)
-        state.blocking_inputs = policy.held ~= nil or state.owned_start ~= nil or state.mouse_release ~= nil
-        state.radial_failed = true
-        log("ERROR " .. tostring(why))
+        radial_error(why)
     end
     if type(previous) == "function" then return previous(...) end
 end)

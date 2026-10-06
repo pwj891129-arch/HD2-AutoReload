@@ -521,6 +521,7 @@ local fake_reader = {
     command_state = function() return {start = menu, directions = {
         held[38] == true, held[39] == true, held[40] == true, held[37] == true}} end,
     loadout = function() return {token = token} end,
+    radial = function() return nil, "fixture-overlay-unavailable" end,
     request = function(_, slot) return {token = token, kind = slot, keys = {38, 39},
         directions = {1, 2}, bindings = binding_value} end,
 }
@@ -575,6 +576,7 @@ equal(env.shutdown(), "shutdown", "shutdown chain")
 equal(env.HD2StratagemHotkeys.blocking_inputs, false)
 
 dofile("radial.test.lua")(equal, read_file, source)
+dofile("recovery.test.lua")(equal, read_file, dofile("radial.lua"))
 dofile("locale.test.lua")(equal, Reader)
 dofile("glyphs.test.lua")(equal)
 dofile("native-font.test.lua")(equal)

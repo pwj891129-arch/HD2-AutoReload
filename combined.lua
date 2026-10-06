@@ -1,6 +1,6 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
 if rawget(_G, "HD2HelperCombined") then return end
-local state = {version = "0.3.51-test"}
+local state = {version = "0.3.52-test"}
 rawset(_G, "HD2HelperCombined", state)
 local function start_feature(name, run)
     local good, why = pcall(run)
