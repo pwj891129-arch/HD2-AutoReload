@@ -1,4 +1,35 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.50-test
+# HD2 Helper Auto Reload + Stratagems 0.3.51-test
+
+0.3.51-test fixes missing Super Earth Flag and other location-restricted mission
+calls. The native objective hash table has 0x1b2 (434) buckets, not 438. The old
+divisor prevented objective definitions from resolving and hid eligible calls.
+The corrected divisor, probe wrap and record bounds now match the native table.
+
+Mission calls retain their individual visibility options. Calls with a location
+restriction appear only in the permitted current objective area and disappear
+outside it or after its call stage finishes. Existing 50ms wheel refresh and
+selection revalidation remain in place. Equipped slots, common calls and automatic
+reload are unchanged.
+
+Railgun automatic release now offers 90% or 95% (default) of its native danger
+gauge in Arsenal; Epoch remains at 100% of its full firing charge. The existing
+default-on checkbox and resource ID are retained, with English/Korean option
+labels updated. The new threshold choice is appended without shifting existing
+options. The higher threshold leaves less margin for sampling and input latency.
+
+Lua regressions include the live flag objective hash, last-bucket collisions,
+record bounds and flag entry/exit/completion. Native instruction checks pin the
+434-bucket division and wrap. A bounded read-only live probe resolved all three
+objective definitions that the old reader rejected. Installing the new package
+and visually testing the wheel at a flag area remain necessary. Charge regressions
+verify release at the selected 90% or 95% threshold, no premature release,
+one-shot latching, invalid-option blocking, and unchanged Epoch full-charge
+behavior. The new Railgun threshold still needs gameplay validation.
+
+Install one of the English/Korean 0.3.51-test ZIPs using Arsenal with the game
+closed. No installed patches or running game state are modified by development.
+
+## Mission Location Detection
 
 0.3.50-test hides location-restricted mission calls outside their current native
 objective area. It reads the game's current objective stage, active/passive state,
@@ -466,8 +497,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.50-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.50-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.51-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.51-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -501,7 +532,7 @@ Deploy. There is one loader addon resource, with independently guarded startup
 for both features. Stratagem input updates its gate before reload and charge
 processing in the same frame; both retain existing callback return values.
 
-Automatic reload, Railgun 90% / Epoch 100% charge release, radial and number
+Automatic reload, Railgun / Epoch charge release, radial and number
 hotkeys are ON only when their checkboxes are checked. Missing markers mean OFF.
 Fresh Arsenal imports initially check options, including these features. Review
 the retained states when replacing an earlier version. No deployed files are
@@ -528,10 +559,12 @@ registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 
 - `Automatic Reload` / `자동재장전`: checked is ON; unchecked is OFF.
   Covers both magazine exhaustion and complete overheat.
-- `Vehicle Automatic Reload` / `차량 자동 재장전`: independent checkbox at the end.
+- `Vehicle Automatic Reload` / `차량 자동 재장전`: independent checkbox.
   Experimental reloadable FRV/tank primary mounts; unchecked disables only vehicles.
-- `Railgun 90% / Epoch 100% Release` / `레일건 90%·에포크 100% 자동발사`: checked is ON; unchecked is OFF.
+- `Railgun / Epoch Automatic Release` / `레일건·에포크 자동발사`: checked is ON; unchecked is OFF.
   Independent of automatic reload.
+- `Railgun Release Threshold` / `레일건 자동발사 기준`: 95% (default) or 90%.
+  Appended after existing options. Does not enable an unchecked release feature or change Epoch's 100% threshold.
 - `Stratagem Radial Menu` / `스트라타젬 원형 오버레이`: checked is ON; uncheck to disable the radial only.
 - `Stratagem Number Hotkeys` / `스트라타젬 숫자 핫키`: checked is ON; uncheck to disable number shortcuts only.
 - `Other Shared / Mission Calls` / `기타 공용/임무 스트라타젬 표시`: checked is ON; controls only types without an individual toggle.
@@ -543,7 +576,7 @@ registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
 - `Mission: All` / `임무 스트라타젬 전체`: Individual Settings (default), ON or OFF for all registered mission calls.
 - `Shared + Mission: All` / `공용·임무 스트라타젬 전체`: Individual Settings (default), ON or OFF for both categories together; takes priority over the two group controls.
 
-Size, interval and bulk choices are mutually exclusive. Boolean settings have
+Size, interval, Railgun threshold and bulk choices are mutually exclusive. Boolean settings have
 only a direct checkbox. Bulk controls do not erase saved
 individual settings; restore Individual Settings to use them again. Review choices after
 importing, especially if Arsenal automatically enables new options. Close the
@@ -633,8 +666,10 @@ WeaponChargeComponent elapsed charge and per-weapon charge configuration. It use
 the instance override or authored type registry, not ordinary heat, OCR or a
 fixed timer. Two coherent reads are required.
 
-Railgun releases at or above 90% of the entire gauge from zero to its explosion
-limit. Epoch releases at or above 100% of its Full firing charge, without
+Railgun releases at or above the selected 90% or 95% (default) of the entire gauge
+from zero to its explosion limit. Missing threshold resources default to 95%; an
+invalid explicit threshold blocks Railgun release but does not disable Epoch.
+Epoch releases at or above 100% of its Full firing charge, without
 requiring an explosion flag; its Over charge time bounds valid readings.
 Both send one Windows `MOUSEEVENTF_LEFTUP`. No mouse press, repeated firing or aiming is sent.
 Release the physical button and click again for the next shot. Railgun safe
@@ -645,8 +680,9 @@ stratagem input and unreadable charge data block release. Reserve is not require
 to fire the last loaded shot. The post-release reload check remains available
 when automatic reload is on.
 
-50 ms reads and frame/input latency may release above 90%; explosion prevention
-is not guaranteed. Actual Railgun/Epoch gameplay remains unverified.
+50 ms reads and frame/input latency may release above the selected threshold;
+explosion prevention is not guaranteed. The 95% threshold has less safety margin
+than 90% and still needs gameplay validation.
 Native layout research references
 [FileDiver's charge component](https://github.com/xypwn/filediver/blob/master/datalibrary/weapon_charge_component.go)
 and its [resource hash names](https://github.com/xypwn/filediver/blob/master/hashes/hashes.txt).
@@ -684,7 +720,7 @@ bindings are not supported.
 Logs: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_auto_reload.log`.
 Stratagem log: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_stratagem_hotkeys.log`.
 Isolated startup failures: `%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\hd2_helper_combined.log`.
-START reports enabled/charge90 and bindings. NATIVE_SOURCE, RELOAD,
+START reports enabled/charge90, railgun_threshold and bindings. NATIVE_SOURCE, RELOAD,
 CHARGE_SOURCE, CHARGE_RELEASE and blocking/error logs remain. Stratagem CONFIG
 logs include each individual checkbox and effective bulk result; research scans
 and research hotkeys have been removed.
@@ -727,11 +763,12 @@ node build.cjs
 node package.test.cjs
 node tools/mission-location-layout.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
+./tools/Read-MissionLocation.ps1 # Optional live read-only location diagnostic.
 node tools/reload-layout.test.cjs
 node tools/vehicle-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.50-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.50-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.50-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.50-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.51-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.51-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.51-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.51-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

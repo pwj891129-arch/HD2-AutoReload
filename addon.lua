@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.50-test"
+local VERSION = "0.3.51-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -458,7 +458,7 @@ local function tick()
         else
             state.charge_status = nil
         end
-        if charge:step(sample, now, fire) and foreground() and down(1) then
+        if charge:step(sample, now, fire, config.railgun_threshold) and foreground() and down(1) then
             local sent = native.user32.SendInput(1, native.mouse, native.size)
             log(string.format("CHARGE_RELEASE kind=%s ratio=%.3f sent=%s t=%.3f",
                 sample.charge_kind, sample.charge_elapsed / sample.charge_limit,
@@ -519,5 +519,6 @@ if not install_hooks(_G, guarded_tick, function() pcall(release) end) then
 end
 log("START " .. VERSION .. " Arsenal-only options enabled=" .. tostring(config.enabled) ..
     " charge90=" .. tostring(config.charge90) ..
+    " railgun_threshold=" .. tostring(config.railgun_threshold) ..
     " vehicle=" .. tostring(config.vehicle) ..
     " fire_vk=" .. config.fire_vk .. " reload_vk=" .. config.reload_vk)

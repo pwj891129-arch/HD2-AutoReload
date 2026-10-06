@@ -136,8 +136,9 @@ local function finish(f) for i = 1, 30 do f.step(0.02) end end
 local function charge(f, kind)
     f.shot.charge_kind, f.shot.charging, f.shot.charge_limit = kind, true, 3
     if kind == "epoch" then f.shot.charge_limit, f.shot.charge_max = 2.7, 2.8 end
-    f.shot.charge_elapsed, f.keys[1] = 2.6, true; f.step(0.06)
-    f.shot.charge_elapsed = 2.7; f.step(0.1)
+    local target = kind == "epoch" and 2.7 or 3 * f.env.HD2HelperAutoReload.config.railgun_threshold
+    f.shot.charge_elapsed, f.keys[1] = target - 0.1, true; f.step(0.06)
+    f.shot.charge_elapsed = target; f.step(0.1)
 end
 local function assert_command(f)
     equal(#f.events, 4, "one two-direction command")
@@ -147,6 +148,7 @@ end
 local f = fixture()
 equal(f.env.HD2HelperAutoReload.config.enabled, true, "combined default reload on")
 equal(f.env.HD2HelperAutoReload.config.charge90, true, "combined default charge on")
+equal(f.env.HD2HelperAutoReload.config.railgun_threshold, 0.95, "combined default Railgun threshold is 95 percent")
 equal(f.env.HD2HelperAutoReload.config.vehicle, true, "fresh checked vehicle option is on")
 equal(f.env.HD2StratagemHotkeys.config.radial, true, "combined default radial on")
 equal(f.env.HD2StratagemHotkeys.config.hotkeys, true, "combined default hotkeys on")
@@ -218,6 +220,28 @@ for _, kind in ipairs({"railgun", "epoch"}) do
     equal(#f.events, 0, "explicit charge OFF honored")
     f.env.shutdown()
 end
+
+for _, threshold in ipairs({0.9, 0.95}) do
+    for _, kind in ipairs({"railgun", "epoch"}) do
+        f = fixture({autoreload_setting_railgun_threshold = threshold}); f.step(0.06)
+        equal(f.env.HD2HelperAutoReload.config.railgun_threshold, threshold, "combined honors selected Railgun threshold")
+        charge(f, kind)
+        equal(#f.events, 1, "combined selected threshold sends one release")
+        equal(f.events[1].route, "charge", "combined selected threshold sends no reload or command")
+        f.env.shutdown()
+        f = fixture({autoreload_setting_charge90 = false, autoreload_setting_railgun_threshold = threshold})
+        f.step(0.06); charge(f, kind)
+        equal(#f.events, 0, "threshold choice cannot enable an unchecked release feature")
+        f.env.shutdown()
+    end
+end
+
+f = fixture({autoreload_setting_railgun_threshold = 0.91}); f.step(0.06)
+equal(f.env.HD2HelperAutoReload.config.railgun_threshold, false, "combined invalid threshold is blocked")
+f.shot.charge_kind, f.shot.charging, f.shot.charge_limit = "railgun", true, 3
+f.shot.charge_elapsed, f.keys[1] = 2.9, true; f.step(0.06); f.step(0.06)
+equal(#f.events, 0, "combined malformed threshold emits no Railgun input")
+f.env.shutdown()
 
 f = fixture(); f.shot.reload_allow_move = false; f.step(0.06)
 f.keys[1] = true; f.step(0.06)

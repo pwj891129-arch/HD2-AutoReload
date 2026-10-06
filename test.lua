@@ -16,6 +16,23 @@ local function load_option(resource) return flags[resource:match("autoreload_set
 local arsenal = api.Options.read(option_app, load_option)
 equal(arsenal.enabled, true, "checked automatic reload checkbox is on")
 equal(arsenal.charge90, true, "checked charge release checkbox is on")
+equal(arsenal.railgun_threshold, 0.95, "absent threshold marker defaults to 95 percent")
+for _, value in ipairs({0.9, 0.95}) do
+    flags.railgun_threshold = value
+    equal(api.Options.read(option_app, load_option).railgun_threshold, value,
+        "Arsenal numeric threshold is honored")
+end
+for _, value in ipairs({true, false, "0.9", 0.91, 0, math.huge, 0 / 0}) do
+    flags.railgun_threshold = value
+    equal(api.Options.read(option_app, load_option).railgun_threshold, false,
+        "invalid explicit threshold cannot enable Railgun release")
+end
+flags.railgun_threshold = nil
+equal(api.Options.read({}, load_option).railgun_threshold, 0.95, "legacy option API defaults to 95 percent")
+equal(api.Options.read({can_get = function() error("unavailable") end}, load_option).railgun_threshold,
+    false, "failed threshold presence read fails closed")
+equal(api.Options.read({can_get = function() return true end}, function() error("unavailable") end).railgun_threshold,
+    false, "failed threshold payload read fails closed")
 equal(arsenal.diagnostics, nil, "diagnostic setting removed")
 equal(api.Options.allow(arsenal, {mode = "ammo"}), true)
 equal(api.Options.allow(arsenal, {mode = "heat"}), true)

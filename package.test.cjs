@@ -11,21 +11,23 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.50-test';
+const version = '0.3.51-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
 const coreIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared_other', 'scale', 'slow',
-  'shared_all', 'mission_all', 'shared_mission_all', 'vehicle'];
+  'shared_all', 'mission_all', 'shared_mission_all', 'vehicle', 'railgun_threshold'];
 const definitions = optionModel.definitions(filters);
 const optionIds = definitions.map(option => option.id);
 const defaults = definitions.map(option => option.toggle ? false : option.values[0]);
 const variantsFor = option => option.SubOptions ?? [option];
 const variantCount = definitions.reduce((sum, option) => sum + option.values.length, 0);
-assert.equal(optionIds.length, 45);
-assert.equal(variantCount, 56);
+assert.equal(optionIds.length, 46);
+assert.equal(variantCount, 58);
 assert.equal(definitions.filter(option => option.toggle).length, 40);
 assert.deepEqual(definitions.find(option => option.id === 'scale').values, [1, 1.25, 1.5, 2, 3]);
+assert.deepEqual(definitions.find(option => option.id === 'railgun_threshold').values, [0.95, 0.9]);
+assert.equal(optionIds.at(-1), 'railgun_threshold', 'New choice does not shift existing option positions');
 for (const id of ['shared_all', 'mission_all', 'shared_mission_all']) {
   assert.deepEqual(definitions.find(option => option.id === id).values, ['individual', true, false]);
 }
@@ -91,6 +93,8 @@ function checkPackage(language) {
     const image = fs.readFileSync(path.join(stage, option.Image));
     assert(image.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')));
     assert.equal(image.readUInt32BE(16), 256); assert.equal(image.readUInt32BE(20), 256);
+    if (definitions[i].icon) assert(image.equals(fs.readFileSync(path.join(__dirname,
+      'assets/option-icons', definitions[i].icon + '.png'))), 'Threshold reuses the existing gauge preview');
     if (filter) assert.equal(crypto.createHash('sha256').update(image).digest('hex'),
       nativeIcons.icons[id].pngSha256, 'Staged preview matches native/fallback provenance');
     if (definitions[i].toggle) {
@@ -128,7 +132,7 @@ function checkPackage(language) {
     const previous = JSON.parse(fs.readFileSync(path.join(previousStage, 'manifest.json'), 'utf8'));
     assert.equal(previous.Options.length, 44);
     for (let i = 0; i < previous.Options.length; i++) {
-      for (const key of optionIds[i] === 'slow' ? ['Image'] : ['Name', 'Image']) {
+      for (const key of ['slow', 'charge90'].includes(optionIds[i]) ? ['Image'] : ['Name', 'Image']) {
         assert.deepEqual(manifest.Options[i][key], previous.Options[i][key],
           'Existing option positions and icons remain unchanged');
       }
@@ -195,6 +199,10 @@ function checkPackage(language) {
       assert(source.includes('Reader.Locale.name(row.kind, definition.name)'));
       assert(source.includes('objectives = 0x3326da0, authored = 0x346bf98, discovery = 0x3326530'));
       assert(source.includes('function Reader:mission_location(definition, kind, here)'));
+      assert(source.includes('OBJECTIVE_BUCKETS = 80280, 400, 0x38, 0x1b2'), 'Packaged reader uses native 434-bucket objective table');
+      assert(source.includes('probe = 0, OBJECTIVE_BUCKETS - 1'));
+      assert(source.includes('index >= OBJECTIVE_BUCKETS'));
+      assert(!source.includes('hi % 438'), 'Old objective divisor must not ship');
       assert(source.includes('function Reader:reference_anchor(radius, children)'));
       assert(source.includes('self:mission_location(definition, row.kind, here)'));
       assert(source.includes('reader:request_location_valid(request, config.shared)'));
@@ -216,7 +224,10 @@ function checkPackage(language) {
       assert(source.includes('action == "release-fire"'));
       assert(source.includes('policy:released_fire(now)'));
       assert(source.includes('sample.charge_limit = kind == "epoch" and full or over'));
-      assert(source.includes('sample.charge_kind == "epoch" and 1 or 0.9'));
+      assert(source.includes('sample.charge_kind == "epoch" and 1 or threshold'));
+      assert(source.includes('charge:step(sample, now, fire, config.railgun_threshold)'));
+      assert(source.includes('autoreload_setting_railgun_threshold'));
+      assert(source.includes('value == 0.9 or value == 0.95'));
       assert(source.includes('binding.start_mode == "toggle"'));
       assert(source.includes('INPUT toggle-close-replayed vk='));
       assert(source.includes('INPUT toggle-close-release-synced vk='));
@@ -295,7 +306,7 @@ function checkPackage(language) {
     }
     combinations++;
   }
-  const baseIndices = [0, 1, 2, 3, 5, 6, optionIds.indexOf('vehicle')];
+  const baseIndices = [0, 1, 2, 3, 5, 6, optionIds.indexOf('vehicle'), optionIds.indexOf('railgun_threshold')];
   const omitted = () => Array(optionIds.length).fill(null);
   function deployment(index, selected) {
     if (index === baseIndices.length) return checkDeployment(selected);

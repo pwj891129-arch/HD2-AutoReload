@@ -9,9 +9,19 @@ function Options.read(app, load)
         local loaded, value = pcall(load, resource)
         return loaded and value == true
     end
+    local railgun_threshold = 0.95
+    if app.can_get then
+        local resource = "mods/hd2_helper/autoreload_setting_railgun_threshold"
+        local good, present = pcall(app.can_get, "lua", resource)
+        if not good then railgun_threshold = false
+        elseif present then
+            local loaded, value = pcall(load, resource)
+            railgun_threshold = loaded and (value == 0.9 or value == 0.95) and value or false
+        end
+    end
     -- Unchecked Arsenal checkboxes deploy no marker; absence must mean OFF.
     return {enabled = setting("enabled", false), charge90 = setting("charge90", false),
-        vehicle = setting("vehicle", false)}
+        vehicle = setting("vehicle", false), railgun_threshold = railgun_threshold}
 end
 function Options.allow(config, sample)
     if not sample then return false end

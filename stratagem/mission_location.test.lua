@@ -53,11 +53,24 @@ return function(equal)
     local root_at, wrappers, live, states = 0x30000000, 0x31000000, 0x32000000, 0x33000000
     local wrapper, table_at = 0x34000000, 0x35000000
     local key = word(0x33333333) .. word(0x44444444)
-    local hash = ((0x44444444 % 438) * (4294967296 % 438) + 0x33333333 % 438) % 438
+    local hash = 351 -- Independently calculated uint64 key modulo native 0x1b2 buckets.
     put(authored + 0xf12758, ptr(table_at))
     put(table_at + hash * 16, key .. word(7))
     local definition = table_at + 0x1b20 + 7 * 0xad0
     put(definition, string.rep("\0", 0xad0))
+    local flag_key = word(0x6542af22) .. word(0x3aade080)
+    put(table_at + 148 * 16, flag_key .. word(8))
+    equal(reader:objective_definition(flag_key), table_at + 0x1b20 + 8 * 0xad0,
+        "live flag objective hash resolves using native 434 buckets, not 438")
+    put(table_at + 433 * 16, ptr(433) .. word(433))
+    equal(reader:objective_definition(ptr(433)), table_at + 0x1b20 + 433 * 0xad0,
+        "last native objective record remains valid")
+    put(table_at, ptr(867) .. word(9))
+    equal(reader:objective_definition(ptr(867)), table_at + 0x1b20 + 9 * 0xad0,
+        "native collision wraps bucket 433 to bucket zero")
+    put(table_at + 148 * 16, flag_key .. word(434))
+    equal(reader:objective_definition(flag_key), nil, "objective record 434 is outside native table")
+    put(table_at + 148 * 16, flag_key .. word(8))
     root("objectives", root_at)
     put(root_at + 0x24, word(1)); put(root_at + 0x50, ptr(wrappers) .. ptr(0) .. ptr(live) .. ptr(states))
     put(wrappers, ptr(wrapper)); put(wrapper, key .. word(0) .. word(target))
@@ -69,6 +82,19 @@ return function(equal)
     put(definition + 0x140, number(10))
     local call = {record = record, command = {1, 2, 3}}
     equal(reader:objective_definition(key), definition, "unsigned 64-bit authored hash resolver")
+    local flag_record, flag_definition = record + 1024, table_at + 0x1b20 + 8 * 0xad0
+    put(flag_record, string.rep("\0", 400)); put(flag_record + 0x7c, word(3))
+    put(channel.base + Reader.RVA.definitions + 11 * 8, ptr(flag_record))
+    put(flag_definition, string.rep("\0", 0xad0)); put(flag_definition, word(11))
+    put(flag_definition + 0x130, word(3)); put(flag_definition + 0x140, number(10))
+    put(wrapper, flag_key .. word(0) .. word(target))
+    local flag = {record = flag_record, command = {3, 1, 3, 1}}
+    equal(reader:mission_location(flag, 11), true, "flag appears inside its current call area")
+    unit(2, 0, 10.01, 0, 0)
+    equal(reader:mission_location(flag, 11), false, "flag disappears when leaving its call area")
+    unit(2, 0, 10, 0, 100); put(states + 24, word(1))
+    equal(reader:mission_location(flag, 11), false, "flag disappears when its call stage is finished")
+    put(states + 24, word(0)); put(wrapper, key .. word(0) .. word(target))
     equal(reader:mission_location(call, 42), true, "native horizontal radius includes boundary regardless of height")
     unit(2, 0, 10.01, 0, 0)
     equal(reader:mission_location(call, 42), false, "outside location hidden even if loaded and ready")

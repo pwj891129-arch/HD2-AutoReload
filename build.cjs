@@ -6,7 +6,7 @@ const optionModel = require('./arsenal-options.cjs');
 const wheelTexture = require('./tools/wheel-texture.cjs');
 
 const root = __dirname;
-const version = '0.3.50-test';
+const version = '0.3.51-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -198,8 +198,8 @@ const optionManifest = options.map(({id: name, values, prefix, toggle}) => {
 const previewFolder = path.join(stage, 'OptionIcons');
 const nativeIcons = JSON.parse(readSource(path.join(root, 'assets/native-option-icons.json')));
 fs.mkdirSync(previewFolder, {recursive: true});
-for (const {id: name} of options) {
-  const image = path.join(root, 'assets', 'option-icons', name + '.png');
+for (const {id: name, icon = name} of options) {
+  const image = path.join(root, 'assets', 'option-icons', icon + '.png');
   if (nativeIcons.icons[name]) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(image)).digest('hex'),
     nativeIcons.icons[name].pngSha256, `Option preview source mismatch: ${name}`);
   fs.copyFileSync(image, path.join(previewFolder, name + '.png'));

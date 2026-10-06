@@ -17,6 +17,9 @@ if (fs.existsSync(capture)) {
     [0x5d9d40, '4380bc2e3401000000'],
     [0x5d9e80, '4380bc2e3601000000'],
     [0x4fa901, '4869c1d00a0000'],
+    [0x4fa8a7, '69c2b2010000'],
+    [0x4fa8e4, '3db1010000'],
+    [0x4fa8ed, '4181f9b2010000'],
     [0x6f25f9, '418b4f0c'],
     [0x6f26a3, 'c6472601'],
   ]);
@@ -28,7 +31,9 @@ if (fs.existsSync(capture)) {
 for (let i = 0; i < 10000; i++) {
   const low = (Math.imul(i + 1, 1664525) + 1013904223) >>> 0;
   const high = (Math.imul(i + 2, 22695477) + 1) >>> 0;
-  const actual = ((high % 438) * (4294967296 % 438) + low % 438) % 438;
-  assert.equal(actual, Number(((BigInt(high) << 32n) | BigInt(low)) % 438n));
+  const actual = ((high % 434) * (4294967296 % 434) + low % 434) % 434;
+  assert.equal(actual, Number(((BigInt(high) << 32n) | BigInt(low)) % 434n));
 }
-console.log('PASS 10000 unsigned mission definition hash checks');
+assert.equal(434 * 16, 0x1b20, 'Native bucket count matches record origin');
+assert.equal(Number(0x3aade0806542af22n % 434n), 148, 'Live flag objective native hash bucket');
+console.log('PASS 10000 unsigned mission definition hash checks and live flag bucket');

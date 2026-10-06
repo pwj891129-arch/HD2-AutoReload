@@ -8,7 +8,7 @@ Reader.RVA = { players = 0x3326468, ui = 0x347ce28, loadouts = 0x347ce50,
     clock = 0x3326348, owner = 54968216, avatars = 0x3326d20,
     objectives = 0x3326da0, authored = 0x346bf98, discovery = 0x3326530,
     anchors = 0x3326cd8, positions = 0x3326508 }
-local DATA_SIZE, RECORD_SIZE, LOADOUT_DATA = 80280, 400, 0x38
+local DATA_SIZE, RECORD_SIZE, LOADOUT_DATA, OBJECTIVE_BUCKETS = 80280, 400, 0x38, 0x1b2
 local ACTION = { [1] = 3, [2] = 2, [3] = 4, [4] = 1 }
 local ACTION_BASE = 808 + 32 * (5 * 97)
 local function word(raw, at)
@@ -115,14 +115,14 @@ function Reader:objective_definition(key)
     local rows = authored and self:ptr(authored + 0xf12758)
     local lo, hi = word(key, 0), word(key, 4)
     if not rows or not lo or not hi or lo == 0 and hi == 0 then return nil end
-    -- Native +0x4fa880 uses all 64 hash bits, 438 buckets and bounded linear probing.
-    local start = ((hi % 438) * (4294967296 % 438) + lo % 438) % 438
-    for probe = 0, 437 do
-        local entry = self:read(rows + ((start + probe) % 438) * 16, 12)
+    -- Native +0x4fa880 divides by 0x1b2 (434), matching the 0x1b20-byte bucket table.
+    local start = ((hi % OBJECTIVE_BUCKETS) * (4294967296 % OBJECTIVE_BUCKETS) + lo % OBJECTIVE_BUCKETS) % OBJECTIVE_BUCKETS
+    for probe = 0, OBJECTIVE_BUCKETS - 1 do
+        local entry = self:read(rows + ((start + probe) % OBJECTIVE_BUCKETS) * 16, 12)
         local low, high, index = word(entry, 0), word(entry, 4), word(entry, 8)
         if not low or not high then return nil end
         if low == lo and high == hi then
-            if not index or index >= 438 or self:root("authored") ~= authored or
+            if not index or index >= OBJECTIVE_BUCKETS or self:root("authored") ~= authored or
                 self:ptr(authored + 0xf12758) ~= rows then return nil end
             return rows + 0x1b20 + index * 0xad0
         end

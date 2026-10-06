@@ -14,9 +14,11 @@ function Charge:reset()
     -- Keep the one-shot latch across focus, menu and read gaps.
 end
 
-function Charge:step(sample, now, fire)
+function Charge:step(sample, now, fire, railgun_threshold)
+    local threshold = railgun_threshold == nil and 0.95 or railgun_threshold
     if not sample or not sample.active or not sample.native or not sample.weapon or
         (sample.charge_kind ~= "railgun" and sample.charge_kind ~= "epoch") or
+        (sample.charge_kind == "railgun" and threshold ~= 0.9 and threshold ~= 0.95) or
         not finite(now) or not finite(sample.charge_elapsed) or
         not finite(sample.charge_limit) or sample.charge_limit < 0.1 or
         sample.charge_limit > 30 or sample.charge_elapsed < 0 or
@@ -42,7 +44,7 @@ function Charge:step(sample, now, fire)
         previous.kind ~= sample.charge_kind or previous.limit ~= limit or
         previous.maximum ~= sample.charge_max or now <= previous.at or now - previous.at > 0.2 or
         elapsed < previous.elapsed or elapsed - previous.elapsed > now - previous.at + 0.1 or
-        elapsed < limit * (sample.charge_kind == "epoch" and 1 or 0.9) then return false end
+        elapsed < limit * (sample.charge_kind == "epoch" and 1 or threshold) then return false end
     self.fired = { weapon = sample.weapon }
     return true
 end

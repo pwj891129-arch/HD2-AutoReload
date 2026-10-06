@@ -11,7 +11,8 @@ function definitions(filters) {
     {id: 'slow', prefix: 'stratagem_option_', values: [false, true]},
     ...filters.map(filter => bool(filter.id)),
     bulk('shared_all'), bulk('mission_all'), bulk('shared_mission_all'),
-    bool('vehicle', 'autoreload_setting_')
+    bool('vehicle', 'autoreload_setting_'),
+    {id: 'railgun_threshold', prefix: 'autoreload_setting_', values: [0.95, 0.9], icon: 'charge90'}
   ];
 }
 function suffix(value) {
@@ -25,6 +26,7 @@ function label(value, text, id) {
 }
 function description(value, text, id) {
   if (id === 'slow') return text.Options.slow.Description;
+  if (id === 'railgun_threshold') return text.Options.railgun_threshold.Description;
   if (value === 'individual') return text.IndividualDescription;
   if (typeof value === 'number') return text.ScaleDescription.replace('{percent}', value * 100);
   return value ? text.Enabled : text.Disabled;
