@@ -9,6 +9,7 @@ local function read_file(path)
     local bytes = file:read("*a"); file:close(); return bytes
 end
 dofile("atlas.test.lua")(equal)
+dofile("mission_location.test.lua")(equal)
 assert(loadstring(read_file("dist/stratagem_hotkeys.generated.lua")))
 local function word(n)
     return string.char(n % 256, math.floor(n / 256) % 256, math.floor(n / 65536) % 256, math.floor(n / 16777216) % 256)
@@ -388,6 +389,9 @@ end
 for _, filter in ipairs(visibility_options) do
     for _, kind in ipairs(filter.kinds) do
         shared_row(extra, kind)
+        if kind == 128 then
+            reader.mission_location = function() return true end
+        end
         local selected = {[kind] = true, other = false}
         equal(#assert(reader:radial(selected)).rows, 5, "individual " .. filter.id .. " ON")
         equal(assert(reader:request_kind(kind, selected)).kind, kind, "enabled call can be requested")
@@ -397,6 +401,7 @@ for _, filter in ipairs(visibility_options) do
         equal(table.concat(assert(reader:inventory(selected)).slots, ","), "113,101,66,1", "visibility preserves personal order")
     end
 end
+reader.mission_location = nil
 shared_row(extra, 49)
 equal(#assert(reader:radial({})).rows, 4, "unconfigured shared call defaults OFF")
 equal(#assert(reader:radial({other = true})).rows, 5, "unregistered call uses other toggle")

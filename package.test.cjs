@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.49-test';
+const version = '0.3.50-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -193,6 +193,12 @@ function checkPackage(language) {
       assert(source.includes('sample.reserve_token'));
       assert(source.includes(`local LANGUAGE = "${language}"`));
       assert(source.includes('Reader.Locale.name(row.kind, definition.name)'));
+      assert(source.includes('objectives = 0x3326da0, authored = 0x346bf98, discovery = 0x3326530'));
+      assert(source.includes('function Reader:mission_location(definition, kind, here)'));
+      assert(source.includes('function Reader:reference_anchor(radius, children)'));
+      assert(source.includes('self:mission_location(definition, row.kind, here)'));
+      assert(source.includes('reader:request_location_valid(request, config.shared)'));
+      assert(source.includes('if not same_rows(radial.inventory, current) then'));
       assert(source.includes('Radial.Glyphs = (function()'));
       assert(source.includes('renderer=mask-bitmap'));
       assert(source.includes('self:shape_on(style.gui, "bitmap_uv", style.material'));

@@ -1,4 +1,24 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.49-test
+# HD2 Helper Auto Reload + Stratagems 0.3.50-test
+
+0.3.50-test hides location-restricted mission calls outside their current native
+objective area. It reads the game's current objective stage, active/passive state,
+call anchor or child units and configured horizontal radius. Reference-linked drill
+areas use the native reference entity and nearest eligible active target. Upload Discovery
+uses its native local permission and three-dimensional radius. There are no
+native function calls, hooks, game-memory writes or fixed per-stratagem distances.
+
+The wheel refreshes every 50ms. Location changes do not alter the equipped four
+slots or their hotkeys; common calls and mission calls without a location limit
+keep their existing visibility options. Cooldowns remain visible inside an
+eligible area. A failed location read hides only the affected mission call.
+Selections are revalidated before and during command input. When membership
+changes on a release frame, an old sector index cannot select a different call.
+
+Offline tests cover range boundaries, height, current stages, inactive/completed
+objectives, child/override anchors, destroyed or reused engine units,
+multiplayer local identity, unreadable data, stale selections and Discovery.
+Live mission-area visibility still needs an in-game test. Install only one of
+the English/Korean 0.3.50-test ZIPs using Arsenal with the game closed.
 
 ## Wheel Countdown Format
 
@@ -446,8 +466,8 @@ charge release and feature defaults are unchanged.
 
 Release assets are provided separately:
 
-- `HD2-AutoReload-0.3.49-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.49-test-ko.zip`: Korean Arsenal options and wheel names.
+- `HD2-AutoReload-0.3.50-test-en.zip`: English Arsenal options and wheel names (default distribution).
+- `HD2-AutoReload-0.3.50-test-ko.zip`: Korean Arsenal options and wheel names.
 
 Install only one ZIP. Both share the same mod GUID, option order, default values,
 include paths and game logic. Only manifest text and the wheel language flag differ.
@@ -705,12 +725,13 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 ```powershell
 node build.cjs
 node package.test.cjs
+node tools/mission-location-layout.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
 node tools/reload-layout.test.cjs
 node tools/vehicle-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.49-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.49-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.49-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.49-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.50-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.50-test-en.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.50-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.50-test-ko.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

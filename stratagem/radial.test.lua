@@ -209,6 +209,7 @@ return function(equal, read_file, source)
     -- Actual addon sequencing with GUI/cursor and input adapters; no OS input.
     local current, held, events, ready, token, focused, idle, menu = 0, {}, {}, true, "TOKEN", true, true, true
     local menu_override, hover, acknowledge = nil, 1, true
+    local rows_override, location_allowed = nil, true
     local game_available, game_token, game_active_override = true, "CHARACTER", nil
     local mouse_latch, up_failures, ignore_up, mouse_observation = nil, 0, false, true
     local options = {radial = true, hotkeys = false, shared_reinforce = true,
@@ -249,8 +250,19 @@ return function(equal, read_file, source)
                 directions = {acknowledge and held[38] == true, acknowledge and held[39] == true, false, false}}
         end,
         loadout = function() return {token = token} end,
-        request = request, request_kind = request,
-        radial = function() return {token = token, rows = {{kind = 1, ready = ready, status = "READY"}}}, "ready" end}
+        request = request, request_kind = function(_, kind)
+            if not rows_override then return request() end
+            for _, row in ipairs(rows_override) do
+                if row.kind == kind and row.ready then
+                    return {token = token, kind = kind, keys = {38, 39}, directions = {1, 2},
+                        bindings = binding, location_required = row.location_required}
+                end
+            end
+            return nil, "stratagem-not-equipped"
+        end,
+        request_location_valid = function(_, value) return not value.location_required or location_allowed end,
+        radial = function() return {token = token,
+            rows = rows_override or {{kind = 1, ready = ready, status = "READY"}}}, "ready" end}
     local opened_count = 0
     local mock_radial = {restore = function() end, dispose = function() end}
     function mock_radial:open(value)
@@ -381,9 +393,59 @@ return function(equal, read_file, source)
         menu_override, hover, focused, idle, menu, ready, acknowledge = nil, 1, true, true, true, true, true
         game_available, game_token, game_active_override = true, "CHARACTER", nil
         mouse_latch, up_failures, ignore_up, mouse_observation = nil, 0, false, true
+        rows_override, location_allowed = nil, true
         binding = {start_vk = 164, directions = {38, 39, 40, 37}}
         init(); step(0)
     end
+    local mission_rows = {{kind = 42, ready = true, status = "READY", location_required = true},
+        {kind = 113, ready = true, status = "READY"}}
+    local personal_rows = {mission_rows[2]}
+    restart()
+    rows_override = mission_rows
+    held[164] = true; step(0.02)
+    rows_override, held[164] = personal_rows, false; step(0.06); finish()
+    equal(#events, 0, "membership change on release cannot dispatch a different row at the old index")
+    equal(env.HD2StratagemHotkeys.pending, nil)
+    env.shutdown()
+
+    restart()
+    rows_override = mission_rows
+    held[164] = true; step(0.02)
+    rows_override = personal_rows; step(0.06)
+    equal(mock_radial.inventory.rows[1].kind, 113, "held wheel refreshes to the location-filtered rows")
+    held[164] = false; step(0.02)
+    equal(env.HD2StratagemHotkeys.pending.kind, 113, "redraw permits a fresh selection after membership changes")
+    finish(); equal(#events, 6)
+    env.shutdown()
+
+    restart()
+    rows_override = mission_rows
+    held[164] = true; step(0.02)
+    rows_override, held[164] = personal_rows, false; step(0.01); finish()
+    equal(#events, 0, "fresh request rejects an unavailable mission before the next display refresh")
+    env.shutdown()
+
+    restart()
+    rows_override = mission_rows
+    held[164] = true; step(0.02); held[164] = false; step(0.02)
+    equal(env.HD2StratagemHotkeys.pending.kind, 42)
+    rows_override = personal_rows; finish()
+    equal(#events, 0, "moving out while awaiting list closure sends neither list nor directions")
+    env.shutdown()
+
+    restart()
+    rows_override = mission_rows
+    held[164] = true; step(0.02); held[164] = false; step(0.02)
+    for i = 1, 20 do if #events >= 2 then break end; step(0.02) end
+    equal(#events, 2, "mission sequence started with one held direction")
+    equal(events[2][1], 38); equal(events[2][2], true)
+    rows_override, location_allowed = personal_rows, false; step(0.02); finish()
+    equal(#events, 4, "leaving during a mission command only releases its owned inputs")
+    equal(events[3][1], 38); equal(events[3][2], false)
+    equal(events[4][1], 164); equal(events[4][2], false)
+    equal(env.HD2StratagemHotkeys.blocking_inputs, false)
+    env.shutdown()
+
     restart()
     held[164] = true; step(0.02)
     equal(mock_radial.selected, 1, "held frame highlights desired row")

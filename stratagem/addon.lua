@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.46-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.50-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -73,11 +73,12 @@ local policy = Policy.new(channel.command_key, function(binding) return reader:c
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
 if not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.46-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.50-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.46-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.50-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
+log("OVERLAY mission-location=native-stage-and-radius; refresh=50ms; no native calls or game writes")
 log("CONFIG radial=" .. tostring(config.radial) .. " hotkeys=" .. tostring(config.hotkeys))
 log("CONFIG shared-all=" .. tostring(groups.shared) .. " mission-all=" .. tostring(groups.mission) ..
     " combined-all=" .. tostring(all) .. " scale=" .. tostring(config.scale))
@@ -146,6 +147,11 @@ local function same_binding(a, b)
 end
 local function clean(request)
     for _, vk in ipairs(request.bindings.directions) do if channel.down(vk) then return false end end
+    return true
+end
+local function same_rows(a, b)
+    if #a.rows ~= #b.rows then return false end
+    for index, row in ipairs(a.rows) do if row.kind ~= b.rows[index].kind then return false end end
     return true
 end
 local function close_toggle_selection(row, binding, token, menu_token, now)
@@ -383,7 +389,13 @@ local function tick()
             local current = reader:radial(config.shared)
             if not current or current.token ~= radial.inventory.token then
                 stop(); note("OVERLAY cancelled loadout-or-state-changed")
-            else radial.inventory, state.radial_read_due = current, now + 0.05 end
+            else
+                if not same_rows(radial.inventory, current) then
+                    radial.selected, state.highlight = nil, nil
+                    log("OVERLAY mission-location rows=" .. #current.rows)
+                end
+                radial.inventory, state.radial_read_due = current, now + 0.05
+            end
         end
         if radial.opened and overlay_released then
             -- The game can recenter the cursor on key-up; keep the last held-frame selection.
@@ -470,7 +482,8 @@ local function tick()
         local loadout = reader:loadout()
         local request = policy.job.request
         local same = (modifier or state.owned_start ~= nil or toggle and native_active) and loadout and loadout.token == request.token and
-            same_binding(binding, request.bindings) and native_active and game.token == request.menu_token and reader:menu_active(binding)
+            same_binding(binding, request.bindings) and native_active and game.token == request.menu_token and reader:menu_active(binding) and
+            (not request.location_required or reader:request_location_valid(request, config.shared))
         local result, observed = policy:step(now, same)
         if observed then log(observed) end
         if result then

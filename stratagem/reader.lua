@@ -5,7 +5,9 @@ Reader.Locale = (function()
 end)()
 Reader.RVA = { players = 0x3326468, ui = 0x347ce28, loadouts = 0x347ce50,
     input = 0x347cf18, settings = 0x348e8f8, definitions = 0x37cb600,
-    clock = 0x3326348, owner = 54968216, avatars = 0x3326d20 }
+    clock = 0x3326348, owner = 54968216, avatars = 0x3326d20,
+    objectives = 0x3326da0, authored = 0x346bf98, discovery = 0x3326530,
+    anchors = 0x3326cd8, positions = 0x3326508 }
 local DATA_SIZE, RECORD_SIZE, LOADOUT_DATA = 80280, 400, 0x38
 local ACTION = { [1] = 3, [2] = 2, [3] = 4, [4] = 1 }
 local ACTION_BASE = 808 + 32 * (5 * 97)
@@ -53,6 +55,265 @@ local function vector(raw, at)
         values[index + 1] = value
     end
     return values
+end
+local function position(raw)
+    local x, y, z = float(raw, 0), float(raw, 4), float(raw, 8)
+    if not x or not y or not z or math.abs(x) > 1000000 or math.abs(y) > 1000000 or
+        math.abs(z) > 1000000 then return nil end
+    return {x, y, z}
+end
+local function within(a, b, radius, height)
+    if not a or not b or not radius or radius <= 0 or radius > 100000 then return false end
+    local x, y, z = a[1] - b[1], a[2] - b[2], height and a[3] - b[3] or 0
+    local distance = x * x + y * y + z * z
+    return height and distance < radius * radius or not height and distance <= radius * radius
+end
+
+function Reader:unit_position(unit)
+    if not self.channel.exe_base or not unit or unit == 0 or unit == 0xffffffff then return nil end
+    -- EXE +0x9d8c0 resolves generation-tagged units; +0x1fd190 reads node 0's translation.
+    local registry = self:ptr(self.channel.exe_base + 0x1a100f0)
+    local header = registry and self:read(registry + 0x88, 32)
+    local rows, count, generations = pointer(header, 0), word(header, 16), pointer(header, 24)
+    local index, generation = unit % 0x400000, math.floor(unit / 0x400000)
+    if not rows or not generations or not count or count > 0x400000 or index >= count or generation > 255 or
+        self:read(generations + index, 1) ~= string.char(generation) then return nil end
+    local object = self:ptr(rows + index * 8)
+    local vtable = object and self:ptr(object)
+    local method = vtable and self:ptr(vtable + 0xe8)
+    if method ~= self.channel.exe_base + 0x2bd870 and method ~= self.channel.exe_base + 0x2bd880 then return nil end
+    local matrices = object and self:ptr(object + 0x88)
+    local value = matrices and position(self:read(matrices + 48, 12))
+    if self:ptr(self.channel.exe_base + 0x1a100f0) ~= registry or self:read(registry + 0x88, 32) ~= header or
+        self:read(generations + index, 1) ~= string.char(generation) or
+        self:ptr(rows + index * 8) ~= object or self:ptr(object + 0x88) ~= matrices then return nil end
+    return value
+end
+
+function Reader:local_position()
+    local players, counts = self:local_player_manager()
+    local authored = self:root("authored")
+    local avatar = players and self:word(players + 0x3a8)
+    if not authored or not avatar or avatar == 0x7fff then return nil end
+    -- +0xfd9ba0 and +0xfd98c0 bridge the local avatar to its engine unit.
+    local world_index = self:lookup(authored + 0xf22ec8, avatar)
+    local entity = world_index and world_index < 1000000 and self:word(authored + 0xf32f20 + world_index * 24)
+    local unit_index = entity and self:lookup(authored + 0xf1aeb0, entity)
+    local unit = unit_index and unit_index < 1000000 and self:word(authored + 0xf32f24 + unit_index * 24)
+    local value = self:unit_position(unit)
+    if not value or self:root("players") ~= players or self:read(players + 132, 8) ~= counts or
+        self:word(players + 0x3a8) ~= avatar or self:root("authored") ~= authored or
+        self:lookup(authored + 0xf22ec8, avatar) ~= world_index or
+        self:word(authored + 0xf32f20 + world_index * 24) ~= entity or
+        self:lookup(authored + 0xf1aeb0, entity) ~= unit_index or
+        self:word(authored + 0xf32f24 + unit_index * 24) ~= unit then return nil end
+    return value
+end
+
+function Reader:objective_definition(key)
+    local authored = self:root("authored")
+    local rows = authored and self:ptr(authored + 0xf12758)
+    local lo, hi = word(key, 0), word(key, 4)
+    if not rows or not lo or not hi or lo == 0 and hi == 0 then return nil end
+    -- Native +0x4fa880 uses all 64 hash bits, 438 buckets and bounded linear probing.
+    local start = ((hi % 438) * (4294967296 % 438) + lo % 438) % 438
+    for probe = 0, 437 do
+        local entry = self:read(rows + ((start + probe) % 438) * 16, 12)
+        local low, high, index = word(entry, 0), word(entry, 4), word(entry, 8)
+        if not low or not high then return nil end
+        if low == lo and high == hi then
+            if not index or index >= 438 or self:root("authored") ~= authored or
+                self:ptr(authored + 0xf12758) ~= rows then return nil end
+            return rows + 0x1b20 + index * 0xad0
+        end
+        if low == 0 and high == 0 then return nil end
+    end
+end
+
+function Reader:reference_anchor(radius, children)
+    -- +0xa25030 selects the reference entity; +0x5da050 chooses its nearest eligible active target.
+    local anchors, cache, authored = self:root("anchors"), self:root("positions"), self:root("authored")
+    local count = anchors and self:word(anchors + 16)
+    local states, descriptors, avatars = anchors and self:ptr(anchors + 0x48), anchors and self:ptr(anchors + 0x38),
+        anchors and self:ptr(anchors + 0x50)
+    local positions = cache and self:ptr(cache + 0x68)
+    local invalid = self:word(self.channel.base + 0x3483c4c)
+    if not count or count < 1 or count > 16 or not states or not descriptors or not avatars or
+        not positions or not authored or invalid == nil then return nil end
+    local state = self:read(states, count * 16)
+    local avatar = self:read(avatars, count * 12)
+    if not state or not avatar then return nil end
+    local function cached(entity)
+        local index = entity and self:lookup(cache + 0x40, entity)
+        if not index or index >= 1000000 then return nil end
+        local raw = self:read(positions + index * 0x308 + 0x2e0, 8)
+        local x, y = float(raw, 0), float(raw, 4)
+        if not x or not y or math.abs(x) > 1000000 or math.abs(y) > 1000000 or
+            self:lookup(cache + 0x40, entity) ~= index then return nil end
+        return {x, y, 0}
+    end
+    local reference
+    for index = 0, count - 1 do
+        local entity = word(state, index * 16)
+        if entity ~= invalid then reference = entity; break end
+    end
+    if not reference then
+        for index = 0, count - 1 do
+            local key = word(avatar, index * 12)
+            if key ~= 0x7fff then
+                local dense = self:lookup(authored + 0xf22ec8, key)
+                reference = dense and dense < 1000000 and self:word(authored + 0xf32f20 + dense * 24)
+                break
+            end
+        end
+    end
+    local origin = cached(reference)
+    if not origin then return nil end
+    local anchor, nearest = children and origin or nil, math.huge
+    if not children then
+        local types = self:ptr(authored + 0xf12a10)
+        if not types then return nil end
+        for index = 0, count - 1 do
+            if word(state, index * 16 + 8) == 2 then
+                local descriptor = self:ptr(descriptors + index * 8)
+                local identity = descriptor and self:read(descriptor, 12)
+                local key = identity and identity:sub(1, 8)
+                local eligible = false
+                if key then
+                    local start = word(key, 0) % 8
+                    for probe = 0, 7 do
+                        local entry = self:read(types + ((start + probe) % 8) * 16, 12)
+                        if not entry or entry:sub(1, 8) == string.rep("\0", 8) then break end
+                        if entry:sub(1, 8) == key then
+                            local dense = word(entry, 8)
+                            eligible = dense < 8 and self:word(types + 0x80 + dense * 32) == 1
+                            break
+                        end
+                    end
+                end
+                local candidate = eligible and cached(word(identity, 8))
+                if within(origin, candidate, radius) then
+                    local x, y = origin[1] - candidate[1], origin[2] - candidate[2]
+                    local distance = x * x + y * y
+                    if distance < nearest then anchor, nearest = candidate, distance end
+                end
+            end
+        end
+        if self:ptr(authored + 0xf12a10) ~= types then return nil end
+    end
+    if self:root("anchors") ~= anchors or self:root("positions") ~= cache or self:root("authored") ~= authored or
+        self:word(anchors + 16) ~= count or self:ptr(anchors + 0x48) ~= states or
+        self:ptr(anchors + 0x38) ~= descriptors or self:ptr(anchors + 0x50) ~= avatars or
+        self:read(states, count * 16) ~= state or self:read(avatars, count * 12) ~= avatar or
+        self:ptr(cache + 0x68) ~= positions then return nil end
+    return anchor
+end
+
+function Reader:mission_location(definition, kind, here)
+    local region = self:word(definition.record + 0x7c)
+    if region == nil or region > 1024 then return false end
+    if region == 0 and kind ~= 128 then return true end
+    here = here or self:local_position()
+    if not here then return false end
+    if kind == 128 then
+        -- Native +0x6f24d0 caches Upload Discovery's local permission, with a 3D radius.
+        local root = self:root("discovery")
+        local count = root and self:word(root + 12)
+        local wrappers, settings, states = root and self:ptr(root + 0x30), root and self:ptr(root + 0x38),
+            root and self:ptr(root + 0x40)
+        if not count or count > 1024 or not wrappers or not settings or not states then return false end
+        for index = 0, count - 1 do
+            local raw = self:read(settings + index * 44, 44)
+            local state = self:read(states + index * 64, 64)
+            local wrapper = self:ptr(wrappers + index * 8)
+            if raw and state and wrapper and raw:byte(39) == 1 and raw:byte(37) == 0 and raw:byte(38) == 0 and
+                state:byte(58) == 0 and (raw:byte(42) == 0 or state:byte(57) == 0) and
+                within(here, self:unit_position(self:word(wrapper + 12)), float(raw, 20), true) and
+                self:root("discovery") == root and self:word(root + 12) == count and
+                self:ptr(root + 0x30) == wrappers and self:ptr(root + 0x38) == settings and
+                self:ptr(root + 0x40) == states and self:ptr(wrappers + index * 8) == wrapper and
+                self:read(settings + index * 44, 44) == raw and self:read(states + index * 64, 64) == state then
+                return true
+            end
+        end
+        return false
+    end
+    -- Read-only counterpart of +0x5d9a40: current stage, allowed call, completion and native radius.
+    local root = self:root("objectives")
+    local count = root and self:word(root + 0x24)
+    local wrappers, runtime, states = root and self:ptr(root + 0x50), root and self:ptr(root + 0x60),
+        root and self:ptr(root + 0x68)
+    if not count or count > 1024 or not wrappers or not runtime or not states then return false end
+    for index = 0, count - 1 do
+        local wrapper = self:ptr(wrappers + index * 8)
+        local identity = wrapper and self:read(wrapper, 16)
+        local at = identity and self:objective_definition(identity:sub(1, 8))
+        local data = at and self:read(at, 0xad0)
+        local live = runtime + index * 0x1078
+        local stage = self:word(states + index * 0x64 + 0x18)
+        local status = self:word(live + 0x1018)
+        if data and stage and stage < 8 and status then
+            local call
+            for entry = 0, 3 do
+                local call_kind = word(data, entry * 16)
+                if call_kind and call_kind > 0 and call_kind <= 149 then
+                    local record = self:ptr(self.channel.base + Reader.RVA.definitions + call_kind * 8)
+                    if record and self:word(record + 0x7c) == region then call = entry * 16; break end
+                end
+            end
+            if call then
+                local zone = 0x130 + stage * 0x120
+                local passive = data:byte(call + 9) ~= 0
+                local enabled = word(data, zone) == region
+                if passive and status == 2 then
+                    for entry = 0, 7 do
+                        if word(data, 0x50 + entry * 0x120) == 0 then break end
+                        if word(data, 0x130 + entry * 0x120) == region then
+                            enabled = true; break
+                        end
+                    end
+                end
+                if enabled and (status == 0 or passive and status == 2) then
+                    local radius, allowed = float(data, zone + 16), false
+                    local linked = data:byte(zone + 6) ~= 0
+                    local children_mode = data:byte(zone + 5) ~= 0
+                    local anchor = linked and self:reference_anchor(radius, children_mode)
+                    if children_mode then
+                        local children = self:word(live + 8)
+                        if children and children <= 256 then
+                            for child = 0, children - 1 do
+                                local target = self:unit_position(self:word(live + 16 + child * 16))
+                                if within(here, target, radius) and (not linked or within(anchor, target, radius)) then
+                                    allowed = true; break
+                                end
+                            end
+                        end
+                    else
+                        local unit = word(identity, 12)
+                        if data:byte(zone + 7) ~= 0 then
+                            for entry = 0, 3 do
+                                local binding = self:read(live + 0x1058 + entry * 8, 8)
+                                if word(binding, 4) == word(data, zone) and word(binding, 0) ~= 0 then
+                                    unit = word(binding, 0); break
+                                end
+                            end
+                        end
+                        local target = self:unit_position(unit)
+                        if linked and data:byte(zone + 7) == 0 then target = target and anchor end
+                        allowed = within(here, target, radius)
+                    end
+                    if allowed and self:root("objectives") == root and self:word(root + 0x24) == count and
+                        self:ptr(root + 0x50) == wrappers and self:ptr(root + 0x60) == runtime and
+                        self:ptr(root + 0x68) == states and self:ptr(wrappers + index * 8) == wrapper and
+                        self:read(wrapper, 16) == identity and self:read(at, 0xad0) == data and
+                        self:word(states + index * 0x64 + 0x18) == stage and self:word(live + 0x1018) == status then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
 end
 function Reader:atlas(picture)
     if type(picture) ~= "string" or #picture ~= 16 or not picture:match("^[0-9a-fA-F]+$") or
@@ -380,22 +641,29 @@ function Reader:radial(include_shared, read_icons)
     local clock = self:root("clock")
     local now = clock and self:integer64(clock + 24)
     if not now then return nil, "mission-clock-unavailable" end
+    local visible, here = {}, nil
     for _, row in ipairs(inventory.rows) do
         local definition = definitions[row.kind]
-        local call_due, reuse_due = self:integer64(row.address + 32), self:integer64(row.address + 24)
-        row.command = definition.command
-        definition.name = definition.name or self:name(definition.record + 16)
-        row.name_english = (definition.name or ("STRATAGEM " .. row.kind)):gsub("^.-%.%s*", "")
-        row.name = Reader.Locale and Reader.Locale.name(row.kind, definition.name) or row.name_english
-        row.picture = self:hash(definition.record + 176)
-        if read_icons ~= false then row.art, row.art_error = self:icon(definition, row.picture) end
-        row.ready = row.uses ~= nil and row.uses > 0 and call_due ~= nil and
-            reuse_due ~= nil and call_due <= now and reuse_due <= now
-        row.seconds = call_due and reuse_due and math.ceil(math.max(0, call_due - now, reuse_due - now) / 1000000)
-        row.status = row.uses == 0 and "EMPTY" or (row.seconds and row.seconds > 0 and
-            string.format("%d:%02d", math.floor(row.seconds / 60), row.seconds % 60) or
-            (row.ready and "READY" or "UNKNOWN"))
+        row.location_required = row.shared and (self:word(definition.record + 0x7c) ~= 0 or row.kind == 128)
+        if row.location_required and not here then here = self:local_position() end
+        if not row.location_required or self:mission_location(definition, row.kind, here) then
+            visible[#visible + 1] = row
+            local call_due, reuse_due = self:integer64(row.address + 32), self:integer64(row.address + 24)
+            row.command = definition.command
+            definition.name = definition.name or self:name(definition.record + 16)
+            row.name_english = (definition.name or ("STRATAGEM " .. row.kind)):gsub("^.-%.%s*", "")
+            row.name = Reader.Locale and Reader.Locale.name(row.kind, definition.name) or row.name_english
+            row.picture = self:hash(definition.record + 176)
+            if read_icons ~= false then row.art, row.art_error = self:icon(definition, row.picture) end
+            row.ready = row.uses ~= nil and row.uses > 0 and call_due ~= nil and
+                reuse_due ~= nil and call_due <= now and reuse_due <= now
+            row.seconds = call_due and reuse_due and math.ceil(math.max(0, call_due - now, reuse_due - now) / 1000000)
+            row.status = row.uses == 0 and "EMPTY" or (row.seconds and row.seconds > 0 and
+                string.format("%d:%02d", math.floor(row.seconds / 60), row.seconds % 60) or
+                (row.ready and "READY" or "UNKNOWN"))
+        end
     end
+    inventory.rows = visible
     local current = self:inventory(include_shared)
     if not current or current.token ~= inventory.token then return nil, "loadout-changed" end
     return inventory, "ready"
@@ -411,10 +679,18 @@ function Reader:request_kind(kind, include_shared)
             if not row.ready then return nil, "stratagem-unavailable" end
             local keys = {}
             for index, direction in ipairs(row.command) do keys[index] = bindings.directions[direction] end
-            return {token = inventory.token, kind = kind, keys = keys, directions = row.command, bindings = bindings}, "ready"
+            return {token = inventory.token, kind = kind, keys = keys, directions = row.command, bindings = bindings,
+                location_required = row.location_required}, "ready"
         end
     end
     return nil, "stratagem-not-equipped"
+end
+function Reader:request_location_valid(request, include_shared)
+    if not request.location_required then return true end
+    local inventory = self:radial(include_shared, false)
+    if not inventory or inventory.token ~= request.token then return false end
+    for _, row in ipairs(inventory.rows) do if row.kind == request.kind then return row.ready == true end end
+    return false
 end
 function Reader:request(slot)
     if not self:idle() then return nil, "menu-or-chat-open" end
