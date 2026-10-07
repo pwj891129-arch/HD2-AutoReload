@@ -30,10 +30,12 @@ stratagem_source = stratagem_source:gsub("%-%- @PLATFORM@", "return {create=func
     :gsub("%-%- @READER@", "return {new=function() if FAIL_STRATAGEM then error('stratagem init') end; return TEST_MENU end}")
     :gsub("%-%- @RADIAL@", "return {new=function() return TEST_RADIAL end}")
 local combined_source = read("combined.lua")
+    :gsub("%-%- @MOD_OPTIONS@", function() return read("mod_options.lua") end)
+    :gsub("%-%- @MENU_SCHEMA@", function() return read("dist/menu-schema.generated.lua") end)
     :gsub("%-%- @AUTORELOAD@", function() return reload_source end)
     :gsub("%-%- @STRATAGEM@", function() return stratagem_source end)
 
-local function fixture(flags, list_vk, fail_reload, fail_stratagem, start_mode)
+local function fixture(flags, list_vk, fail_reload, fail_stratagem, start_mode, setup)
     flags, list_vk = flags or {}, list_vk or 5
     local selected = {autoreload_setting_enabled = true, autoreload_setting_charge90 = true,
         autoreload_setting_vehicle = true,
@@ -123,9 +125,10 @@ local function fixture(flags, list_vk, fail_reload, fail_stratagem, start_mode)
         open = function(self, inventory) self.opened, self.inventory, self.selected = true, inventory, hover; return true end,
         draw = function(self) self.selected = hover; return true end,
         close = function(self) self.opened, self.inventory, self.selected = false, nil, nil end}
+    if setup then setup(env,keys) end
     local chunk = assert(loadstring(combined_source)); setfenv(chunk, env); chunk()
     return {env = env, keys = keys, shot = shot, events = events, logs = logs, chunk = chunk,
-        step = function(dt) now = now + dt; return env.update() end,
+        step = function(dt) now = now + dt; return env.update(dt) end,
         counts = function() return base, reads, stops end,
         reset_order = function() for i = #order, 1, -1 do order[i] = nil end end,
         order = order, focus = function(value) focused = value end,
@@ -320,12 +323,14 @@ f.env.shutdown()
 
 f = fixture({autoreload_setting_enabled = false, autoreload_setting_charge90 = false,
     autoreload_setting_vehicle = false})
-equal(f.env.HD2HelperAutoReload, nil, "reload and charge can both be disabled")
+equal(f.env.HD2HelperAutoReload.config.enabled, false, "reload disabled; runtime available to MODS")
+equal(f.env.HD2HelperAutoReload.config.charge90, false, "charge disabled; runtime available to MODS")
 equal(f.env.HD2StratagemHotkeys ~= nil, true, "stratagem startup independent of disabled reload")
 f.step(0.06); f.keys[5], f.keys[49] = true, true; f.step(0.02); finish(f); assert_command(f); f.env.shutdown()
 
 f = fixture({stratagem_option_radial = false, stratagem_option_hotkeys = false})
-equal(f.env.HD2StratagemHotkeys, nil, "both stratagem features can be disabled")
+equal(f.env.HD2StratagemHotkeys.config.radial, false, "radial disabled; runtime available to MODS")
+equal(f.env.HD2StratagemHotkeys.config.hotkeys, false, "hotkeys disabled; runtime available to MODS")
 charge(f, "railgun"); equal(f.events[1].route, "charge", "reload feature independent of disabled stratagems")
 f.env.shutdown()
 
@@ -340,8 +345,8 @@ equal(#f.events, 0, "hotkey OFF does not send number shortcut"); f.env.shutdown(
 f = fixture({autoreload_setting_enabled = false, autoreload_setting_charge90 = false,
     autoreload_setting_vehicle = false,
     stratagem_option_radial = false, stratagem_option_hotkeys = false})
-equal(f.env.HD2HelperAutoReload, nil, "all-off reload absent")
-equal(f.env.HD2StratagemHotkeys, nil, "all-off stratagems absent")
+equal(f.env.HD2HelperAutoReload.config.enabled, false, "all-off reload remains inactive")
+equal(f.env.HD2StratagemHotkeys.config.radial, false, "all-off stratagems remain inactive")
 f.step(0.06); equal(#f.events, 0, "all-off sends no input")
 equal(f.env.shutdown(), "closed", "all-off preserves base shutdown")
 
@@ -385,5 +390,13 @@ for _, fault in ipairs({"reserve", "reloading", "focus", "menu"}) do
     f.step(0.06); finish(f)
     equal(#f.events, 0, "mounted runtime guard: " .. fault)
     f.env.shutdown()
+end
+dofile("mod_options.test.lua")(equal,read,fixture,finish)
+local drone_source = io.open("../DroneRemoteControl/src/runtime.lua", "rb")
+if drone_source then
+    drone_source:close()
+    dofile("drone_coexistence.test.lua")(equal,read,fixture,finish)
+else
+    print("SKIP private drone integration fixture: sibling DroneRemoteControl source not present")
 end
 print("PASS " .. checks .. " combined startup/input checks; no OS input sent")

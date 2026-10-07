@@ -3,10 +3,11 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const optionModel = require('./arsenal-options.cjs');
+const menuSchema = require('./menu-schema.cjs');
 const wheelTexture = require('./tools/wheel-texture.cjs');
 
 const root = __dirname;
-const version = '0.3.52-test';
+const version = '0.3.54-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -91,6 +92,9 @@ const autoSource = readSource(path.join(root, 'addon.lua'))
   .replace('-- @NUMBERS@', () => compact(numbers));
 const stratagemRoot = path.join(root, 'stratagem');
 const filters = JSON.parse(readSource(path.join(root, 'stratagem-filters.json')));
+const texts = JSON.parse(readSource(path.join(root, 'arsenal-text.json')));
+const settings = menuSchema.schema(filters,texts);
+const settingsSource = 'return ' + menuSchema.literal(settings) + '\n';
 const filterIds = new Set(), filterKinds = new Set();
 for (const filter of filters) {
   assert(/^(shared|mission)_[a-z_]+$/.test(filter.id) && !filterIds.has(filter.id), 'Invalid filter ID');
@@ -123,6 +127,8 @@ const namesSource = 'return {\n' + labels.names.map(row => {
 const localeSource = readSource(path.join(stratagemRoot, 'locale.lua')).replace('-- @NAMES@', () => namesSource);
 stratagemSource = stratagemSource.replace('-- @LOCALE@', () => localeSource.replace('@LANGUAGE@', 'en'));
 const source = readSource(path.join(root, 'combined.lua'))
+  .replace('-- @MOD_OPTIONS@', () => readSource(path.join(root, 'mod_options.lua')))
+  .replace('-- @MENU_SCHEMA@', () => settingsSource)
   .replace('-- @STRATAGEM@', () => stratagemSource)
   .replace('-- @AUTORELOAD@', () => autoSource);
 assert.equal(source.split('\n')[0], `-- HD2-Addon: ${resource}`);
@@ -132,6 +138,8 @@ const stage = path.join(root, 'dist', `HD2-AutoReload-${version}-en`);
 fs.mkdirSync(stage, { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'auto_reload.generated.lua'), autoSource);
 fs.writeFileSync(path.join(root, 'dist', 'combined.generated.lua'), source);
+fs.writeFileSync(path.join(root, 'dist', 'menu-schema.generated.lua'), settingsSource);
+fs.writeFileSync(path.join(root, 'dist', 'menu-schema.json'), JSON.stringify(settings,null,2));
 fs.mkdirSync(path.join(stratagemRoot, 'dist'), {recursive: true});
 fs.writeFileSync(path.join(stratagemRoot, 'dist', 'stratagem_hotkeys.generated.lua'), stratagemSource);
 fs.writeFileSync(path.join(stratagemRoot, 'dist', 'visibility.generated.lua'), filterSource);
@@ -170,7 +178,6 @@ fs.mkdirSync(coreFolder, {recursive: true});
 fs.writeFileSync(path.join(coreFolder, filename), archive);
 for (const suffix of ['.stream', '.gpu_resources']) fs.writeFileSync(path.join(coreFolder, filename + suffix), Buffer.alloc(0));
 wheelTexture.pack(coreFolder, hash64, archive);
-const texts = JSON.parse(readSource(path.join(root, 'arsenal-text.json')));
 const options = optionModel.definitions(filters);
 let optionIndex = 0;
 const optionManifest = options.map(({id: name, values, prefix, toggle}) => {
@@ -206,6 +213,7 @@ for (const {id: name, icon = name} of options) {
 }
 fs.copyFileSync(path.join(root, 'assets', 'LUCIDE-LICENSE.txt'), path.join(stage, 'LUCIDE-LICENSE.txt'));
 fs.copyFileSync(path.join(root, 'GAME-ARTWORK.txt'), path.join(stage, 'GAME-ARTWORK.txt'));
+fs.copyFileSync(path.join(root, 'README.md'), path.join(stage, 'README.md'));
 fs.copyFileSync(path.join(root, 'assets/native-option-icons.json'), path.join(stage, 'GAME-ICON-SOURCES.json'));
 fs.copyFileSync(path.join(root, 'assets/WHEEL-FONT-LICENSE.txt'), path.join(stage, 'WHEEL-FONT-LICENSE.txt'));
 const {glyphs, ...fontSource} = wheelTexture.metadata();
@@ -220,7 +228,8 @@ for (const language of ['en', 'ko']) {
   stages[language] = path.join(root, 'dist', `HD2-AutoReload-${version}-${language}`);
   if (language !== 'en') fs.cpSync(stage, stages[language], {recursive: true});
   if (language === 'ko') {
-    const localized = Buffer.from(source.replace('local LANGUAGE = "en"', 'local LANGUAGE = "ko"'), 'utf8');
+    const localized = Buffer.from(source.replace('local LANGUAGE = "en"', 'local LANGUAGE = "ko"')
+      .replace('local MENU_LANGUAGE = "en"', 'local MENU_LANGUAGE = "ko"'), 'utf8');
     assert.equal(localized.length, lua.length);
     const korean = Buffer.from(archive);
     localized.copy(korean, offset + 8);

@@ -211,6 +211,30 @@ return function(equal, read_file, Radial)
     f.faults.draw, f.faults.clock = false, false; f:step(0.51)
     equal(f.state.radial_failed, nil); f:fresh_open(); f.env.shutdown()
 
+    f = fixture("hold", 5); f:open()
+    local owner, stranger = {}, {}
+    f.policy.held, f.held[38], f.state.owned_start = 38, true, 164
+    f.policy.job = {request = {kind = 1}}
+    f.faults["direction-release"] = true
+    equal(f.state.suspend_input(owner), false, "handoff waits for direction release")
+    equal(f.instances[1].opened, false, "failed direction release still closes overlay")
+    equal(f.instances[1].mouse, nil, "failed direction release still restores cursor")
+    equal(f.state.pending, nil, "handoff cancels selections")
+    equal(f.state.suspend_input(stranger), false, "handoff owner is exclusive")
+    f.faults["direction-release"] = false
+    equal(f.state.suspend_input(owner), true, "handoff retries and acknowledges direction up")
+    equal(f.policy.held, nil)
+    local sends = #f.events
+    f:step(); f:step()
+    equal(#f.events, sends, "held thumb is not forcibly released during suspension")
+    equal(f.instances[1].opened, false, "suspended wheel cannot reopen")
+    equal(f.state.resume_input(owner), true)
+    f:step()
+    equal(f.instances[1].opened, false, "resume does not select stale sector")
+    f.held[5], f.active = false, false; f:step()
+    equal(f.state.remote_rearm, nil, "physical release rearms wheel")
+    f:open(); f.env.shutdown()
+
     local deleted, destroyed, cursor = {}, {}, {show = true, focus = false}
     local fail_shape, fail_font = true, true
     local function destroy_shape(_, id)

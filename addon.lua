@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.52-test"
+local VERSION = "0.3.54-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -205,7 +205,9 @@ if not ok then log("DISABLED reader initialization: " .. tostring(reader)); retu
 local sr = rawget(_G, "stingray") or {}
 local Net, GS, App = sr.Network or {}, sr.GameSession or {}, sr.Application or {}
 local config = Options.read(App, require)
-if not config.enabled and not config.charge90 and not config.vehicle then log("DISABLED Arsenal options off"); return end
+local combined = rawget(_G, "HD2HelperCombined")
+local live = combined and combined.options
+if not live and not config.enabled and not config.charge90 and not config.vehicle then log("DISABLED Arsenal options off"); return end
 config.fire_vk, config.reload_vk, config.pause_vk = 1, 82, 119
 local appdata = os.getenv("APPDATA")
 local config_path = appdata and (appdata .. "\\HD2AutoReload.ini")
@@ -255,6 +257,43 @@ local function foreground()
     native.user32.GetWindowThreadProcessId(native.user32.GetForegroundWindow(), native.pid)
     return native.pid[0] == native.process
 end
+state.input_api = 1
+state.suspend_input = function(owner)
+    if type(owner) ~= "table" or state.remote_owner and state.remote_owner ~= owner then return false end
+    state.remote_owner, state.remote_rearm = owner, true
+    policy:reset(); charge:reset(); reader.native_pending = nil
+    state.fire_pending, state.fire_attempt, state.fire_released_at = nil, nil, nil
+    state.fire_cycle, state.fire_release_pending = nil, nil
+    state.switch, state.lean_fire_until = nil, nil
+    state.fire = down(config.fire_vk)
+    release()
+    return state.release_at == nil
+end
+state.resume_input = function(owner)
+    if state.remote_owner and state.remote_owner ~= owner then return false end
+    state.remote_owner = nil
+    return true
+end
+if live then
+    live:attach("autoreload", function(values)
+        local target = {enabled = values.enabled,vehicle = values.vehicle,
+            charge90 = values.charge90 == true and config.fire_vk == 1,railgun_threshold = values.railgun_threshold}
+        local changed = false
+        for _, name in ipairs({"enabled","vehicle","charge90","railgun_threshold"}) do
+            if config[name] ~= target[name] then changed = true end
+        end
+        if not changed then return end
+        policy:reset();charge:reset();release();reader.native_pending = nil
+        state.fire_pending,state.fire_attempt,state.fire_released_at = nil,nil,nil
+        state.fire_cycle,state.fire_release_pending = nil,nil
+        state.switch,state.lean_fire_until = nil,nil
+        state.remote_rearm = true
+        for _, name in ipairs({"enabled","vehicle","charge90","railgun_threshold"}) do config[name] = target[name] end
+        reader.native.charge_enabled = config.charge90
+        log("MOD_OPTIONS applied reload="..tostring(config.enabled).." vehicle="..tostring(config.vehicle)..
+            " charge="..tostring(config.charge90).." threshold="..tostring(config.railgun_threshold))
+    end)
+end
 local function scope()
     local session = Net.game_session and Net.game_session()
     if not session or not GS.in_session or GS.in_session(session) ~= true then return nil end
@@ -284,6 +323,17 @@ end
 local function tick()
     local now = App.time_since_launch()
     if type(now) ~= "number" then return end
+    local drone = rawget(_G, "DroneRemoteControl")
+    local owner = type(drone) == "table" and drone.blocking_inputs and drone.input_owner or state.remote_owner
+    if owner then state.suspend_input(owner); return end
+    if state.remote_rearm then
+        release(); policy:reset(); charge:reset()
+        state.fire = down(config.fire_vk)
+        if foreground() and not state.fire and not state.release_at then
+            state.remote_rearm, state.next_read = nil, nil
+        end
+        return
+    end
     if state.release_at and (now >= state.release_at or not foreground()) then release() end
     local focused = foreground()
     local keys = { enter = down(13), escape = down(27), tab = down(9),
@@ -327,7 +377,8 @@ local function tick()
     end
     state.fire = fire
     if aim and fire then state.lean_fire_until = now + 0.8 end
-    if not focused or state.paused or state.failed or state.chat or keys.stratagem or keys.enter or keys.escape or keys.tab then
+    if not focused or state.paused or state.failed or state.chat or keys.stratagem or keys.enter or keys.escape or keys.tab or
+        not (config.enabled or config.charge90 or config.vehicle) then
         policy:reset(); charge:reset(); state.fire_pending = nil
         state.fire_attempt, state.fire_released_at = nil, nil
         state.fire_cycle, state.fire_release_pending = nil, nil
@@ -517,7 +568,7 @@ end
 if not install_hooks(_G, guarded_tick, function() pcall(release) end) then
     log("DISABLED update callback unavailable"); rawset(_G, "HD2HelperAutoReload", nil); return
 end
-log("START " .. VERSION .. " Arsenal-only options enabled=" .. tostring(config.enabled) ..
+log("START " .. VERSION .. " Arsenal + optional MODS options enabled=" .. tostring(config.enabled) ..
     " charge90=" .. tostring(config.charge90) ..
     " railgun_threshold=" .. tostring(config.railgun_threshold) ..
     " vehicle=" .. tostring(config.vehicle) ..

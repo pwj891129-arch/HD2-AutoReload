@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.52-test';
+const version = '0.3.54-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -233,6 +233,13 @@ function checkPackage(language) {
       assert(source.includes('INPUT toggle-close-release-synced vk='));
       assert(source.includes('INPUT toggle-close-observed vk='));
       assert(source.includes(`local VERSION = "${version}"`));
+      assert(source.includes('register_option') && source.includes('menu.on_change') && source.includes('menu.get'));
+      assert(source.includes('reader.native.charge_enabled = config.charge90'));
+      assert(source.includes('self.menu == menu'));
+      for (const definition of definitions) {
+        const id = `hd2_helper.${definition.prefix === 'autoreload_setting_' ? 'autoreload' : 'stratagem'}.${definition.id}`;
+        assert(source.includes(id), 'Missing MODS option: ' + id);
+      }
       assert(source.includes('start_feature("stratagem", function()'));
       assert(source.includes('start_feature("autoreload", function()'));
       assert(source.indexOf('start_feature("stratagem", function()') < source.indexOf('start_feature("autoreload", function()'));
@@ -359,8 +366,10 @@ for (const file of files.filter(file => file !== 'manifest.json')) {
     const normalized = Buffer.from(ko);
     const source = ko.subarray(at, at + length).toString('utf8');
     assert(source.includes('local LANGUAGE = "ko"'));
-    Buffer.from(source.replace('local LANGUAGE = "ko"', 'local LANGUAGE = "en"'), 'utf8').copy(normalized, at);
-    assert(en.equals(normalized), 'Only wheel language selection differs in Core');
+    assert(source.includes('local MENU_LANGUAGE = "ko"'));
+    Buffer.from(source.replace('local LANGUAGE = "ko"', 'local LANGUAGE = "en"')
+      .replace('local MENU_LANGUAGE = "ko"', 'local MENU_LANGUAGE = "en"'), 'utf8').copy(normalized, at);
+    assert(en.equals(normalized), 'Only wheel and MODS language selection differ in Core');
   } else assert(en.equals(ko), `Language packages have different nonlocalized payloads: ${file}`);
 }
-console.log('PASS English/Korean packages: same GUID, option order, defaults and paths; only Core wheel language and manifest text differ');
+console.log('PASS English/Korean packages: same GUID, option order, defaults and paths; only Core language selections and manifest text differ');

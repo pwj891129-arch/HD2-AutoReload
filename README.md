@@ -1,4 +1,73 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.52-test
+# HD2 Helper Auto Reload + Stratagems 0.3.54-test
+
+## In-Game MODS Settings
+
+0.3.54-test exposes all 46 Arsenal settings in CowboyBingus Mod Options Menu
+v1.2 (API 1, version 3). The optional menu is installed separately, together
+with Bingus Shared Loader v18 / API 1. Without the menu, or with an older API,
+the helper continues using Arsenal settings; it does not patch the menu itself.
+
+게임을 종료하고 기존 헬퍼를 이 버전의 한국어 또는 영어 ZIP 하나로 교체한다.
+Bingus Mod Options Menu 1.2도 설치·활성화한 뒤 Purge / Deploy하고 재시작한다.
+ESC의 MODS 탭에서 `HD2 헬퍼`, `HD2 헬퍼: 공용`, `HD2 헬퍼: 임무`를 선택한다.
+값을 변경하고 APPLY를 누르면 재시작 없이 다음 업데이트에서 반영한다.
+Arsenal은 초기값이며 인게임에서 저장한 값이 우선한다. 이 배포는 설치된 메뉴나 게임 파일을 수정하지 않았다.
+
+The three stable categories respect the native menu's 32-row limit:
+- HD2 Helper: 9 rows for personal/vehicle reload, automatic charge release,
+  Railgun 90%/95%, radial/hotkeys, 100/125/150/200/300%, 15/30ms and the combined bulk control.
+- HD2 Helper: Common: 5 rows for the shared bulk control, other calls and Reinforce/SOS/Resupply.
+- HD2 Helper: Mission: 32 rows for the mission bulk control and all 31 individual calls.
+
+English/Korean packages keep the same stable setting IDs and values. MODS labels
+use the package language as native UTF-8 text, not raster text images. The menu
+owns persistence in `%LOCALAPPDATA%/CowboyBingus/Helldivers2/Logs/ModOptionsMenu.values`;
+the helper does not read or overwrite that file. Existing saved MODS values
+override the deployed Arsenal baseline. Changing Arsenal does not overwrite them.
+Bulk choices retain their priority and never erase individual toggles. A checked
+mission option still requires the real call and its current permitted objective area.
+
+APPLY is handled through public register/get/on_change APIs. Pending, unapplied
+menu edits do not change the helper. Changes are batched before consumers update;
+API set changes without callbacks are observed at 250ms intervals. Size, interval
+or visibility changes cancel existing wheel selection/commands, release capture
+and wait for a fresh list-key activation. Reload/charge changes reset transient
+fire checks, release any owned reload pulse and wait for physical fire release.
+Changing a checkbox from OFF to ON works without restarting its native reader.
+Unknown/invalid menu values retain the applied setting; registration failures
+keep the Arsenal baseline and retry. No Mod Options Menu source is bundled.
+
+Drone Remote Control 0.2.1 input API 1 remains supported: changes do not steal
+drone-owned focus or resume weapon automation while it is controlling or restoring.
+Logs: `hd2_helper_mod_options.log`, the existing reload log and stratagem log.
+Offline tests cover late menu loading, saved values, all categories, toggles,
+choices, bulk priority, safe reconfiguration, callback/get failures and both
+helper/drone load orders. Actual native menu rendering and gameplay after APPLY
+still need validation with the updated menu installed.
+
+The optional drone integration tests use the private sibling
+`../DroneRemoteControl/src` fixture and are skipped when it is absent. No drone
+source is bundled or published with this helper.
+
+API reference: https://github.com/CowboyBingus/ModOptionsMenu#for-mod-authors
+
+## 0.3.53 Changes
+
+0.3.53-test adds input API 1 for Drone Remote Control 0.2.1. Keep both mods enabled.
+Before drone control captures player input, the wheel cancels pending selections
+and commands, restores its cursor and releases its owned keys. Reload/charge
+automation releases its pending reload pulse and resets transient firing state.
+During drone control and unfinished drone restoration these features are suspended
+without changing saved Arsenal options. Resume requires released inputs; Toggle
+wheel users must close the existing native list before reopening. Stale clicks,
+number shortcuts and charge-release/reload requests are not replayed.
+
+Replace the previous combined mod with one 0.3.53-test language package in Arsenal,
+alongside one Drone 0.2.1 package, with the game closed. Older combined versions
+lack the handshake and are refused by Drone 0.2.1. Offline coexistence tests do
+not establish actual drone control, camera or multiplayer stability.
+
+## 0.3.52 Changes
 
 0.3.52-test replaces the permanent wheel-error latch with recoverable cleanup.
 After a caught Lua error, pending selections and partial commands are cancelled,
@@ -579,8 +648,9 @@ Normal reload/error logs remain available.
 
 ## Arsenal Options
 
-Feature settings are configured only in Arsenal. No in-game MODS menu is
-registered; Mod Options Menu and Mod Bindings Menu are not dependencies.
+Arsenal supplies initial feature settings. Since 0.3.54-test, optional Mod Options
+Menu v1.2 can override all of them live on the MODS tab. Mod Bindings Menu is not
+required. Without a compatible options menu, Arsenal settings remain active.
 
 - `Automatic Reload` / `자동재장전`: checked is ON; unchecked is OFF.
   Covers both magazine exhaustion and complete overheat.
@@ -605,7 +675,8 @@ Size, interval, Railgun threshold and bulk choices are mutually exclusive. Boole
 only a direct checkbox. Bulk controls do not erase saved
 individual settings; restore Individual Settings to use them again. Review choices after
 importing, especially if Arsenal automatically enables new options. Close the
-game, replace the previous package, Purge / Deploy, and restart after changes.
+game, replace the previous package, Purge / Deploy, and restart after Arsenal changes.
+In-game MODS changes need APPLY, not redeployment or a restart.
 Old deployed option files must not be left behind. Building and publishing
 do not change installed game patches.
 

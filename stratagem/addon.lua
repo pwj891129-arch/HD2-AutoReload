@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.52-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.54-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -72,10 +72,12 @@ local reader = Reader.new(channel)
 local policy = Policy.new(channel.command_key, function(binding) return reader:command_state(binding) end)
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
-if not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.52-test", keys = {}, blocking_inputs = false, config = config}
+local combined = rawget(_G, "HD2HelperCombined")
+local live = combined and combined.options
+if not live and not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
+local state = {version = "combined-0.3.54-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.52-test; stratagem-base=0.1.13-test; Arsenal-only options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.54-test; stratagem-base=0.1.13-test; Arsenal + optional MODS options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("OVERLAY mission-location=native-stage-and-radius; refresh=50ms; no native calls or game writes")
@@ -140,6 +142,55 @@ local function stop()
     if not cancelled then error(cancel_error) end
     if not good then error(why) end
     if not released then error(release_error) end
+end
+-- Versioned handoff; never alter the user's Arsenal options or replay a selection.
+state.input_api = 1
+state.suspend_input = function(owner)
+    if type(owner) ~= "table" or state.remote_owner and state.remote_owner ~= owner then return false end
+    state.remote_owner, state.blocking_inputs = owner, true
+    if state.input_quiet then return true end
+    local stopped = pcall(stop)
+    local restored = pcall(radial.restore, radial)
+    state.list_ready, state.overlay, state.modifier = false, false, nil
+    state.input_quiet = stopped and restored and not policy.held and not state.owned_start and
+        not radial.mouse and not radial.opened
+    return state.input_quiet == true
+end
+state.resume_input = function(owner)
+    if state.remote_owner and state.remote_owner ~= owner then return false end
+    if state.remote_owner then
+        state.remote_owner, state.input_quiet = nil, nil
+        state.remote_rearm, state.blocking_inputs = true, true
+        state.radial_rearm, state.toggle_suppressed = true, true
+    end
+    return true
+end
+if live then
+    live:attach("stratagem", function(values)
+        local function effective(group, individual)
+            if type(values.shared_mission_all) == "boolean" then return values.shared_mission_all end
+            local bulk_value = values[group.."_all"]
+            if type(bulk_value) == "boolean" then return bulk_value end
+            return individual
+        end
+        local shared = {other = effective("shared",values.shared_other)}
+        for _, filter in ipairs(Visibility) do
+            for _, kind in ipairs(filter.kinds) do shared[kind] = effective(filter.group,values[filter.id]) end
+        end
+        local delay = values.slow and 0.030 or 0.015
+        local changed = config.radial ~= values.radial or config.hotkeys ~= values.hotkeys or
+            config.scale ~= values.scale or config.delay ~= delay
+        for kind, value in pairs(shared) do if config.shared[kind] ~= value then changed = true end end
+        if not changed then return end
+        stop()
+        config.radial,config.hotkeys,config.scale,config.delay = values.radial,values.hotkeys,values.scale,delay
+        for kind, value in pairs(shared) do config.shared[kind] = value end
+        policy.delay,radial.scale = delay,values.scale
+        state.remote_rearm,state.radial_rearm,state.toggle_suppressed = true,true,true
+        state.list_ready,state.overlay = false,false
+        log("MOD_OPTIONS applied radial="..tostring(config.radial).." hotkeys="..tostring(config.hotkeys)..
+            " scale="..tostring(config.scale).." delay="..tostring(config.delay))
+    end)
 end
 local function recovery_cleanup(now)
     local stopped, stop_error = pcall(stop)
@@ -210,12 +261,33 @@ local function tick()
     local now = app.time_since_launch()
     if type(now) ~= "number" or now ~= now or now == math.huge or now < 0 then return end
     state.radial_now = now
+    local drone = rawget(_G, "DroneRemoteControl")
+    local owner = type(drone) == "table" and drone.blocking_inputs and drone.input_owner or state.remote_owner
+    if owner then state.suspend_input(owner); return end
     if state.radial_failed then recover_radial(now); return end
     local radial_was_open = radial.opened
     local focused = channel.foreground()
     if state.release_due and (now >= state.release_due or not focused) then release_start() end
     if not radial.opened then radial:restore() end
     recover_mouse(now, focused)
+    if state.remote_rearm then
+        -- Observe releases without selecting the last sector or a held number shortcut.
+        local binding = reader:bindings()
+        local modifier = binding and channel.down(binding.start_vk) or false
+        state.fire, state.right = channel.down(1), channel.down(2)
+        state.modifier, state.overlay = modifier, false
+        for slot = 1, 4 do state.keys[slot] = channel.down(48 + slot) end
+        local game = binding and binding.start_mode == "toggle" and reader:game_menu() or nil
+        if focused and binding and not modifier and not state.mouse_release and not radial.mouse and
+            not policy.held and not state.owned_start and
+            (binding.start_mode ~= "toggle" or game and not game.active) then
+            state.remote_rearm, state.radial_rearm, state.toggle_suppressed = nil, nil, nil
+            state.bindings, state.binding_due, state.list_ready = binding, now + 0.25, true
+            note("INPUT companion resumed; waiting for fresh activation")
+        end
+        state.blocking_inputs = state.remote_rearm == true
+        return
+    end
     if policy.cancelled then
         policy:cancel(); state.release_due = 0; release_start()
         state.blocking_inputs = policy.held ~= nil or state.owned_start ~= nil or state.mouse_release ~= nil
