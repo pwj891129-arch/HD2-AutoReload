@@ -109,6 +109,8 @@ function Platform.create(ffi)
     local process, pid = kernel.HD2SH_GetCurrentProcess(), ffi.new("unsigned int[1]")
     local process_id = kernel.HD2SH_GetCurrentProcessId()
     local actual, input = ffi.new("size_t[1]"), ffi.new("HD2SH_INPUT[1]")
+    local capacity = 256
+    local buffer = ffi.new("unsigned char[?]", capacity)
     assert(ffi.sizeof("HD2SH_INPUT") == 40, "INPUT layout mismatch")
     input[0].type = 1
     local mouse_keys = Platform.mouse_keys((rawget(_G, "stingray") or {}).Mouse)
@@ -122,9 +124,14 @@ function Platform.create(ffi)
         base = tonumber(ffi.cast("uintptr_t", game)),
         exe_base = tonumber(ffi.cast("uintptr_t", exe)),
         read = function(_, at, size)
-            if type(at) ~= "number" or at < 65536 or at >= 140737488355328 or
-                size < 1 or size > 262144 then return nil end
-            local buffer = ffi.new("unsigned char[?]", size)
+            if type(at) ~= "number" or at % 1 ~= 0 or at < 65536 or at >= 140737488355328 or
+                type(size) ~= "number" or size % 1 ~= 0 or size < 1 or size > 262144 or
+                at + size > 140737488355328 then return nil end
+            if size > capacity then
+                while capacity < size do capacity = capacity * 2 end
+                buffer = ffi.new("unsigned char[?]", capacity)
+            end
+            actual[0] = 0
             if kernel.HD2SH_ReadProcessMemory(process, ffi.cast("void*", at), buffer,
                 size, actual) == 0 or tonumber(actual[0]) ~= size then return nil end
             return ffi.string(buffer, size)

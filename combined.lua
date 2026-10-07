@@ -1,10 +1,15 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
 if rawget(_G, "HD2HelperCombined") then return end
-local state = {version = "0.3.54-test"}
+local state = {version = "0.3.61-test"}
 rawset(_G, "HD2HelperCombined", state)
-local MENU_LANGUAGE = "en"
+local Language = (function()
+-- @LANGUAGE@
+end)()
 local LiveOptions = (function()
 -- @MOD_OPTIONS@
+end)()
+LiveOptions.Tab = (function()
+-- @OPTIONS_TAB@
 end)()
 local schema = (function()
 -- @MENU_SCHEMA@
@@ -18,7 +23,8 @@ local function options_log(message)
     if options_file then pcall(function() options_file:write(message.."\n");options_file:flush() end) end
 end
 local sr = rawget(_G, "stingray") or {}
-state.options = LiveOptions.new(_G,sr.Application or {},require,schema,MENU_LANGUAGE,options_log)
+state.language = Language.new(options_log)
+state.options = LiveOptions.new(_G,sr.Application or {},require,schema,state.language,options_log)
 local previous_update = rawget(_G, "update")
 rawset(_G, "update", function(...)
     local ok, why = pcall(state.options.tick,state.options)

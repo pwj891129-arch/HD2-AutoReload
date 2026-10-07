@@ -1,9 +1,10 @@
 return function(equal)
-    local Radial = dofile("radial.lua")
+    local Radial = dofile((rawget(_G,'HD2_HELPER_PERFORMANCE_ROOT') or '..')..'/stratagem/radial.lua')
     local font, template = "core/performance_hud/debug", "c0f3797849262087"
     local guis, shapes, next_gui, next_shape, created, binds, logs = {}, {}, 0, 0, 0, 0, {}
     local loaded, worlds, width, height, x, y = {}, {1, 2}, 1280, 720, 0.5, 0.5
     local show, focus, fail = false, true, nil
+    local image_queries,world_queries=0,0
     local function vec(a, b, c, d) return {x = a, y = b, z = c, w = d} end
     local function add(gui, kind, ...)
         assert(guis[gui], "only owned live GUI receives drawing")
@@ -17,9 +18,10 @@ return function(equal)
             if fail == "idstring" then error("idstring failed") end
             return {hex = hex}
         end},
-        Application = {worlds = function() return worlds end, main_world = function() return 1 end,
+        Application = {worlds = function() world_queries=world_queries+1;return worlds end, main_world = function() return 1 end,
             can_get = function(kind, name)
                 if name == font then return kind == "font" or kind == "material" end
+                image_queries=image_queries+1
                 assert(type(name) == "table")
                 if fail == "query" then error("resource query failed") end
                 if kind == "material" then return name.hex == template and fail ~= "unloaded-material" end
@@ -103,6 +105,20 @@ return function(equal)
         for _, shape in pairs(shapes) do if shape.kind == "bitmap" then found[#found + 1] = shape end end
         return found
     end
+    if rawget(_G,'HD2_HELPER_PERFORMANCE_ROOT') then
+        local inv=inventory(8)
+        for _,row in ipairs(inv.rows) do row.art.texture=inv.rows[1].art.texture end
+        local radial=Radial.new(sr,channel)
+        assert(radial:open(inv))
+        local queries,drawn=image_queries,next_shape
+        for i=1,240 do x=i%2==0 and .8 or .2;radial:draw(inv) end
+        local result={frames=240,image_queries=image_queries-queries,created_shapes=next_shape-drawn}
+        radial:close();local before=world_queries
+        for i=1,240 do radial:close() end
+        result.closed_world_queries=world_queries-before
+        radial:dispose()
+        return result
+    end
     local radial = Radial.new(sr, channel, 1, function(line) logs[#logs + 1] = line end)
     local inv = inventory(4)
     equal(radial:open(inv), true)
@@ -148,6 +164,15 @@ return function(equal)
     end
     local shared_menu = Radial.new(sr, channel)
     equal(shared_menu:open(shared), true)
+    local queried=image_queries
+    shared_menu:draw(shared)
+    equal(image_queries-queried,2,'common material and shared atlas queried once per draw')
+    queried=image_queries
+    loaded[shared.rows[1].art.texture]=false;shared_menu:draw(shared)
+    equal(image_queries-queried,2,'shared resource loss is rechecked on the next draw')
+    equal(#bitmaps(),0,'resource query deduplication never retains unavailable icons')
+    loaded[shared.rows[1].art.texture]=true;shared_menu:draw(shared)
+    equal(#bitmaps(),4,'all icons recover on the next draw')
     local independent = {}
     for _, shape in ipairs(bitmaps()) do
         local ink, uv = shape.args[4], shape.args[5]
@@ -155,6 +180,9 @@ return function(equal)
         equal(ink.colors["28723f4d00000000"][2], uv.x + 0.25,
             "same atlas retains each icon's own region and RGB color")
     end
+    shared_menu:close();queried=world_queries
+    for i=1,240 do shared_menu:close() end
+    equal(world_queries-queried,0,'already closed wheel does not enumerate game worlds')
     shared_menu:dispose(); equal(next(guis), nil); equal(next(shapes), nil)
     for _, failure in ipairs({"idstring", "query", "unloaded-material", "create", "material", "material-zero", "bind", "color", "bitmap", "bitmap-nil"}) do
         fail, logs = failure, {}

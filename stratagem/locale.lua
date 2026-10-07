@@ -1,10 +1,11 @@
-local LANGUAGE = "@LANGUAGE@"
 local names = (function()
 -- @NAMES@
 end)()
-local Locale = {language = LANGUAGE}
+local Locale = {language = 'en'}
+function Locale.bind(language) Locale.source = language end
 function Locale.name(kind, native)
-    if LANGUAGE == "ko" then
+    Locale.language = Locale.source and Locale.source.current == 'ko' and 'ko' or 'en'
+    if Locale.language == "ko" then
         local row = names[kind]
         if row and row.native == native then return row.ko end
         return "스트라타젬 " .. tostring(kind)

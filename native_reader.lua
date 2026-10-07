@@ -131,12 +131,14 @@ local function open_channel()
     end
     local process = kernel.GetCurrentProcess()
     local actual = ffi.new("size_t[1]")
+    local buffer = ffi.new("uint8_t[256]")
     return {
         base = tonumber(ffi.cast("uintptr_t", game)),
         read = function(_, at, size)
-            if type(at) ~= "number" or at < 65536 or
-                at >= 140737488355328 or size < 1 or size > 256 then return nil end
-            local buffer = ffi.new("uint8_t[?]", size)
+            if type(at) ~= "number" or at % 1 ~= 0 or at < 65536 or
+                at >= 140737488355328 or type(size) ~= "number" or size % 1 ~= 0 or
+                size < 1 or size > 256 or at + size > 140737488355328 then return nil end
+            actual[0] = 0
             if kernel.ReadProcessMemory(process, ffi.cast("void *", at),
                 buffer, size, actual) == 0 or tonumber(actual[0]) ~= size then return nil end
             return ffi.string(buffer, size)

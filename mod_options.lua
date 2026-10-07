@@ -1,11 +1,27 @@
 local LiveOptions = {}
 function LiveOptions.new(env, app, load, schema, language, log)
     local self = {values = {}, records = {}, listeners = {}, revision = 0}
+    if LiveOptions.Tab then self.tab=LiveOptions.Tab.new(env,app,log) end
     local function note(record, reason)
         if record.reason ~= reason then log('MOD_OPTIONS '..record.id..' '..tostring(reason));record.reason = reason end
     end
     local function index_of(values, value)
         for index, item in ipairs(values) do if item == value then return index end end
+    end
+    local function text_for(definition)
+        local selected = type(language) == 'table' and language.current or language
+        return definition.text[selected] or definition.text.en
+    end
+    local function label(definition, key, index)
+        if type(language) ~= 'table' then
+            local text = text_for(definition)[key]
+            return index and text[index] or text
+        end
+        -- Mod Options Menu v1.2 refreshes function-backed text without changing IDs or values.
+        return function()
+            local text = text_for(definition)[key]
+            return index and text[index] or text
+        end
     end
     for _, definition in ipairs(schema) do
         local value = false
@@ -55,6 +71,7 @@ function LiveOptions.new(env, app, load, schema, language, log)
     function self:tick()
         local now = app.time_since_launch and app.time_since_launch() or 0
         if type(now) ~= 'number' or now ~= now or now == math.huge or now < 0 then return end
+        if type(language) == 'table' then language:poll(now) end
         local menu = rawget(env,'ModOptionsMenu')
         local compatible = type(menu) == 'table' and menu.api == 1 and type(menu.version) == 'number' and menu.version >= 3 and
             type(menu.register_option) == 'function' and type(menu.get) == 'function' and
@@ -70,14 +87,18 @@ function LiveOptions.new(env, app, load, schema, language, log)
             for _, record in ipairs(self.records) do
                 local d = record.definition
                 if not record.registered and now >= (record.retry_at or 0) then
-                    local text = d.text[language] or d.text.en
                     local initial = self.values[d.key]
                     local default = initial
                     if not d.toggle then default = index_of(d.values,initial) end
                     if default ~= nil then
-                        local spec = {type = d.toggle and 'toggle' or 'choice',label = text.label,
-                            description = text.description,mod = text.mod,mod_id = d.category,
-                            choices = text.choices,default = default,gap = d.gap}
+                        local choices
+                        if not d.toggle then
+                            choices = {}
+                            for index = 1,#d.values do choices[index] = label(d,'choices',index) end
+                        end
+                        local spec = {type = d.toggle and 'toggle' or 'choice',label = label(d,'label'),
+                            description = label(d,'description'),mod = label(d,'mod'),mod_id = d.category,
+                            choices = choices,default = default,gap = d.gap}
                         local ok, registered, why = pcall(menu.register_option,record.id,spec)
                         if ok and registered == true then record.registered = true
                         else note(record,why or registered);record.retry_at = now+2 end
@@ -100,6 +121,7 @@ function LiveOptions.new(env, app, load, schema, language, log)
             log('MOD_OPTIONS requires Mod Options Menu v1.2 / API 1 version 3; Arsenal settings retained')
         end
         self:notify(now)
+        if self.tab then self.tab:tick(menu,type(language)=='table' and language.current or language) end
     end
     return self
 end

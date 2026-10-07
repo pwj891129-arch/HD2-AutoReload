@@ -1,4 +1,4 @@
-param([string]$LuaDll = (Join-Path $PSScriptRoot '..\bin\lua51.dll'))
+param([string]$LuaDll = (Join-Path $PSScriptRoot '..\bin\lua51.dll'), [switch]$Performance)
 $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
 using System;
@@ -40,7 +40,14 @@ try {
     [Environment]::CurrentDirectory = $PSScriptRoot
     $dll = (Resolve-Path -LiteralPath $LuaDll).Path
     [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './test.lua' -Raw -Encoding UTF8))
+    [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './language.test.lua' -Raw -Encoding UTF8))
+    [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './read_buffer.test.lua' -Raw -Encoding UTF8))
     [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './combined.test.lua' -Raw -Encoding UTF8))
+    [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './options_tab.test.lua' -Raw -Encoding UTF8))
+    [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './options_tab.provider.test.lua' -Raw -Encoding UTF8))
+    if ($Performance) {
+        [AutoReloadLuaTest]::Run($dll, (Get-Content -LiteralPath './tools/performance.lua' -Raw -Encoding UTF8))
+    }
     $stratagem = Join-Path $PSScriptRoot 'stratagem'
     Set-Location -LiteralPath $stratagem
     [Environment]::CurrentDirectory = $stratagem

@@ -10,6 +10,7 @@ dofile("vehicle_reload.test.lua")(api, equal)
 dofile("backpack_reserve.test.lua")(api, equal)
 dofile("reload_movement.test.lua")(api, equal)
 dofile("charge_policy.test.lua")(api, equal)
+dofile("runtime_recovery.test.lua")(api, equal)
 local flags = {enabled = true, charge90 = true}
 local option_app = {can_get = function(_, resource) return flags[resource:match("autoreload_setting_(.+)$")] ~= nil end}
 local function load_option(resource) return flags[resource:match("autoreload_setting_(.+)$")] end

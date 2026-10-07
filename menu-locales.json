@@ -1,0 +1,269 @@
+{
+  "es": {
+    "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: comunes","mission":"HD2 Helper: misión"},
+    "Groups":{"shared":"Común","mission":"Misión"},
+    "Individual":"Ajustes individuales", "Enabled":"Activado", "Disabled":"Desactivado",
+    "FilterDescription":"Activa para mostrar esta llamada disponible en la misión; desactiva para ocultarla. Los controles de grupo tienen prioridad sin borrar esta selección. Las variantes comparten un interruptor. Las ranuras personales 1–4 siguen visibles.",
+    "Options": {
+      "enabled":["Recarga automática","Recarga al agotar el cargador o sobrecalentarse por completo, con reservas suficientes, incluida la mochila de munición compatible. Las armas de recarga inmóvil o desconocida esperan otro clic, no soltar el disparo. Se mantiene la comprobación al cambiar de arma. Para liberar un clic sin munición, el disparo debe estar en el botón izquierdo."],
+      "charge90":["Disparo automático de Railgun / Epoch","Suelta una vez el botón izquierdo al umbral del Railgun (90% o 95%, 95% por defecto) o al 100% de carga del Epoch. Lee la carga real, no un temporizador. Apuntar y la siguiente carga siguen siendo manuales. Los retrasos pueden superar el umbral; no se garantiza evitar explosiones."],
+      "radial":["Rueda de estratagemas","Sigue la lista del juego. Mantener: señala y suelta. Alternar: clic izquierdo o pulsa otra vez la lista. Clic derecho o central cancela y cierra tras soltarlo. Introduce comandos al soltar el clic; apuntar y lanzar son manuales. Compatible con botones laterales del ratón."],
+      "hotkeys":["Atajos numéricos de estratagemas","Con la lista abierta, pulsa 1–4 en la fila numérica para introducir el comando de la ranura personal correspondiente en la rueda. El teclado numérico es independiente. Funciona al mantener o alternar."],
+      "shared_other":["Otras llamadas comunes / de misión","Muestra llamadas sin interruptor propio, como el rearme Eagle, cuando los controles globales usan ajustes individuales. Los controles globales tienen prioridad sin borrar esta elección. No cambia las ranuras personales 1–4."],
+      "scale":["Tamaño de la rueda","100% (por defecto), 125%, 150%, 200% o 300%. El tamaño se limita a la pantalla. Confirma con APPLY en el juego; no hace falta reiniciar."],
+      "slow":["Intervalo de entrada de comandos","15 ms (por defecto) o 30 ms por pulsación y liberación. La siguiente dirección se envía cuando el juego detecta la anterior."],
+      "shared_all":["Todas las llamadas comunes","Por defecto: ajustes individuales. Activado muestra todas las llamadas comunes disponibles; desactivado las oculta. Comunes + misión tiene prioridad. Conserva elecciones individuales, llamadas de misión y ranuras personales."],
+      "mission_all":["Todas las llamadas de misión","Por defecto: ajustes individuales. Activado muestra todas las llamadas de misión disponibles; desactivado las oculta. Comunes + misión tiene prioridad. Conserva elecciones individuales, llamadas comunes y ranuras personales."],
+      "shared_mission_all":["Todas las llamadas comunes + misión","Máxima prioridad: muestra u oculta juntas las llamadas comunes y de misión disponibles. Ajustes individuales restaura elecciones de grupo e individuales sin borrarlas. Nunca oculta las ranuras personales 1–4."],
+      "vehicle":["Recarga automática de vehículos","Independiente de la recarga personal. Recarga el arma principal montada de FRV/tanques solo con cargador y recámara vacíos, reservas confirmadas y sin recarga activa. Espera a soltar el disparo; un clic vacío puede liberar el botón izquierdo. Un intento por agotamiento. Las armas personales de pasajeros usan su propio ajuste."],
+      "railgun_threshold":["Umbral de disparo del Railgun","90% o 95% (por defecto) del medidor de peligro, solo con disparo automático activado. Epoch permanece al 100%. El 95% deja menos margen antes de explotar; los retrasos pueden superar el umbral. Confirma con APPLY."]
+    },
+    "Calls": {
+      "shared_reinforce":"Refuerzos","shared_sos":"Baliza SOS","shared_resupply":"Reabastecimiento",
+      "mission_flare":"Bengala de iluminación orbital","mission_extraction":"Baliza de extracción","mission_flag":"Izar bandera","mission_bug_thumper":"Señuelo de bichos","mission_seismic":"Sonda sísmica","mission_seaf":"Artillería SEAF","mission_dark_fluid":"Mochila de fluido oscuro","mission_oil_rig":"Extractor de petróleo","mission_hellbomb":"Bomba infernal","mission_data_jack":"Conector de datos","mission_tcs":"Dispositivo TCS 03","mission_prospecting":"Taladro de prospección","mission_cargo":"Contenedor de carga","mission_bug_plug":"Tapón para bichos","mission_cyborg_data":"Transporte de datos cíborg","mission_camera":"Cámara de hombro","mission_carry_data":"Transporte de datos","mission_pinata":"Piñata interferida","mission_explosives":"Explosivos remotos","mission_poison_drill":"Taladro tóxico","mission_emergency":"Baliza de extracción de emergencia","mission_comms":"Repetidor móvil de comunicaciones","mission_carpet_bomb":"Bombardeo en alfombra","mission_scrambler":"Inhibidor","mission_immediate":"Baliza de extracción inmediata","mission_seaf_squad":"Escuadrón SEAF","mission_spire":"Esterilizador de aguja","mission_destroyer":"Llamar al destructor","mission_discovery":"Subir descubrimientos","mission_drilling_charge":"Carga de perforación","mission_nuke":"Bomba nuclear"
+    }
+  },
+  "es-419": {
+    "extends":"es",
+    "Options": {
+      "radial":["Rueda de estratagemas","Sigue la lista del juego. Mantener: apunta y suelta. Alternar: clic izquierdo o presiona la lista otra vez. Clic derecho o central cancela y cierra al soltarlo. Los comandos empiezan después de soltar el clic; apuntar y lanzar son manuales. Compatible con botones laterales del mouse."],
+      "hotkeys":["Atajos numéricos de estratagemas","Con la lista abierta, presiona 1–4 en la fila de números para ingresar el comando del espacio personal correspondiente en la rueda. El teclado numérico es independiente. Funciona al mantener o alternar."]
+    },
+    "Calls":{"shared_resupply":"Reabastecimiento","mission_scrambler":"Interferidor","mission_cyborg_data":"Transporte de datos cyborg"}
+  },
+  "pt": {
+    "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: comuns","mission":"HD2 Helper: missão"},
+    "Groups":{"shared":"Comum","mission":"Missão"},
+    "Individual":"Definições individuais", "Enabled":"Ativado", "Disabled":"Desativado",
+    "FilterDescription":"Ative para mostrar esta chamada disponível na missão; desative para a ocultar. Os controlos de grupo têm prioridade sem apagar esta escolha. As variantes partilham um interruptor. Os espaços pessoais 1–4 continuam visíveis.",
+    "Options": {
+      "enabled":["Recarga automática","Recarrega com carregador vazio ou sobreaquecimento completo e reservas suficientes, incluindo a mochila de munições compatível. Armas de recarga imóvel ou desconhecida esperam outro clique, não o fim do disparo. Mantém a verificação após troca de arma. Para soltar um clique sem munições, o disparo deve usar o botão esquerdo."],
+      "charge90":["Disparo automático Railgun / Epoch","Solta uma vez o botão esquerdo no limite do Railgun (90% ou 95%, predefinição 95%) ou a 100% de carga do Epoch. Lê a carga real, sem temporizador. Mira e próxima carga são manuais. Os atrasos podem ultrapassar o limite; não há garantia contra explosões."],
+      "radial":["Roda de estratagemas","Segue a lista do jogo. Manter: aponte e solte. Alternar: clique esquerdo ou prima a lista novamente. Clique direito ou central cancela e fecha após soltar. Comandos após soltar o clique; mira e lançamento manuais. Suporta botões laterais do rato."],
+      "hotkeys":["Atalhos numéricos de estratagemas","Com a lista aberta, prima 1–4 na fila numérica para introduzir o comando do espaço pessoal correspondente na roda. O teclado numérico é independente. Suporta manter e alternar."],
+      "shared_other":["Outras chamadas comuns / de missão","Mostra chamadas sem interruptor próprio, como o rearmamento Eagle, quando os controlos globais usam definições individuais. Os controlos globais têm prioridade sem apagar a escolha. Não altera os espaços pessoais 1–4."],
+      "scale":["Tamanho da roda","100% (predefinição), 125%, 150%, 200% ou 300%. O tamanho é limitado ao ecrã. Confirme com APPLY no jogo; não é necessário reiniciar."],
+      "slow":["Intervalo de introdução de comandos","15 ms (predefinição) ou 30 ms por pressão e libertação. A direção seguinte só é enviada após o jogo detetar a anterior."],
+      "shared_all":["Todas as chamadas comuns","Predefinição: definições individuais. Ativado mostra todas as chamadas comuns disponíveis; desativado oculta-as. Comuns + missão tem prioridade. Mantém escolhas individuais, chamadas de missão e espaços pessoais."],
+      "mission_all":["Todas as chamadas de missão","Predefinição: definições individuais. Ativado mostra todas as chamadas de missão disponíveis; desativado oculta-as. Comuns + missão tem prioridade. Mantém escolhas individuais, chamadas comuns e espaços pessoais."],
+      "shared_mission_all":["Todas as chamadas comuns + missão","Prioridade máxima: mostra ou oculta em conjunto chamadas comuns e de missão disponíveis. Definições individuais restaura escolhas de grupo e individuais sem as apagar. Nunca oculta os espaços pessoais 1–4."],
+      "vehicle":["Recarga automática de veículos","Independente da recarga pessoal. Recarrega a arma principal montada de FRV/tanques só com carregador e câmara vazios, reservas confirmadas e sem recarga ativa. Espera que solte o disparo; um clique vazio pode soltar o botão esquerdo. Uma tentativa por esgotamento. As armas pessoais dos passageiros usam a sua própria definição."],
+      "railgun_threshold":["Limite de disparo do Railgun","90% ou 95% (predefinição) do indicador de perigo, só com disparo automático ativo. Epoch mantém-se a 100%. O limite de 95% deixa menos margem antes da explosão; os atrasos podem ultrapassá-lo. Confirme com APPLY."]
+    },
+    "Calls": {
+      "shared_reinforce":"Reforços","shared_sos":"Sinalizador SOS","shared_resupply":"Reabastecimento",
+      "mission_flare":"Sinalizador de iluminação orbital","mission_extraction":"Sinalizador de extração","mission_flag":"Hastear bandeira","mission_bug_thumper":"Isca para insetos","mission_seismic":"Sonda sísmica","mission_seaf":"Artilharia SEAF","mission_dark_fluid":"Mochila de fluido negro","mission_oil_rig":"Extrator de petróleo","mission_hellbomb":"Bomba infernal","mission_data_jack":"Conector de dados","mission_tcs":"Dispositivo TCS 03","mission_prospecting":"Broca de prospeção","mission_cargo":"Contentor de carga","mission_bug_plug":"Tampão para insetos","mission_cyborg_data":"Transporte de dados ciborgue","mission_camera":"Câmara de ombro","mission_carry_data":"Transporte de dados","mission_pinata":"Piñata bloqueada","mission_explosives":"Explosivos remotos","mission_poison_drill":"Broca tóxica","mission_emergency":"Sinalizador de extração de emergência","mission_comms":"Retransmissor móvel de comunicações","mission_carpet_bomb":"Bombardeamento em tapete","mission_scrambler":"Interferidor","mission_immediate":"Sinalizador de extração imediata","mission_seaf_squad":"Esquadrão SEAF","mission_spire":"Esterilizador de torre","mission_destroyer":"Chamar contratorpedeiro","mission_discovery":"Enviar descobertas","mission_drilling_charge":"Carga de perfuração","mission_nuke":"Bomba nuclear"
+    }
+  },
+  "pt-BR": {
+    "extends":"pt", "Individual":"Configurações individuais",
+    "FilterDescription":"Ative para mostrar esta chamada disponível na missão; desative para ocultar. Os controles de grupo têm prioridade sem apagar esta escolha. As variantes compartilham um botão. Os espaços pessoais 1–4 continuam visíveis.",
+    "Options": {
+      "enabled":["Recarga automática","Recarrega com carregador vazio ou superaquecimento completo e reservas suficientes, incluindo a mochila de munição compatível. Armas de recarga imóvel ou desconhecida esperam outro clique, não a liberação do disparo. Mantém a verificação ao trocar de arma. Para liberar um clique sem munição, o disparo deve usar o botão esquerdo."],
+      "charge90":["Disparo automático Railgun / Epoch","Solta uma vez o botão esquerdo no limite do Railgun (90% ou 95%, padrão 95%) ou a 100% de carga do Epoch. Lê a carga real, sem temporizador. Mira e próxima carga são manuais. Os atrasos podem ultrapassar o limite; não há garantia contra explosões."],
+      "radial":["Roda de estratagemas","Segue a lista do jogo. Segurar: aponte e solte. Alternar: clique esquerdo ou pressione a lista novamente. Clique direito ou central cancela e fecha depois de soltar. Comandos após soltar o clique; mira e lançamento manuais. Suporta botões laterais do mouse."],
+      "hotkeys":["Atalhos numéricos de estratagemas","Com a lista aberta, pressione 1–4 na fileira de números para inserir o comando do espaço pessoal correspondente na roda. O teclado numérico é independente. Suporta segurar e alternar."],
+      "shared_other":["Outras chamadas comuns / de missão","Mostra chamadas sem botão próprio, como o rearmamento Eagle, quando os controles globais usam configurações individuais. Os controles globais têm prioridade sem apagar a escolha. Não altera os espaços pessoais 1–4."],
+      "scale":["Tamanho da roda","100% (padrão), 125%, 150%, 200% ou 300%. O tamanho é limitado à tela. Confirme com APPLY no jogo; não é necessário reiniciar."],
+      "slow":["Intervalo de entrada de comandos","15 ms (padrão) ou 30 ms por pressão e liberação. A próxima direção só é enviada depois que o jogo detecta a anterior."],
+      "shared_all":["Todas as chamadas comuns","Padrão: configurações individuais. Ativado mostra todas as chamadas comuns disponíveis; desativado oculta. Comuns + missão tem prioridade. Mantém escolhas individuais, chamadas de missão e espaços pessoais."],
+      "mission_all":["Todas as chamadas de missão","Padrão: configurações individuais. Ativado mostra todas as chamadas de missão disponíveis; desativado oculta. Comuns + missão tem prioridade. Mantém escolhas individuais, chamadas comuns e espaços pessoais."],
+      "shared_mission_all":["Todas as chamadas comuns + missão","Prioridade máxima: mostra ou oculta juntas as chamadas comuns e de missão disponíveis. Configurações individuais restaura escolhas de grupo e individuais sem apagar. Nunca oculta os espaços pessoais 1–4."],
+      "vehicle":["Recarga automática de veículos","Independente da recarga pessoal. Recarrega a arma principal montada de FRV/tanques só com carregador e câmara vazios, reservas confirmadas e sem recarga ativa. Espera soltar o disparo; um clique vazio pode liberar o botão esquerdo. Uma tentativa por esgotamento. As armas pessoais dos passageiros usam sua própria configuração."],
+      "railgun_threshold":["Limite de disparo do Railgun","90% ou 95% (padrão) do indicador de perigo, só com disparo automático ativo. Epoch continua a 100%. O limite de 95% deixa menos margem antes da explosão; os atrasos podem ultrapassá-lo. Confirme com APPLY."]
+    },
+    "Calls":{"mission_prospecting":"Broca de prospecção","mission_cargo":"Contêiner de carga","mission_camera":"Câmera de ombro","mission_carpet_bomb":"Bombardeio em tapete","mission_destroyer":"Chamar destróier"}
+  },
+  "ja": {
+    "Categories":{"general":"HD2 ヘルパー","shared":"HD2 ヘルパー：共通","mission":"HD2 ヘルパー：任務"},
+    "Groups":{"shared":"共通","mission":"任務"},
+    "Individual":"個別設定を使用", "Enabled":"有効", "Disabled":"無効",
+    "FilterDescription":"有効にすると任務で使用可能なこの要請を表示し、無効にすると非表示にします。全体設定は個別の選択を消さずに優先されます。派生型は同じ設定を使用します。個人スロット1～4には影響しません。",
+    "Options": {
+      "enabled":["自動リロード","弾切れまたは完全過熱時、予備弾が十分あればリロードします。対応する弾薬バックパックも対象です。リロード中に移動できない武器や移動可否が不明な武器は、射撃を離した時ではなく再クリック時にリロードします。武器切り替え後の確認は継続します。弾切れクリックの解除には左クリック射撃設定が必要です。"],
+      "charge90":["レールガン・エポック自動射撃","レールガンの設定閾値（90%または95%、初期値95%）またはエポックの射撃チャージ100%で、左クリックを一度解除します。タイマーではなく実際のチャージを読み取ります。照準と次のチャージは手動です。判読・入力遅延で閾値を超える場合があり、爆発防止は保証されません。"],
+      "radial":["戦略支援ホイール","ゲームの戦略支援一覧と連動します。長押し：項目を指して離す。切り替え：左クリックか一覧キーを再入力。右クリックや中央クリックでキャンセルし、ボタンを離すと一覧も閉じます。コマンドはクリック解除後に入力します。照準・投擲は手動です。マウスのサイドボタンにも対応します。"],
+      "hotkeys":["戦略支援の数字キー","一覧を開いた状態で数字列1～4を押すと、ホイールの番号に対応する個人装備スロットのコマンドを入力します。テンキーは別扱いです。長押し・切り替えの両方式に対応します。"],
+      "shared_other":["その他の共通・任務支援","全体設定が個別設定を使用する場合、イーグル再武装など専用設定のない要請を表示します。全体設定はこの選択を消さずに優先されます。個人スロット1～4には影響しません。"],
+      "scale":["ホイールの大きさ","100%（初期値）、125%、150%、200%、300%から選択します。画面外にはみ出さない大きさに制限されます。ゲーム内のAPPLYで適用し、再起動は不要です。"],
+      "slow":["コマンド入力間隔","押す・離す間隔を15ms（初期値）または30msにします。ゲームが前の方向入力を認識した後、次の方向を送信します。"],
+      "shared_all":["共通支援をすべて表示","初期値は個別設定を使用。有効ですべての使用可能な共通支援を表示し、無効ですべて非表示にします。共通＋任務の全体設定が優先されます。個別の選択、任務支援、個人スロットは維持されます。"],
+      "mission_all":["任務支援をすべて表示","初期値は個別設定を使用。有効ですべての使用可能な任務支援を表示し、無効ですべて非表示にします。共通＋任務の全体設定が優先されます。個別の選択、共通支援、個人スロットは維持されます。"],
+      "shared_mission_all":["共通・任務支援をすべて表示","最優先の設定です。使用可能な共通・任務支援をまとめて表示または非表示にします。個別設定を使用に戻すと、各グループと個別の選択が復元されます。個人スロット1～4は非表示になりません。"],
+      "vehicle":["車両の自動リロード","通常の自動リロードとは独立しています。FRV・戦車の主搭載武器で、弾倉と薬室が空、予備弾を確認済み、リロード中でない場合だけ動作します。射撃を離すまで待ち、弾切れクリックでは左クリックを解除できます。弾切れ1回につき1回だけ試行します。同乗者の個人武器は通常の設定を使用します。"],
+      "railgun_threshold":["レールガンの自動射撃閾値","危険ゲージ90%または95%（初期値）。自動射撃が有効な時だけ適用します。エポックは100%のままです。95%は爆発までの余裕が少なく、遅延で閾値を超える場合があります。APPLYで適用します。"]
+    },
+    "Calls": {
+      "shared_reinforce":"増援","shared_sos":"SOSビーコン","shared_resupply":"補給",
+      "mission_flare":"軌道照明弾","mission_extraction":"脱出ビーコン","mission_flag":"旗の掲揚","mission_bug_thumper":"虫誘引装置","mission_seismic":"地震探査機","mission_seaf":"SEAF砲撃","mission_dark_fluid":"ダーク流体バックパック","mission_oil_rig":"石油抽出装置","mission_hellbomb":"ヘルボム","mission_data_jack":"データ接続装置","mission_tcs":"TCS 03装置","mission_prospecting":"鉱物探査ドリル","mission_cargo":"貨物コンテナ","mission_bug_plug":"虫封鎖装置","mission_cyborg_data":"サイボーグデータ運搬","mission_camera":"肩部カメラ","mission_carry_data":"データ運搬","mission_pinata":"妨害されたピニャータ","mission_explosives":"遠隔爆薬","mission_poison_drill":"毒性ドリル","mission_emergency":"緊急脱出ビーコン","mission_comms":"移動通信中継機","mission_carpet_bomb":"絨毯爆撃","mission_scrambler":"妨害装置","mission_immediate":"即時脱出ビーコン","mission_seaf_squad":"SEAF分隊","mission_spire":"尖塔殺菌装置","mission_destroyer":"駆逐艦要請","mission_discovery":"発見情報のアップロード","mission_drilling_charge":"掘削爆薬","mission_nuke":"核爆弾"
+    }
+  },
+  "zh-Hans": {
+    "Categories":{"general":"HD2 助手","shared":"HD2 助手：公共","mission":"HD2 助手：任务"},
+    "Groups":{"shared":"公共","mission":"任务"},
+    "Individual":"使用单独设置", "Enabled":"开启", "Disabled":"关闭",
+    "FilterDescription":"开启时显示当前任务中可用的此项支援，关闭时隐藏。全局设置优先，但不会清除单独选择。变体共用同一开关。个人装备槽位1–4不受影响。",
+    "Options": {
+      "enabled":["自动装填","弹匣耗尽或完全过热时，备用弹药足够才自动装填。兼容的弹药背包也计入。必须停下装填或无法确认移动限制的武器，不会在松开射击时装填，而要再次点击空枪。切换武器后的检查保持启用。空枪点击的射击解除要求射击绑定为鼠标左键。"],
+      "charge90":["磁轨炮 / Epoch 自动开火","在磁轨炮阈值（90%或95%，默认95%）或Epoch射击充能100%时，松开鼠标左键一次。读取实际充能而非固定计时。瞄准和下一次充能仍由玩家操作。读取和输入延迟可能超过阈值，不能保证避免爆炸。"],
+      "radial":["战略配备轮盘","跟随游戏的战略配备列表。按住模式：指向项目后松开。切换模式：左键或再次按列表键选择。右键或点击中央取消，松开后也关闭游戏列表。指令在松开点击后输入。瞄准和投掷手动。支持鼠标侧键。"],
+      "hotkeys":["战略配备数字快捷键","列表打开时按数字行1–4，输入轮盘相同编号对应的个人槽位指令。数字小键盘独立。支持按住和切换两种模式。"],
+      "shared_other":["其他公共 / 任务支援","全局设置使用单独设置时，显示飞鹰重新武装等没有独立开关的支援。全局设置优先且不会清除这个选择。个人槽位1–4不受影响。"],
+      "scale":["轮盘大小","选择100%（默认）、125%、150%、200%或300%。尺寸会限制在屏幕内。在游戏内使用APPLY应用，无须重启。"],
+      "slow":["指令输入间隔","每次按下和松开的间隔为15ms（默认）或30ms。游戏识别上一方向后才发送下一方向。"],
+      "shared_all":["全部公共支援","默认使用单独设置。开启显示所有可用公共支援，关闭全部隐藏。公共＋任务全局设置优先。保留各项选择、任务支援和个人槽位。"],
+      "mission_all":["全部任务支援","默认使用单独设置。开启显示所有可用任务支援，关闭全部隐藏。公共＋任务全局设置优先。保留各项选择、公共支援和个人槽位。"],
+      "shared_mission_all":["全部公共＋任务支援","优先级最高：一起显示或隐藏可用公共和任务支援。切回使用单独设置后恢复分组和各项选择，不会清除设置。绝不隐藏个人槽位1–4。"],
+      "vehicle":["载具自动装填","独立于个人武器自动装填。针对FRV和坦克的主要车载武器，只有弹匣和膛室均空、备用弹药已确认且不在装填中才触发。等待松开射击；空枪点击可释放左键。每次耗尽只尝试一次。乘员探身使用的个人武器仍按普通设置处理。"],
+      "railgun_threshold":["磁轨炮自动开火阈值","危险条90%或95%（默认），仅在自动开火启用时生效。Epoch仍为100%充能。95%距离爆炸余量较小，延迟可能超过阈值。使用APPLY应用。"]
+    },
+    "Calls": {
+      "shared_reinforce":"增援","shared_sos":"SOS信标","shared_resupply":"补给",
+      "mission_flare":"轨道照明弹","mission_extraction":"撤离信标","mission_flag":"升旗","mission_bug_thumper":"虫群诱饵装置","mission_seismic":"地震探测器","mission_seaf":"SEAF火炮","mission_dark_fluid":"暗流体背包","mission_oil_rig":"石油抽取设备","mission_hellbomb":"地狱火炸弹","mission_data_jack":"数据连接器","mission_tcs":"TCS 03装置","mission_prospecting":"勘探钻机","mission_cargo":"货物集装箱","mission_bug_plug":"虫群封堵装置","mission_cyborg_data":"运输生化人数据","mission_camera":"肩载摄像机","mission_carry_data":"运输数据","mission_pinata":"被干扰的皮纳塔","mission_explosives":"遥控炸药","mission_poison_drill":"毒性钻机","mission_emergency":"紧急撤离信标","mission_comms":"移动通信中继器","mission_carpet_bomb":"地毯式轰炸","mission_scrambler":"干扰器","mission_immediate":"即时撤离信标","mission_seaf_squad":"SEAF小队","mission_spire":"尖塔灭菌装置","mission_destroyer":"呼叫驱逐舰","mission_discovery":"上传发现信息","mission_drilling_charge":"钻孔炸药","mission_nuke":"核弹"
+    }
+  },
+  "zh-Hant": {
+    "Categories":{"general":"HD2 助手","shared":"HD2 助手：共用","mission":"HD2 助手：任務"},
+    "Groups":{"shared":"共用","mission":"任務"},
+    "Individual":"使用個別設定", "Enabled":"開啟", "Disabled":"關閉",
+    "FilterDescription":"開啟時顯示目前任務中可用的這項支援，關閉時隱藏。全域設定優先，但不會清除個別選擇。變體共用同一開關。個人裝備欄位1–4不受影響。",
+    "Options": {
+      "enabled":["自動裝填","彈匣耗盡或完全過熱時，備用彈藥充足才自動裝填。相容的彈藥背包也計入。必須停下裝填或無法確認移動限制的武器，不會在放開射擊時裝填，而要再次點擊空槍。切換武器後的檢查保持啟用。空槍點擊的射擊解除要求射擊綁定為滑鼠左鍵。"],
+      "charge90":["磁軌炮 / Epoch 自動開火","在磁軌炮門檻（90%或95%，預設95%）或Epoch射擊充能100%時，放開滑鼠左鍵一次。讀取實際充能而非固定計時。瞄準和下一次充能仍由玩家操作。讀取與輸入延遲可能超過門檻，不能保證避免爆炸。"],
+      "radial":["戰略配備輪盤","跟隨遊戲的戰略配備清單。按住模式：指向項目後放開。切換模式：左鍵或再次按清單鍵選擇。右鍵或點擊中央取消，放開後也關閉遊戲清單。指令在放開點擊後輸入。瞄準與投擲手動。支援滑鼠側鍵。"],
+      "hotkeys":["戰略配備數字快捷鍵","清單開啟時按數字列1–4，輸入輪盤相同編號對應的個人欄位指令。數字鍵盤獨立。支援按住與切換模式。"],
+      "shared_other":["其他共用 / 任務支援","全域設定使用個別設定時，顯示飛鷹重新武裝等沒有獨立開關的支援。全域設定優先，且不清除這個選擇。個人欄位1–4不受影響。"],
+      "scale":["輪盤大小","選擇100%（預設）、125%、150%、200%或300%。尺寸會限制在螢幕內。在遊戲內使用APPLY套用，無須重新啟動。"],
+      "slow":["指令輸入間隔","每次按下與放開的間隔為15ms（預設）或30ms。遊戲辨識上一方向後才傳送下一方向。"],
+      "shared_all":["全部共用支援","預設使用個別設定。開啟顯示所有可用共用支援，關閉全部隱藏。共用＋任務全域設定優先。保留各項選擇、任務支援和個人欄位。"],
+      "mission_all":["全部任務支援","預設使用個別設定。開啟顯示所有可用任務支援，關閉全部隱藏。共用＋任務全域設定優先。保留各項選擇、共用支援和個人欄位。"],
+      "shared_mission_all":["全部共用＋任務支援","優先級最高：一起顯示或隱藏可用的共用與任務支援。切回使用個別設定後恢復分組和各項選擇，不會清除設定。絕不隱藏個人欄位1–4。"],
+      "vehicle":["載具自動裝填","獨立於個人武器自動裝填。針對FRV和坦克的主要車載武器，只有彈匣和膛室均空、備用彈藥已確認且不在裝填中才觸發。等待放開射擊；空槍點擊可釋放左鍵。每次耗盡只嘗試一次。乘員探身使用的個人武器仍依普通設定處理。"],
+      "railgun_threshold":["磁軌炮自動開火門檻","危險條90%或95%（預設），僅在自動開火啟用時生效。Epoch仍為100%充能。95%距離爆炸的餘裕較少，延遲可能超過門檻。使用APPLY套用。"]
+    },
+    "Calls": {
+      "shared_reinforce":"增援","shared_sos":"SOS信標","shared_resupply":"補給",
+      "mission_flare":"軌道照明彈","mission_extraction":"撤離信標","mission_flag":"升旗","mission_bug_thumper":"蟲群誘餌裝置","mission_seismic":"地震探測器","mission_seaf":"SEAF火砲","mission_dark_fluid":"暗流體背包","mission_oil_rig":"石油抽取設備","mission_hellbomb":"地獄火炸彈","mission_data_jack":"資料連接器","mission_tcs":"TCS 03裝置","mission_prospecting":"探勘鑽機","mission_cargo":"貨物貨櫃","mission_bug_plug":"蟲群封堵裝置","mission_cyborg_data":"運送生化人資料","mission_camera":"肩載攝影機","mission_carry_data":"運送資料","mission_pinata":"受干擾的皮納塔","mission_explosives":"遙控炸藥","mission_poison_drill":"毒性鑽機","mission_emergency":"緊急撤離信標","mission_comms":"行動通訊中繼器","mission_carpet_bomb":"地毯式轟炸","mission_scrambler":"干擾器","mission_immediate":"即時撤離信標","mission_seaf_squad":"SEAF小隊","mission_spire":"尖塔滅菌裝置","mission_destroyer":"呼叫驅逐艦","mission_discovery":"上傳發現資訊","mission_drilling_charge":"鑽孔炸藥","mission_nuke":"核彈"
+    }
+  },
+  "pl": {
+    "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: wspólne","mission":"HD2 Helper: misja"},
+    "Groups":{"shared":"Wspólne","mission":"Misja"},
+    "Individual":"Ustawienia indywidualne", "Enabled":"Włączone", "Disabled":"Wyłączone",
+    "FilterDescription":"Włącz, aby pokazać to dostępne wezwanie w misji; wyłącz, aby ukryć. Ustawienia grup mają pierwszeństwo, nie usuwając wyboru. Warianty używają jednego przełącznika. Osobiste miejsca 1–4 pozostają widoczne.",
+    "Options": {
+      "enabled":["Automatyczne przeładowanie","Przeładowuje pusty magazynek lub całkowicie przegrzaną broń przy wystarczającym zapasie, także w zgodnym plecaku amunicyjnym. Broń z przeładowaniem stacjonarnym lub nieznanym czeka na kolejny klik zamiast zwolnienia strzału. Kontrola po zmianie broni pozostaje aktywna. Zwolnienie pustego kliknięcia wymaga strzału lewym przyciskiem."],
+      "charge90":["Automatyczny strzał Railgun / Epoch","Raz zwalnia lewy przycisk przy progu Railguna (90% lub 95%, domyślnie 95%) albo 100% ładunku Epoch. Czyta rzeczywisty ładunek, nie czas. Celowanie i kolejne ładowanie są ręczne. Opóźnienia mogą przekroczyć próg; ochrona przed eksplozją nie jest gwarantowana."],
+      "radial":["Koło forteli","Działa razem z listą w grze. Przytrzymanie: wskaż i zwolnij. Przełączanie: lewy klik lub ponowne naciśnięcie listy. Prawy lub środkowy klik anuluje i zamyka po zwolnieniu. Komendy po zwolnieniu kliknięcia; celowanie i rzut ręczne. Obsługuje boczne przyciski myszy."],
+      "hotkeys":["Skróty numeryczne forteli","Przy otwartej liście naciśnij 1–4 w rzędzie cyfr, aby wpisać komendę osobistego miejsca o tym samym numerze w kole. Klawiatura numeryczna jest oddzielna. Obsługuje przytrzymanie i przełączanie."],
+      "shared_other":["Pozostałe wezwania wspólne / misji","Pokazuje wezwania bez osobnego przełącznika, np. przezbrojenie Eagle, gdy ustawienia zbiorcze są indywidualne. Ustawienia zbiorcze mają pierwszeństwo bez usuwania wyboru. Nie zmienia osobistych miejsc 1–4."],
+      "scale":["Rozmiar koła","100% (domyślnie), 125%, 150%, 200% lub 300%. Duży rozmiar jest ograniczany do ekranu. Zatwierdź przez APPLY w grze; restart nie jest wymagany."],
+      "slow":["Odstęp wpisywania komend","15 ms (domyślnie) lub 30 ms na naciśnięcie i zwolnienie. Następny kierunek jest wysyłany po wykryciu poprzedniego przez grę."],
+      "shared_all":["Wszystkie wspólne wezwania","Domyślnie ustawienia indywidualne. Włączone pokazuje wszystkie dostępne wspólne wezwania; wyłączone ukrywa je. Wspólne + misja ma pierwszeństwo. Zachowuje pojedyncze wybory, wezwania misji i osobiste miejsca."],
+      "mission_all":["Wszystkie wezwania misji","Domyślnie ustawienia indywidualne. Włączone pokazuje wszystkie dostępne wezwania misji; wyłączone ukrywa je. Wspólne + misja ma pierwszeństwo. Zachowuje pojedyncze wybory, wspólne wezwania i osobiste miejsca."],
+      "shared_mission_all":["Wszystkie wezwania wspólne + misji","Najwyższy priorytet: pokazuje lub ukrywa razem dostępne wezwania wspólne i misji. Ustawienia indywidualne przywraca wybory grup i pojedynczych pozycji bez ich usuwania. Nigdy nie ukrywa osobistych miejsc 1–4."],
+      "vehicle":["Automatyczne przeładowanie pojazdów","Niezależne od broni osobistej. Przeładowuje główną broń FRV/czołgu tylko przy pustym magazynku i komorze, potwierdzonym zapasie oraz bez trwającego przeładowania. Czeka na zwolnienie strzału; pusty klik może zwolnić lewy przycisk. Jedna próba na wyczerpanie. Broń osobista pasażerów używa własnego ustawienia."],
+      "railgun_threshold":["Próg strzału Railguna","90% lub 95% (domyślnie) wskaźnika zagrożenia, tylko przy włączonym automatycznym strzale. Epoch pozostaje na 100%. 95% daje mniejszy margines przed eksplozją; opóźnienia mogą przekroczyć próg. Zatwierdź przez APPLY."]
+    },
+    "Calls": {
+      "shared_reinforce":"Posiłki","shared_sos":"Nadajnik SOS","shared_resupply":"Zaopatrzenie",
+      "mission_flare":"Orbitalna flara oświetlająca","mission_extraction":"Nadajnik ewakuacji","mission_flag":"Podniesienie flagi","mission_bug_thumper":"Wabik na robale","mission_seismic":"Sonda sejsmiczna","mission_seaf":"Artyleria SEAF","mission_dark_fluid":"Plecak ciemnego płynu","mission_oil_rig":"Urządzenie wydobywcze ropy","mission_hellbomb":"Piekielna bomba","mission_data_jack":"Złącze danych","mission_tcs":"Urządzenie TCS 03","mission_prospecting":"Wiertło poszukiwawcze","mission_cargo":"Kontener ładunkowy","mission_bug_plug":"Blokada robali","mission_cyborg_data":"Transport danych cyborgów","mission_camera":"Kamera naramienna","mission_carry_data":"Transport danych","mission_pinata":"Zakłócona piñata","mission_explosives":"Zdalne materiały wybuchowe","mission_poison_drill":"Toksyczne wiertło","mission_emergency":"Nadajnik awaryjnej ewakuacji","mission_comms":"Mobilny przekaźnik łączności","mission_carpet_bomb":"Nalot dywanowy","mission_scrambler":"Zagłuszacz","mission_immediate":"Nadajnik natychmiastowej ewakuacji","mission_seaf_squad":"Oddział SEAF","mission_spire":"Sterylizator iglicy","mission_destroyer":"Wezwanie niszczyciela","mission_discovery":"Przesłanie odkryć","mission_drilling_charge":"Ładunek wiertniczy","mission_nuke":"Bomba atomowa"
+    }
+  },
+  "ru": {
+    "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: общие","mission":"HD2 Helper: миссия"},
+    "Groups":{"shared":"Общие","mission":"Миссия"},
+    "Individual":"Индивидуальные настройки", "Enabled":"Включено", "Disabled":"Выключено",
+    "FilterDescription":"Включите, чтобы показать этот доступный вызов в миссии. Выключите, чтобы скрыть. Групповые настройки имеют приоритет, не стирая выбор. Варианты используют один переключатель. Личные ячейки 1–4 остаются видимыми.",
+    "Options": {
+      "enabled":["Автоматическая перезарядка","Перезаряжает пустое или полностью перегретое оружие при достаточном запасе, включая совместимый рюкзак с боеприпасами. Оружие со стационарной или неизвестной перезарядкой ждёт нового нажатия, а не отпускания огня. Проверка после смены оружия сохраняется. Для отпускания пустого клика огонь должен быть на левой кнопке."],
+      "charge90":["Автовыстрел Railgun / Epoch","Однократно отпускает левую кнопку при пороге Railgun (90% или 95%, по умолчанию 95%) либо заряде Epoch 100%. Читает реальный заряд, не таймер. Прицеливание и следующий заряд ручные. Задержки могут превысить порог; защита от взрыва не гарантируется."],
+      "radial":["Колесо стратагем","Следует списку игры. Удержание: выберите сектор и отпустите. Переключение: левый клик или повторное нажатие списка. Правый клик или клик по центру отменяет и закрывает после отпускания. Команды вводятся после отпускания клика; прицеливание и бросок ручные. Поддерживает боковые кнопки мыши."],
+      "hotkeys":["Цифровые клавиши стратагем","При открытом списке нажмите 1–4 в цифровом ряду, чтобы ввести команду личной ячейки с тем же номером в колесе. Цифровой блок отделён. Поддерживает удержание и переключение."],
+      "shared_other":["Прочие общие / миссионные вызовы","Показывает вызовы без отдельного переключателя, например перевооружение Eagle, если общие настройки используют индивидуальный выбор. Общие настройки имеют приоритет, не стирая выбор. Личные ячейки 1–4 не меняются."],
+      "scale":["Размер колеса","100% (по умолчанию), 125%, 150%, 200% или 300%. Размер ограничивается экраном. Подтвердите через APPLY в игре; перезапуск не нужен."],
+      "slow":["Интервал ввода команд","15 мс (по умолчанию) или 30 мс на нажатие и отпускание. Следующее направление отправляется после распознавания предыдущего игрой."],
+      "shared_all":["Все общие вызовы","По умолчанию индивидуальные настройки. Включено показывает все доступные общие вызовы; выключено скрывает их. Общие + миссия имеет приоритет. Сохраняет индивидуальный выбор, вызовы миссии и личные ячейки."],
+      "mission_all":["Все вызовы миссии","По умолчанию индивидуальные настройки. Включено показывает все доступные вызовы миссии; выключено скрывает их. Общие + миссия имеет приоритет. Сохраняет индивидуальный выбор, общие вызовы и личные ячейки."],
+      "shared_mission_all":["Все общие вызовы + вызовы миссии","Высший приоритет: вместе показывает или скрывает доступные общие и миссионные вызовы. Индивидуальные настройки восстанавливает групповой и отдельный выбор, не стирая его. Никогда не скрывает личные ячейки 1–4."],
+      "vehicle":["Автоперезарядка техники","Независима от личного оружия. Перезаряжает основное оружие FRV/танка лишь при пустых магазине и патроннике, подтверждённом запасе и отсутствии перезарядки. Ждёт отпускания огня; пустой клик может отпустить левую кнопку. Одна попытка на опустошение. Личное оружие пассажиров использует свою настройку."],
+      "railgun_threshold":["Порог автовыстрела Railgun","90% или 95% (по умолчанию) шкалы опасности, только при включённом автовыстреле. Epoch остаётся на 100%. При 95% запас до взрыва меньше; задержки могут превысить порог. Подтвердите через APPLY."]
+    },
+    "Calls": {
+      "shared_reinforce":"Подкрепление","shared_sos":"Маяк SOS","shared_resupply":"Снабжение",
+      "mission_flare":"Орбитальная осветительная ракета","mission_extraction":"Маяк эвакуации","mission_flag":"Поднять флаг","mission_bug_thumper":"Приманка для жуков","mission_seismic":"Сейсмический зонд","mission_seaf":"Артиллерия SEAF","mission_dark_fluid":"Рюкзак с тёмной жидкостью","mission_oil_rig":"Установка добычи нефти","mission_hellbomb":"Адская бомба","mission_data_jack":"Разъём данных","mission_tcs":"Устройство TCS 03","mission_prospecting":"Разведочный бур","mission_cargo":"Грузовой контейнер","mission_bug_plug":"Блокиратор жуков","mission_cyborg_data":"Перенос данных киборгов","mission_camera":"Наплечная камера","mission_carry_data":"Перенос данных","mission_pinata":"Заглушённая пиньята","mission_explosives":"Дистанционная взрывчатка","mission_poison_drill":"Токсичный бур","mission_emergency":"Маяк экстренной эвакуации","mission_comms":"Мобильный ретранслятор связи","mission_carpet_bomb":"Ковровая бомбардировка","mission_scrambler":"Глушитель","mission_immediate":"Маяк немедленной эвакуации","mission_seaf_squad":"Отряд SEAF","mission_spire":"Стерилизатор шпиля","mission_destroyer":"Вызвать эсминец","mission_discovery":"Загрузить открытия","mission_drilling_charge":"Буровой заряд","mission_nuke":"Ядерная бомба"
+    }
+  },
+  "fr": {
+    "Categories": {"general":"HD2 Helper","shared":"HD2 Helper : commun","mission":"HD2 Helper : mission"},
+    "Groups": {"shared":"Commun","mission":"Mission"},
+    "Individual":"Réglages individuels", "Enabled":"Activé", "Disabled":"Désactivé",
+    "FilterDescription":"Activez pour afficher cet appel disponible dans la mission ; désactivez pour le masquer. Les commandes de groupe sont prioritaires sans effacer ce choix. Les variantes partagent le même réglage. Les emplacements personnels 1–4 restent visibles.",
+    "Options": {
+      "enabled":["Rechargement automatique","Recharge à vide ou après surchauffe complète, avec des réserves suffisantes, y compris le sac de munitions compatible. Les armes à rechargement immobile ou inconnu attendent un nouveau clic, pas le relâchement du tir. Le contrôle après changement d'arme reste actif. Tir sur clic gauche requis pour libérer un clic à vide."],
+      "charge90":["Tir automatique : Railgun / Epoch","Relâche une fois le clic gauche au seuil du Railgun (90 % ou 95 %, 95 % par défaut) ou à 100 % de charge de l'Epoch. Lit la charge réelle, sans minuterie. Visée et charge suivante manuelles. Le délai de lecture peut dépasser le seuil : aucune garantie contre l'explosion."],
+      "radial":["Roue des stratagèmes","Suit la liste des stratagèmes du jeu. Maintien : pointez puis relâchez. Bascule : clic gauche ou nouvelle pression sur la liste. Clic droit ou central : annuler et fermer après relâchement. Commandes envoyées après le clic ; visée et lancer manuels. Compatible avec les boutons latéraux de souris."],
+      "hotkeys":["Raccourcis numériques des stratagèmes","Liste ouverte, appuyez sur 1–4 de la rangée numérique pour saisir la commande du même emplacement personnel que dans la roue. Le pavé numérique est distinct. Compatible avec maintien et bascule."],
+      "shared_other":["Autres appels communs / de mission","Affiche les appels sans réglage individuel, dont le réarmement Eagle, lorsque les commandes globales utilisent les réglages individuels. Les commandes globales restent prioritaires sans effacer ce choix. Aucun effet sur les emplacements 1–4."],
+      "scale":["Taille de la roue","Choisissez 100 % (défaut), 125 %, 150 %, 200 % ou 300 %. La taille est limitée pour rester dans l'écran. Validez avec APPLY dans le jeu ; aucun redémarrage nécessaire."],
+      "slow":["Intervalle de saisie","15 ms (défaut) ou 30 ms entre pression et relâchement. La direction suivante est envoyée après détection de la précédente par le jeu."],
+      "shared_all":["Tous les appels communs","Réglages individuels par défaut. Activé : affiche tous les appels communs disponibles. Désactivé : les masque tous. La commande commun + mission est prioritaire. Conserve les choix individuels, les missions et les emplacements personnels."],
+      "mission_all":["Tous les appels de mission","Réglages individuels par défaut. Activé : affiche tous les appels de mission disponibles. Désactivé : les masque. La commande commun + mission est prioritaire. Conserve les choix individuels, les appels communs et les emplacements personnels."],
+      "shared_mission_all":["Tous les appels communs + mission","Priorité maximale : affiche ou masque ensemble les appels communs et de mission disponibles. Réglages individuels restaure les choix de groupe et individuels sans les effacer. Ne masque jamais les emplacements personnels 1–4."],
+      "vehicle":["Rechargement automatique des véhicules","Indépendant du rechargement personnel. Recharge l'arme principale montée d'un FRV ou d'un char si chargeur et chambre sont vides, réserves confirmées et aucun rechargement actif. Attend le relâchement du tir ; un clic à vide peut libérer le clic gauche. Une tentative par épuisement. Les armes personnelles des passagers gardent leur propre réglage."],
+      "railgun_threshold":["Seuil de tir du Railgun","90 % ou 95 % (défaut) de la jauge de danger, seulement si le tir automatique est activé. L'Epoch reste à 100 %. À 95 %, la marge avant explosion est plus faible ; les délais peuvent dépasser le seuil. Validez avec APPLY."]
+    },
+    "Calls": {
+      "shared_reinforce":"Renforts","shared_sos":"Balise SOS","shared_resupply":"Ravitaillement",
+      "mission_flare":"Fusée éclairante orbitale","mission_extraction":"Balise d'extraction","mission_flag":"Lever le drapeau","mission_bug_thumper":"Leurre à insectes","mission_seismic":"Sonde sismique","mission_seaf":"Artillerie SEAF","mission_dark_fluid":"Sac de fluide obscur","mission_oil_rig":"Extracteur de pétrole","mission_hellbomb":"Bombe infernale","mission_data_jack":"Connecteur de données","mission_tcs":"Dispositif TCS 03","mission_prospecting":"Foreuse de prospection","mission_cargo":"Conteneur de fret","mission_bug_plug":"Obturateur d'insectes","mission_cyborg_data":"Transport de données cyborg","mission_camera":"Caméra d'épaule","mission_carry_data":"Transport de données","mission_pinata":"Piñata brouillée","mission_explosives":"Explosifs télécommandés","mission_poison_drill":"Foreuse toxique","mission_emergency":"Balise d'extraction d'urgence","mission_comms":"Relais de communication mobile","mission_carpet_bomb":"Bombardement en tapis","mission_scrambler":"Brouilleur","mission_immediate":"Balise d'extraction immédiate","mission_seaf_squad":"Escouade SEAF","mission_spire":"Stérilisateur de flèche","mission_destroyer":"Appel du destroyer","mission_discovery":"Envoi des découvertes","mission_drilling_charge":"Charge de forage","mission_nuke":"Bombe nucléaire"
+    }
+  },
+  "de": {
+    "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: Gemeinsam","mission":"HD2 Helper: Mission"},
+    "Groups":{"shared":"Gemeinsam","mission":"Mission"},
+    "Individual":"Einzeleinstellungen", "Enabled":"Ein", "Disabled":"Aus",
+    "FilterDescription":"Ein: Diesen verfügbaren Missionsaufruf anzeigen. Aus: ausblenden. Gruppenregler haben Vorrang, ohne diese Auswahl zu löschen. Varianten teilen einen Schalter. Persönliche Plätze 1–4 bleiben sichtbar.",
+    "Options": {
+      "enabled":["Automatisch nachladen","Lädt bei leerem Magazin oder vollständiger Überhitzung mit ausreichender Reserve nach; passende Munitionsrucksäcke zählen mit. Waffen mit stationärem oder unbekanntem Nachladen warten auf einen erneuten Klick statt auf das Loslassen. Prüfung nach Waffenwechsel bleibt aktiv. Zum Freigeben eines Leerklicks muss Feuer auf der linken Maustaste liegen."],
+      "charge90":["Railgun / Epoch automatisch abfeuern","Lässt die linke Maustaste einmal bei der Railgun-Schwelle (90 % oder 95 %, Standard 95 %) oder bei 100 % Epoch-Ladung los. Liest die echte Ladung statt eines Timers. Zielen und nächstes Laden bleiben manuell. Lese- und Eingabeverzögerung können die Schwelle überschreiten; Explosionsschutz ist nicht garantiert."],
+      "radial":["Gefechtsoptionen-Rad","Folgt der Liste im Spiel. Halten: Bereich anvisieren und loslassen. Umschalten: Linksklick oder Listentaste erneut drücken. Rechts- oder Mittelklick bricht ab und schließt nach dem Loslassen. Befehle erst nach Klickfreigabe; Zielen und Werfen manuell. Unterstützt seitliche Maustasten."],
+      "hotkeys":["Gefechtsoptionen-Zifferntasten","Bei offener Liste geben die Zifferntasten 1–4 den Befehl des entsprechenden persönlichen Platzes im Rad ein. Der Ziffernblock ist unabhängig. Unterstützt Halten und Umschalten."],
+      "shared_other":["Weitere gemeinsame / Missionsaufrufe","Zeigt Aufrufe ohne eigenen Schalter, etwa Eagle-Neubewaffnung, wenn die globalen Regler Einzeleinstellungen verwenden. Globale Regler haben Vorrang, ohne diese Auswahl zu löschen. Persönliche Plätze 1–4 bleiben unverändert."],
+      "scale":["Größe des Rads","100 % (Standard), 125 %, 150 %, 200 % oder 300 %. Große Räder werden an den Bildschirm angepasst. Im Spiel mit APPLY übernehmen; kein Neustart nötig."],
+      "slow":["Befehlseingabe-Intervall","15 ms (Standard) oder 30 ms pro Drücken und Loslassen. Die nächste Richtung wird erst gesendet, wenn das Spiel die vorherige erkannt hat."],
+      "shared_all":["Alle gemeinsamen Aufrufe","Standard: Einzeleinstellungen. Ein zeigt alle verfügbaren gemeinsamen Aufrufe; Aus blendet sie aus. Gemeinsam + Mission hat Vorrang. Einzelwahl, Missionsaufrufe und persönliche Plätze bleiben erhalten."],
+      "mission_all":["Alle Missionsaufrufe","Standard: Einzeleinstellungen. Ein zeigt alle verfügbaren Missionsaufrufe; Aus blendet sie aus. Gemeinsam + Mission hat Vorrang. Einzelwahl, gemeinsame Aufrufe und persönliche Plätze bleiben erhalten."],
+      "shared_mission_all":["Alle gemeinsamen + Missionsaufrufe","Höchste Priorität: verfügbare gemeinsame und Missionsaufrufe zusammen ein- oder ausblenden. Einzeleinstellungen stellt Gruppen- und Einzelwahl wieder her, ohne sie zu löschen. Persönliche Plätze 1–4 werden nie ausgeblendet."],
+      "vehicle":["Fahrzeuge automatisch nachladen","Unabhängig vom persönlichen Nachladen. Prüft die primäre montierte FRV-/Panzerwaffe. Lädt nur bei leerem Magazin und leerer Kammer, bestätigter Reserve und ohne aktives Nachladen. Wartet auf Feuerfreigabe; Leerklick kann die linke Maustaste freigeben. Ein Versuch pro Leerzustand. Persönliche Beifahrerwaffen nutzen ihre eigene Einstellung."],
+      "railgun_threshold":["Railgun-Auslöseschwelle","90 % oder 95 % (Standard) der Gefahrenanzeige, nur bei aktivierter Automatik. Epoch bleibt bei 100 %. 95 % lässt weniger Spielraum vor der Explosion; Verzögerungen können die Schwelle überschreiten. Mit APPLY übernehmen."]
+    },
+    "Calls": {
+      "shared_reinforce":"Verstärkung","shared_sos":"SOS-Signal","shared_resupply":"Nachschub",
+      "mission_flare":"Orbitale Leuchtfackel","mission_extraction":"Extraktionssignal","mission_flag":"Flagge hissen","mission_bug_thumper":"Käferköder","mission_seismic":"Seismische Sonde","mission_seaf":"SEAF-Artillerie","mission_dark_fluid":"Dunkelflüssigkeitsrucksack","mission_oil_rig":"Ölfördergerät","mission_hellbomb":"Höllenbombe","mission_data_jack":"Datenanschluss","mission_tcs":"TCS-03-Gerät","mission_prospecting":"Erkundungsbohrer","mission_cargo":"Frachtcontainer","mission_bug_plug":"Käfersperre","mission_cyborg_data":"Cyborg-Datentransport","mission_camera":"Schulterkamera","mission_carry_data":"Datentransport","mission_pinata":"Gestörte Piñata","mission_explosives":"Ferngesteuerter Sprengstoff","mission_poison_drill":"Giftbohrer","mission_emergency":"Notextraktionssignal","mission_comms":"Mobiler Kommunikationsrelais","mission_carpet_bomb":"Flächenbombardement","mission_scrambler":"Störsender","mission_immediate":"Sofortiges Extraktionssignal","mission_seaf_squad":"SEAF-Trupp","mission_spire":"Turmsterilisator","mission_destroyer":"Zerstörer anfordern","mission_discovery":"Entdeckung hochladen","mission_drilling_charge":"Bohrsprengladung","mission_nuke":"Atombombe"
+    }
+  },
+  "it": {
+    "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: comuni","mission":"HD2 Helper: missione"},
+    "Groups":{"shared":"Comune","mission":"Missione"},
+    "Individual":"Impostazioni individuali", "Enabled":"Attivo", "Disabled":"Disattivo",
+    "FilterDescription":"Attiva per mostrare questa chiamata disponibile nella missione; disattiva per nasconderla. I controlli di gruppo hanno priorità senza cancellare la scelta. Le varianti condividono un interruttore. Gli slot personali 1–4 restano visibili.",
+    "Options": {
+      "enabled":["Ricarica automatica","Ricarica a caricatore vuoto o surriscaldamento completo con riserve sufficienti, incluso lo zaino munizioni compatibile. Le armi con ricarica immobile o sconosciuta attendono un nuovo clic, non il rilascio del fuoco. Il controllo dopo cambio arma resta attivo. Serve il clic sinistro per rilasciare un tentativo di fuoco a vuoto."],
+      "charge90":["Sparo automatico Railgun / Epoch","Rilascia una volta il clic sinistro alla soglia del Railgun (90% o 95%, predefinito 95%) o al 100% di carica dell'Epoch. Legge la carica reale, non un timer. Mira e carica successiva restano manuali. I ritardi possono superare la soglia: la prevenzione delle esplosioni non è garantita."],
+      "radial":["Ruota degli stratagemmi","Segue l'elenco del gioco. Tieni premuto: indica un settore e rilascia. Alterna: clic sinistro o premi di nuovo il tasto elenco. Clic destro o centrale annulla e chiude dopo il rilascio. Comandi dopo il rilascio del clic; mira e lancio manuali. Supporta i pulsanti laterali del mouse."],
+      "hotkeys":["Tasti numerici degli stratagemmi","Con l'elenco aperto, premi 1–4 sulla fila numerica per inserire il comando dello slot personale corrispondente nella ruota. Il tastierino numerico è separato. Supporta pressione continua e alternata."],
+      "shared_other":["Altre chiamate comuni / di missione","Mostra chiamate senza interruttore dedicato, come il riarmo Eagle, quando i controlli globali usano impostazioni individuali. I controlli globali hanno priorità senza cancellare la scelta. Nessun effetto sugli slot personali 1–4."],
+      "scale":["Dimensione della ruota","100% (predefinito), 125%, 150%, 200% o 300%. Le dimensioni grandi sono limitate allo schermo. Conferma con APPLY nel gioco; non serve riavviare."],
+      "slow":["Intervallo di inserimento comandi","15 ms (predefinito) o 30 ms per pressione e rilascio. La direzione successiva viene inviata dopo il rilevamento della precedente da parte del gioco."],
+      "shared_all":["Tutte le chiamate comuni","Predefinito: impostazioni individuali. Attivo mostra tutte le chiamate comuni disponibili; disattivo le nasconde. Comuni + missione ha priorità. Conserva scelte individuali, chiamate di missione e slot personali."],
+      "mission_all":["Tutte le chiamate di missione","Predefinito: impostazioni individuali. Attivo mostra tutte le chiamate di missione disponibili; disattivo le nasconde. Comuni + missione ha priorità. Conserva scelte individuali, chiamate comuni e slot personali."],
+      "shared_mission_all":["Tutte le chiamate comuni + missione","Priorità massima: mostra o nasconde insieme chiamate comuni e di missione disponibili. Impostazioni individuali ripristina scelte di gruppo e individuali senza cancellarle. Non nasconde mai gli slot personali 1–4."],
+      "vehicle":["Ricarica automatica dei veicoli","Indipendente dalla ricarica personale. Ricarica l'arma principale montata di FRV/carri solo con caricatore e camera vuoti, riserve confermate e nessuna ricarica in corso. Attende il rilascio del fuoco; un clic a vuoto può liberare il clic sinistro. Un tentativo per esaurimento. Le armi personali dei passeggeri usano la propria impostazione."],
+      "railgun_threshold":["Soglia di sparo del Railgun","90% o 95% (predefinito) dell'indicatore di pericolo, solo con sparo automatico attivo. Epoch resta al 100%. Il 95% offre meno margine prima dell'esplosione; i ritardi possono superare la soglia. Conferma con APPLY."]
+    },
+    "Calls": {
+      "shared_reinforce":"Rinforzi","shared_sos":"Segnalatore SOS","shared_resupply":"Rifornimento",
+      "mission_flare":"Razzo illuminante orbitale","mission_extraction":"Segnalatore di estrazione","mission_flag":"Alza la bandiera","mission_bug_thumper":"Richiamo per insetti","mission_seismic":"Sonda sismica","mission_seaf":"Artiglieria SEAF","mission_dark_fluid":"Zaino di fluido oscuro","mission_oil_rig":"Estrattore di petrolio","mission_hellbomb":"Bomba infernale","mission_data_jack":"Connettore dati","mission_tcs":"Dispositivo TCS 03","mission_prospecting":"Trivella di prospezione","mission_cargo":"Container merci","mission_bug_plug":"Tappo per insetti","mission_cyborg_data":"Trasporto dati cyborg","mission_camera":"Telecamera da spalla","mission_carry_data":"Trasporto dati","mission_pinata":"Piñata disturbata","mission_explosives":"Esplosivi telecomandati","mission_poison_drill":"Trivella tossica","mission_emergency":"Segnalatore di estrazione d'emergenza","mission_comms":"Ripetitore comunicazioni mobile","mission_carpet_bomb":"Bombardamento a tappeto","mission_scrambler":"Disturbatore","mission_immediate":"Segnalatore di estrazione immediata","mission_seaf_squad":"Squadra SEAF","mission_spire":"Sterilizzatore della guglia","mission_destroyer":"Richiama il cacciatorpediniere","mission_discovery":"Carica le scoperte","mission_drilling_charge":"Carica di perforazione","mission_nuke":"Bomba nucleare"
+    }
+  }
+}

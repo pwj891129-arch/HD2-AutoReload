@@ -1,15 +1,228 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.54-test
+# HD2 Helper Auto Reload + Stratagems 0.3.61-test
 
-## In-Game MODS Settings
+## Dependencies
+
+| Component | Required? | Purpose |
+| --- | --- | --- |
+| Bingus Shared Loader (API 1) | Yes | Loads the helper addon. Use v19 for the separate HD2H tab; v18 supports the legacy integration. |
+| CowboyBingus Mod Options Menu 1.2 (API 1, version 3) | For in-game settings only | Provides editable settings and saved values. Without it, reload, charge release, the wheel and hotkeys use deployed defaults. |
+| HD2 HUD+ / Mod Bindings Menu | No | Neither is needed to run the helper. |
+
+**필수:** Bingus Shared Loader. **설정 변경에 필요:** Mod Options Menu 1.2.
+옵션 메뉴가 없어도 자동재장전·자동발사·휠·단축키는 배포 기본값으로 작동한다.
+독립 상단 **HD2H** 탭을 사용하려면 Loader v19와 옵션 메뉴가 모두 필요하다.
+로더와 옵션 메뉴는 헬퍼 ZIP에 포함하지 않으므로 필요에 따라 별도로 설치한다.
+옵션 메뉴: [CowboyBingus ModOptionsMenu](https://github.com/CowboyBingus/ModOptionsMenu).
+
+## Weapon Runtime Recovery
+
+0.3.61 removes the permanent runtime-error latch for automatic reload and charge
+release. A Lua callback error releases owned inputs and retries with a bounded
+1-5 second backoff. Failed key release or reset keeps input suspended. Recovery
+invalidates stale identity, charge and firing history without changing user
+options, pause/chat state, binary compatibility guards or drone ownership.
+
+After recovery, weapon state continues to be sampled without sending inputs.
+Actions resume on a **fresh fire-button press**, not its release. An already-held
+button does not replay an old shot. The resumed press is retained for empty-weapon
+checks; continued holding is available to Railgun/Epoch charge release. Normal
+reload-on-release and the one-second post-release checks are unchanged.
+
+Runtime errors, recovery and pause/chat/menu/focus/option gates are event-logged.
+Reload log entries use append-and-close so they do not depend on a flush method.
+Wheel/shortcut behavior, defaults, the 50ms weapon poll and hidden Arsenal options
+are unchanged. This is a prerelease test package, not a stable release. Building
+the package does not install it or publish it automatically.
+
+2026-10-08 read-only inspection found reload/charge options ON, matching supported
+game binary hashes, and a valid held-weapon sample (magazine 14, reserve 5).
+Existing helper logs were empty, so the precise original runtime failure or
+blocking gate could not be established. The permanent-error path is a confirmed
+code defect, not yet a proven diagnosis of that session. Offline tests cover
+cooldown, repeated errors, failed reset/release, clock resets and fresh-press
+rearming. Actual in-game recovery still needs testing after application.
+
+Release checks passed for the isolated LuaJIT suite, the 46-option / 14-language
+schema, unified package scenarios, the installed Arsenal collector and HD2SDK
+archive/font validation. The optional installed-menu-source fixture was skipped
+because the expected API 1 version 3 fixture was unavailable. Mock-provider
+regressions passed; this does not replace live HD2H menu validation.
+
+오류 후 자동재장전·충전 자동발사가 영구 중단되지 않도록 수정했다.
+입력을 정리하고 무기 상태를 재검사한 뒤, **사격 버튼을 새로 누르는 순간** 재개한다.
+버튼을 놓는 동작으로 재개하지 않으며, 기존에 계속 누르고 있던 입력도 재사용하지 않는다.
+복구 대기 중 무기 판독은 유지하고, 재개 후에는 레일건의 계속 누르는 충전도 감지한다.
+기존 사격 종료 시 재장전 규칙, 설정값 및 드론 입력 협력은 유지한다.
+이번 세션의 정확한 중단 원인은 로그가 비어 있어 아직 확정하지 못했다.
+게임 종료 후 시험 ZIP을 교체·적용하고, 재실행해서 작동 및 새 로그를 확인해야 한다.
+
+## Helper Runtime Overhead
+
+0.3.60 reduces redundant work without changing feature defaults, weapon checks,
+the 50ms reload poll, command timing or per-frame cursor selection. In-game
+options still poll every 250ms so public API `set` calls without change callbacks
+remain visible. Language changes, saved settings and multiplayer identity checks
+are retained.
+
+- Weapon reads reuse one 256-byte FFI buffer; wheel reads reuse a bounded buffer
+  that grows for binding tables. Every read still calls ReadProcessMemory, resets
+  its byte count, refuses failures/short reads, and returns an independent string.
+- HD2H uses one fresh pre-update and one fresh post-update menu observation,
+  sharing the latter with tab-count restoration. No native pointer observation
+  survives a frame. Peer callback results, including nils and errors, are
+  forwarded without allocating a return-value table every update.
+- Icon resource lookups share common material/atlas results within one draw
+  only. The next draw rechecks availability, including failed resources. Each
+  icon retains its own UV region, colors and GUI-local material instance.
+- An already closed wheel no longer enumerates game worlds or allocates empty
+  cleanup tables. Live shapes and owned font/icon surfaces still receive normal
+  cleanup and stale-world protection.
+- Key edge tracking reuses its small state tables; unchanged reload status no
+  longer formats an unused detail message. Input edges are not throttled.
+
+Offline counters against the unmodified 0.3.59 working sources:
+
+| Fixture | Before | After |
+| --- | ---: | ---: |
+| 2,000 weapon reads: additional FFI buffer allocations | 2,000 | 0 |
+| 2,000 alternating small/binding-table reads: additional buffer allocations | 2,000 | 1 |
+| 240 closed/helper-tab frames: menu queries, including provider work | 960 | 720 |
+| 240 wheel frames, 8 icons sharing an atlas: image resource queries | 3,840 | 480 |
+| 240 repeat-close calls: world enumerations | 480 | 0 |
+| Same 240 hover frames: created shapes | 35,040 | 35,040 |
+
+Buffer counts exclude initialization; the wheel count includes its one growth.
+These are deterministic owned-memory/API fixtures, not measured game FPS or
+render-time benchmarks. Actual improvement requires testing this version in
+game. Existing deployed patches and the running game are not changed by a build.
+`test.ps1` includes allocation, failed/short read, immutable result, resource
+loss/recovery and tab/coexistence regressions. `test.ps1 -Performance` also writes
+`dist/performance-comparison.json`; it requires the preserved baseline sources
+under `dist/performance-before`, captured before these edits.
+
+## Live Language Refresh
+
+0.3.59 fixes returning from another language to Korean leaving stale option
+texts. The log showed correct game-language detection, but Mod Options Menu
+refreshed its text cache before the helper's poll on menu opening. The checked
+provider translation model now refreshes after that poll, once per locale
+change. Option IDs, values, registrations and subscriptions are unchanged.
+
+All 46 option labels, descriptions, category names and custom choice labels
+now cover the game's 14 supported text languages: English, Korean, Japanese,
+French, German, Italian, Spanish (Spain / Latin America), Portuguese
+(Portugal / Brazil), Polish, Russian and Chinese (Simplified / Traditional).
+The list is based on the official Steam app details for app 553850, checked
+2026-10-07. Game record aliases such as jp, mx, br, cn and tw select the right
+locale. Unsupported or unreadable codes still fall back to English.
+
+One ZIP contains every option translation; Arsenal options remain hidden.
+The wheel's existing Korean/English name renderer is unchanged. Full native
+in-game font/layout verification is still needed in each language. Offline
+tests use the installed menu provider to cycle all locales back to Korean and
+verify every label, description, custom choice and saved value. In-game size
+and Railgun threshold descriptions now refer to APPLY, not Arsenal redeploy.
+
+## HD2H Frame Callback Repair
+
+The 0.3.57 runtime connected to the options provider, but never logged tab
+placement. A regression that caches the engine update callback reproduces the
+same failure: replacing the global callback during a frame leaves the cached
+callback unchanged. 0.3.58 registers with Bingus Shared Loader v19's
+`after_startup` hook and wraps the final mod update chain before the game can
+cache it. Provider initialization and connection can still finish later.
+
+The regression now passes with the actual installed Mod Options Menu source,
+large HUD-style callback caches, delayed initialization and a fixed engine
+callback. Tests also cover preserved BTO/HUD+ titles, escape-menu reopening,
+helper-only category routing and saved values. Startup, first frame and screen
+state are logged for live verification. Game rendering still needs testing
+after installing this ZIP. Independent top-level tabs require Loader v19;
+older loaders retain the legacy update integration.
+
+## HD2H Tab Discovery Repair
+
+0.3.57-test fixes the separate top-level tab connection failing in a large
+HUD/mod update chain. The 0.3.56 live log reported `provider layout unavailable`
+and retained the helper categories in MODS. An owned-memory fixture using the
+installed Mod Options Menu reproduced the failure with HUD-style wrappers and
+large unrelated callback caches.
+
+Discovery now follows callback functions before cache tables, anchors to the
+exact state exposed by Mod Options Menu, then inspects only that provider's
+view graph. Temporary discovery failures retry after 120 eligible updates,
+even when the outer callback has not changed. Unsupported private layouts and
+full tab bars still retain MODS rather than guessing native pointers.
+
+The tab title is `HD2H`. Its General, Common and Mission categories retain all
+46 saved setting IDs, APPLY and automatic English/Korean texts. Existing MODS,
+BTO and HUD+ titles remain intact. Arsenal options remain hidden; the unified
+ZIP still deploys all 48 resources without selecting options.
+
+Offline regressions verify noisy HUD chains, bounded retry, native tab placement,
+peer titles/counts, unsupported stripped ABI refusal and saved values in owned
+memory. Actual in-game top-level rendering remains unverified until installation.
+
+## HD2H And Automatic Language
+
+0.3.56-test fixes missing deployment in 0.3.55 and names the top-level tab `HD2H`.
+The installed Arsenal 0.36.2 ignored top-level manifest Include and deployed
+zero files for the optionless 0.3.55 package. The helper, its 46 default setting
+resources and Korean glyph texture now ship together in the root patch_0.
+The installed Arsenal collector confirms all 48 resources, with no duplicates
+or option selections. HD2SDK serializers validate the merged payloads and DDS.
+
+One ZIP reads the game's Text Language through the existing build-verified,
+read-only channel. Korean selects Korean; English, unsupported languages and
+unreadable settings select English. Changes refresh at 250ms intervals. Menu
+labels, categories, descriptions, choices and wheel names follow this setting,
+not the Windows or Steam UI language. Function-backed Mod Options Menu texts
+preserve stable IDs, callbacks and saved values without re-registration.
+
+The helper's three categories occupy a separate top-level `HD2H`
+tab beside MODS, BTO and HUD+. All 46 stable setting IDs, APPLY, descriptions and
+saved values remain owned by Mod Options Menu. Only helper categories leave MODS;
+other mods remain there. The title is always `HD2H`, with no space.
+
+게임을 종료하고 `HD2-AutoReload-0.3.61-test.zip`으로 이전 헬퍼를 교체한 뒤 Purge / Deploy한다.
+ESC 상단의 `HD2H` 탭에서 일반·공용·임무 설정을 조절하고 APPLY로 적용한다.
+언어별 ZIP은 분리하지 않는다. 옵션 메뉴는 게임 텍스트 언어에 맞춰 14개 언어로 표시한다.
+미지원 언어나 판독 실패는 영어로 표시한다. 휠 이름은 기존 한국어·영어 표시를 유지한다.
+기존 인게임 저장값은 그대로 유지된다. Arsenal에는 옵션 선택창이 표시되지 않는다.
+
+Arsenal deploys the default settings automatically: reload, vehicle reload,
+charge release, wheel, hotkeys and individual visibility toggles ON; 95% Railgun,
+100% wheel, 15ms input and Individual bulk controls. Saved in-game values take
+priority. The full Arsenal definitions, variants and icons are preserved in
+source and `arsenal-options.hidden.json`, which Arsenal does not use as its entry
+manifest. They are not deleted and can be restored for a later release. An
+editor-enabled build must replace the merged default deployment too, rather
+than enabling conflicting variants alongside it.
+
+Requires Mod Options Menu v1.2 (API 1 version 3) for editable settings. Its public
+API has no custom tab registration, so a bounded, version-checked view adapter
+reuses the installed provider's verified native widgets. No provider source or
+new native executable is bundled. Unknown provider layouts or a full eight-slot
+tab bar retain the public MODS categories; missing providers retain deployed
+defaults. Existing peer tabs are hidden only within their update scope and all
+tab counts and titles are restored before native input/rendering continues.
+
+Offline checks include the installed provider's actual closure layout and all
+46 registrations, MODS/BTO/HUD+ coexistence, menu reopening, errors, nil return
+values, covered menus, game-language refresh and hidden-editor root deployment. Native
+game rendering, mouse/controller input and APPLY/restart persistence still need
+an in-game test. Installed game archives were not changed.
+
+## Live Settings (0.3.54 Foundation)
 
 0.3.54-test exposes all 46 Arsenal settings in CowboyBingus Mod Options Menu
 v1.2 (API 1, version 3). The optional menu is installed separately, together
 with Bingus Shared Loader v18 / API 1. Without the menu, or with an older API,
-the helper continues using Arsenal settings; it does not patch the menu itself.
+the helper continues using deployed defaults. 0.3.55 adds the separate view adapter above.
 
 게임을 종료하고 기존 헬퍼를 이 버전의 한국어 또는 영어 ZIP 하나로 교체한다.
 Bingus Mod Options Menu 1.2도 설치·활성화한 뒤 Purge / Deploy하고 재시작한다.
-ESC의 MODS 탭에서 `HD2 헬퍼`, `HD2 헬퍼: 공용`, `HD2 헬퍼: 임무`를 선택한다.
+ESC의 HD2H 탭에서 `HD2 헬퍼`, `HD2 헬퍼: 공용`, `HD2 헬퍼: 임무`를 선택한다.
 값을 변경하고 APPLY를 누르면 재시작 없이 다음 업데이트에서 반영한다.
 Arsenal은 초기값이며 인게임에서 저장한 값이 우선한다. 이 배포는 설치된 메뉴나 게임 파일을 수정하지 않았다.
 
@@ -19,8 +232,8 @@ The three stable categories respect the native menu's 32-row limit:
 - HD2 Helper: Common: 5 rows for the shared bulk control, other calls and Reinforce/SOS/Resupply.
 - HD2 Helper: Mission: 32 rows for the mission bulk control and all 31 individual calls.
 
-English/Korean packages keep the same stable setting IDs and values. MODS labels
-use the package language as native UTF-8 text, not raster text images. The menu
+The unified package keeps stable setting IDs and values. Settings labels
+use the game language as native UTF-8 text, not raster text images. The menu
 owns persistence in `%LOCALAPPDATA%/CowboyBingus/Helldivers2/Logs/ModOptionsMenu.values`;
 the helper does not read or overwrite that file. Existing saved MODS values
 override the deployed Arsenal baseline. Changing Arsenal does not overwrite them.
@@ -587,26 +800,24 @@ This also applies when joining another player's mission in progress. Live
 host/client and late-join confirmation is still required. Automatic reload,
 charge release and feature defaults are unchanged.
 
-## Language Packages
+## Unified Language Package
 
-Release assets are provided separately:
+The current test release has one asset: `HD2-AutoReload-0.3.61-test.zip`.
 
-- `HD2-AutoReload-0.3.52-test-en.zip`: English Arsenal options and wheel names (default distribution).
-- `HD2-AutoReload-0.3.52-test-ko.zip`: Korean Arsenal options and wheel names.
+Both menu translations and wheel names are bundled. The game Text Language
+setting selects Korean or English at runtime; other languages fall back to
+English. The package GUID and all saved option IDs remain unchanged.
 
-Install only one ZIP. Both share the same mod GUID, option order, default values,
-include paths and game logic. Only manifest text and the wheel language flag differ.
-Changing package language replaces the same mod, not an additional addon. Review
-checkbox states after replacement, then Purge / Deploy and restart the game.
+Replace the previous helper, then Purge / Deploy and restart with the game
+closed. Arsenal has no settings editor for this package. Its English package
+description is static; settings are edited in the game's HD2H tab.
 
-Arsenal 0.36.2 displays mod-provided names and descriptions literally; its UI
-language packs do not translate these fields. There is no OS-language detection
-script or automatic language switch in this release. Choose the ZIP yourself.
-The wheel language follows the ZIP, not OS detection. Runtime logs remain English.
+The locale reader performs five guarded reads at most once per 250ms. No
+game settings, Windows language or Steam configuration are modified. Runtime
+logs remain English and record `LANGUAGE game=<code> helper=<en|ko>`.
 
-한국어 옵션과 휠 이름을 표시하려면 `-ko.zip` 파일만 설치하세요. 영어판은 `-en.zip`입니다.
-두 언어판을 동시에 설치하지 마세요. 언어판 교체 후 ON/OFF 설정을 확인하고
-Purge / Deploy 및 게임 재시작을 진행하세요. OS 언어 자동 감지 파일은 포함하지 않습니다.
+게임의 텍스트 언어 설정으로 메뉴와 휠 이름이 전환된다. 별도의 언어 ZIP이나
+OS 언어 감지 파일은 필요하지 않으며 기존 인게임 저장 설정도 유지된다.
 
 ## Combined Mod
 
@@ -646,11 +857,12 @@ called. F9 and F10 have no addon function. Offline research sources and
 automated developer tests remain in the repository, not the release ZIP.
 Normal reload/error logs remain available.
 
-## Arsenal Options
+## Preserved Setting Definitions
 
-Arsenal supplies initial feature settings. Since 0.3.54-test, optional Mod Options
-Menu v1.2 can override all of them live on the MODS tab. Mod Bindings Menu is not
-required. Without a compatible options menu, Arsenal settings remain active.
+Since 0.3.55-test Arsenal deploys initial feature settings without showing an
+editor. Use HD2H with Mod Options Menu v1.2 to override them live. Mod Bindings
+Menu is not required. Without a compatible provider, deployed defaults stay active.
+The preserved legacy editor definitions below also describe the live controls.
 
 - `Automatic Reload` / `자동재장전`: checked is ON; unchecked is OFF.
   Covers both magazine exhaustion and complete overheat.
@@ -674,9 +886,9 @@ required. Without a compatible options menu, Arsenal settings remain active.
 Size, interval, Railgun threshold and bulk choices are mutually exclusive. Boolean settings have
 only a direct checkbox. Bulk controls do not erase saved
 individual settings; restore Individual Settings to use them again. Review choices after
-importing, especially if Arsenal automatically enables new options. Close the
-game, replace the previous package, Purge / Deploy, and restart after Arsenal changes.
-In-game MODS changes need APPLY, not redeployment or a restart.
+importing. Close the game, replace the previous package, Purge / Deploy, and
+restart after replacing the package. In-game HD2H changes need APPLY, not
+redeployment or a restart.
 Old deployed option files must not be left behind. Building and publishing
 do not change installed game patches.
 
@@ -786,9 +998,9 @@ and its [resource hash names](https://github.com/xypwn/filediver/blob/master/has
 ## Compatibility And Installation
 
 1. Close the game before deploying.
-2. Import one language ZIP into Arsenal and replace the previous version.
-3. Enable this addon and Bingus Shared Loader v18 / API 1.
-4. Select the desired ON/OFF variants (at least one), ensure radial is ON, then Purge / Deploy and restart.
+2. Import the unified HD2-AutoReload-0.3.61-test.zip into Arsenal and replace the previous version.
+3. Enable this addon and Bingus Shared Loader v19 / API 1 (v18 retains legacy integration).
+4. For editable settings and the separate HD2H tab, also enable Mod Options Menu 1.2. Without it, deployed defaults remain active. Purge / Deploy and restart. Settings require APPLY; Arsenal options are hidden.
 5. Disable/remove separate Stratagem Hotkeys and other automatic-reload implementations to prevent double input.
 
 HD2 HUD+ is optional. This addon replaces no HUD texture, GUI, boot script,
@@ -856,15 +1068,16 @@ These are offline mocks; actual combined gameplay and Arsenal UI remain unverifi
 
 ```powershell
 node build.cjs
+node menu-schema.test.cjs
 node package.test.cjs
+node tools/arsenal-collector.test.cjs # Optional installed-Arsenal fixture.
 node tools/mission-location-layout.test.cjs
 ./test.ps1 -LuaDll '<Helldivers 2 folder>/bin/lua51.dll'
 ./tools/Read-MissionLocation.ps1 # Optional live read-only location diagnostic.
 node tools/reload-layout.test.cjs
 node tools/vehicle-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.52-test-en/*' -DestinationPath './dist/HD2-AutoReload-0.3.52-test-en.zip'
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.52-test-ko/*' -DestinationPath './dist/HD2-AutoReload-0.3.52-test-ko.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.61-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.61-test.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

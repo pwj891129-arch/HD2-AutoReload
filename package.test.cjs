@@ -11,7 +11,7 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.54-test';
+const version = '0.3.61-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
@@ -68,13 +68,16 @@ if (fs.existsSync(path.join(capture, 'game-module.bin'))) {
   console.log('PASS pinned catalog: common identities and complete native mission coverage');
 } else console.log('SKIP pinned catalog: local reference capture unavailable');
 function checkPackage(language) {
-  const stage = path.join(__dirname, `dist/HD2-AutoReload-${version}-${language}`);
+  const stage = path.join(__dirname, `dist/HD2-AutoReload-${version}`);
   const text = texts[language];
-  const manifest = JSON.parse(fs.readFileSync(path.join(stage, 'manifest.json'), 'utf8'));
+  const deployedManifest = JSON.parse(fs.readFileSync(path.join(stage, 'manifest.json'), 'utf8'));
+  assert(!('Options' in deployedManifest), 'Arsenal editor is hidden from users');
+  assert.deepEqual(Object.keys(deployedManifest).sort(), ['Description', 'Guid', 'Name', 'Version']);
+  const manifest = {...deployedManifest, ...JSON.parse(fs.readFileSync(path.join(stage, 'arsenal-options.hidden.json'), 'utf8'))[language]};
   assert.equal(manifest.Version, 1);
   assert.equal(manifest.Guid, '9d720fab-718f-4c91-93c5-31c4c3e6c42e');
   assert.equal(manifest.Name, `HD2 Helper Auto Reload + Stratagems ${version}`);
-  assert.equal(manifest.Description, `${version}. ${text.Description}`);
+  assert.equal(manifest.Description, `${version}. ${texts.en.Description}`);
   assert.deepEqual(Object.keys(manifest).sort(), ['Description', 'Guid', 'Name', 'Options', 'Version']);
   assert.deepEqual(Object.keys(text.Options), coreIds);
   assert.equal(manifest.Options.length, optionIds.length);
@@ -112,7 +115,7 @@ function checkPackage(language) {
       assert.deepEqual(variant.Include, ['Core', `Option_${id}_${optionModel.suffix(value)}`]);
     }
   }
-  const visibleText = [manifest.Description, ...manifest.Options.flatMap(option =>
+  const visibleText = [...manifest.Options.flatMap(option =>
     [option.Name, option.Description, ...(option.SubOptions ?? []).flatMap(variant => [variant.Name, variant.Description])])];
   if (language === 'en') assert(visibleText.every(value => /^[\x20-\x7e]+$/.test(value)), 'English UI text is ASCII');
   else assert(visibleText.every(value => /[가-힣]/.test(value) || /^(ON|OFF|\d+%|\d+ ms)$/.test(value)), 'Korean UI text is localized');
@@ -155,7 +158,39 @@ function checkPackage(language) {
       }
     }
   }
-  assert(!fs.readdirSync(stage).some(name => /\.patch_\d+$/.test(name)), 'No root-only addon dependency');
+  const rootPatches = fs.readdirSync(stage).filter(name => /\.patch_\d+$/.test(name));
+  assert.deepEqual(rootPatches,['9ba626afa44a3aa3.patch_0'],'single root archive is always deployed by Arsenal');
+  const defaultsFolders = ['Core',...definitions.map(option=>`Option_${option.id}_${optionModel.suffix(option.values[0])}`)];
+  assert.deepEqual(fs.readdirSync(stage).filter(name=>/\.patch_\d+(\.stream|\.gpu_resources)?$/.test(name)).sort(),
+    ['9ba626afa44a3aa3.patch_0','9ba626afa44a3aa3.patch_0.gpu_resources','9ba626afa44a3aa3.patch_0.stream']);
+  const deployed = fs.readFileSync(path.join(stage,rootPatches[0]));
+  checkMinimum(deployed);
+  assert.equal(deployed.readUInt32LE(4),2);
+  assert.equal(deployed.readUInt32LE(8),48,'Core, font texture and all 46 defaults in one archive');
+  const entries = new Map();
+  for (let i=0;i<48;i++) {
+    const at=72+32*2+80*i;
+    const id=deployed.readBigUInt64LE(at),type=deployed.readBigUInt64LE(at+8);
+    const key=`${id}/${type}`;assert(!entries.has(key),'no duplicate resource in deployment');
+    entries.set(key,at);
+    assert.equal(deployed.readUInt32LE(at+76),i,'HD2SDK entry index');
+  }
+  for (const folder of defaultsFolders) {
+    for (const file of fs.readdirSync(path.join(stage,folder)).filter(name=>/\.patch_\d+$/.test(name))) {
+      const original=fs.readFileSync(path.join(stage,folder,file)),at=72+32*original.readUInt32LE(4);
+      const key=`${original.readBigUInt64LE(at)}/${original.readBigUInt64LE(at+8)}`;
+      const merged=entries.get(key);assert(merged!==undefined,'default asset is deployed');
+      for (const [suffix,offsetAt,sizeAt] of [['',16,56],['.stream',24,60],['.gpu_resources',32,64]]) {
+        const oldBytes=suffix?fs.readFileSync(path.join(stage,folder,file+suffix)):original;
+        const newBytes=suffix?fs.readFileSync(path.join(stage,rootPatches[0]+suffix)):deployed;
+        const oldOffset=Number(original.readBigUInt64LE(at+offsetAt)),newOffset=Number(deployed.readBigUInt64LE(merged+offsetAt));
+        const oldSize=original.readUInt32LE(at+sizeAt),newSize=deployed.readUInt32LE(merged+sizeAt);
+        assert.equal(oldSize,newSize,'merged payload size unchanged');
+        assert(oldBytes.subarray(oldOffset,oldOffset+oldSize).equals(newBytes.subarray(newOffset,newOffset+newSize)),
+          'merged asset and sidecar payloads match original');
+      }
+    }
+  }
   const archives = new Map();
   const deployedPatchNames = new Set();
   for (const folder of folders) {
@@ -195,7 +230,7 @@ function checkPackage(language) {
       assert(source.includes('assisted = 0x3326be8, inventory = 0x3326738, deposit = 0x33265e8'));
       assert(source.includes('self:backpack_reserve(sample, held, record, wield, avatar, avatar_identity)'));
       assert(source.includes('sample.reserve_token'));
-      assert(source.includes(`local LANGUAGE = "${language}"`));
+      assert(source.includes("local Locale = {language = 'en'}"));
       assert(source.includes('Reader.Locale.name(row.kind, definition.name)'));
       assert(source.includes('objectives = 0x3326da0, authored = 0x346bf98, discovery = 0x3326530'));
       assert(source.includes('function Reader:mission_location(definition, kind, here)'));
@@ -234,6 +269,14 @@ function checkPackage(language) {
       assert(source.includes('INPUT toggle-close-observed vk='));
       assert(source.includes(`local VERSION = "${version}"`));
       assert(source.includes('register_option') && source.includes('menu.on_change') && source.includes('menu.get'));
+      assert(source.includes("h.show_text(bar+TEXT+STRIDE*count,'HD2H')"), 'Independent requested top-level tab ships');
+      assert(source.includes('pcall(loader.after_startup,function()'), 'Tab frame callback is wired before the game caches it');
+      assert(!source.includes("if rawget(env,'update')~=wrapper"), 'Cached frame callback is not disabled by global replacement');
+      assert(source.includes('self:refresh_language(language)'), 'Language changes refresh the provider text cache after polling');
+      assert(source.includes("mx='es-419'") && source.includes("br='pt-BR'"), 'Game regional language codes are mapped');
+      assert(source.includes('state.language = Language.new(options_log)') && source.includes('language:poll(now)'));
+      assert(source.includes('Locale.bind(language)') && source.includes('record+8'));
+      assert(!source.includes('local MENU_LANGUAGE =') && !source.includes('local LANGUAGE ='), 'No fixed package language');
       assert(source.includes('reader.native.charge_enabled = config.charge90'));
       assert(source.includes('self.menu == menu'));
       for (const definition of definitions) {
@@ -285,6 +328,10 @@ function checkPackage(language) {
     }
   }
   const resourceIds = new Set([archives.get('Core').id]);
+  const defaultIds = defaultsFolders.map(folder => archives.get(folder).id);
+  assert.equal(new Set(defaultIds).size, defaultIds.length, 'Hidden-editor default deploy has no duplicate resources');
+  for (const option of definitions) assert.equal(JSON.parse(archives.get(
+    `Option_${option.id}_${optionModel.suffix(option.values[0])}`).source.slice(7)), option.values[0]);
   for (const option of manifest.Options) {
     for (const variant of variantsFor(option)) assert(variant.Include.includes('Core'), 'Every checkbox/choice deploys the addon');
     const variants = variantsFor(option).map(variant => archives.get(variant.Include.find(folder => folder !== 'Core')));
@@ -357,19 +404,7 @@ function packageFiles(folder, relative = '') {
   }).sort();
 }
 const files = packageFiles(english.stage);
-assert.equal(files.length, 15 + optionIds.length + variantCount * 3);
+assert.equal(files.length, 16 + optionIds.length + variantCount * 3 + 3);
 assert.deepEqual(files, packageFiles(korean.stage));
-for (const file of files.filter(file => file !== 'manifest.json')) {
-  const en = fs.readFileSync(path.join(english.stage, file)), ko = fs.readFileSync(path.join(korean.stage, file));
-  if (file === path.join('Core', '9ba626afa44a3aa3.patch_0')) {
-    const at = Number(en.readBigUInt64LE(120)) + 8, length = en.readUInt32LE(160) - 8;
-    const normalized = Buffer.from(ko);
-    const source = ko.subarray(at, at + length).toString('utf8');
-    assert(source.includes('local LANGUAGE = "ko"'));
-    assert(source.includes('local MENU_LANGUAGE = "ko"'));
-    Buffer.from(source.replace('local LANGUAGE = "ko"', 'local LANGUAGE = "en"')
-      .replace('local MENU_LANGUAGE = "ko"', 'local MENU_LANGUAGE = "en"'), 'utf8').copy(normalized, at);
-    assert(en.equals(normalized), 'Only wheel and MODS language selection differ in Core');
-  } else assert(en.equals(ko), `Language packages have different nonlocalized payloads: ${file}`);
-}
-console.log('PASS English/Korean packages: same GUID, option order, defaults and paths; only Core language selections and manifest text differ');
+assert.equal(english.stage,korean.stage,'English and Korean share one package, source and GUID');
+console.log('PASS unified multilingual package: live game-language selection, stable settings and root deployment');

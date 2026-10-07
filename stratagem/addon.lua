@@ -22,10 +22,15 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.54-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.61-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
+local combined = rawget(_G, "HD2HelperCombined")
+if combined and combined.language then
+    combined.language:bind(channel)
+    if Reader.Locale then Reader.Locale.bind(combined.language) end
+end
 local sr = rawget(_G, "stingray") or {}
 local app = sr.Application or {}
 if type(app.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
@@ -72,12 +77,11 @@ local reader = Reader.new(channel)
 local policy = Policy.new(channel.command_key, function(binding) return reader:command_state(binding) end)
 policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log)
-local combined = rawget(_G, "HD2HelperCombined")
 local live = combined and combined.options
 if not live and not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.54-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.61-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.54-test; stratagem-base=0.1.13-test; Arsenal + optional MODS options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.61-test; stratagem-base=0.1.13-test; in-game HD2H options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("OVERLAY mission-location=native-stage-and-radius; refresh=50ms; no native calls or game writes")
@@ -341,12 +345,12 @@ local function tick()
         not state.owned_start and not state.mouse_release or false
     local overlay_pressed, overlay_released = overlay and not state.overlay, not overlay and state.overlay
     state.overlay = overlay
-    local numbers, pressed, count = {}, nil, 0
+    local pressed, count = nil, 0
     for slot = 1, 4 do
-        numbers[slot] = channel.down(48 + slot)
-        if numbers[slot] and not state.keys[slot] then pressed = slot; count = count + 1 end
+        local held = channel.down(48 + slot)
+        if held and not state.keys[slot] then pressed = slot; count = count + 1 end
+        state.keys[slot] = held
     end
-    state.keys = numbers
     local click_pressed = fire_pressed and toggle and radial_was_open and radial.opened and native_active and
         not modifier_pressed and not state.pending and not policy.job and not state.toggle_close and
         same_binding(binding, state.radial_binding) and game.token == state.radial_menu_token

@@ -1,5 +1,5 @@
 -- HD2-Addon: mods/hd2_helper/auto_reload
-local VERSION = "0.3.54-test"
+local VERSION = "0.3.61-test"
 local Options = (function()
 -- @OPTIONS@
 end)()
@@ -177,11 +177,69 @@ local function install_hooks(env, tick, stop, on_error)
     return true
 end
 
+local function make_runtime_guard(state, tick, cleanup, recover, clock, report)
+    local function now()
+        local ok, value = pcall(clock)
+        if ok and type(value) == "number" and value == value and value >= 0 and value < math.huge then
+            return value
+        end
+    end
+    local function note(message) pcall(report, message) end
+    return function()
+        local retrying = state.failed == true
+        if retrying then
+            local time = now()
+            if not time then return end
+            if not state.retry_at or (state.failed_at and time < state.failed_at) then
+                state.failed_at, state.retry_at = time, time + 1
+            end
+            if time < state.retry_at then return end
+            local ok, ready = pcall(recover)
+            if not ok or ready ~= true then
+                state.retry_at = time + 2
+                local reason = ok and "input-release-pending" or tostring(ready)
+                if state.recovery_error ~= reason then
+                    state.recovery_error = reason; note("RUNTIME_RECOVERY waiting=" .. reason)
+                end
+                return
+            end
+            state.failed, state.retry_at, state.recovery_error = nil, nil, nil
+        end
+        local success, failure = pcall(tick)
+        if not success then
+            pcall(cleanup)
+            state.failed = true
+            state.runtime_failures = math.min(5, (state.runtime_failures or 0) + 1)
+            state.failed_at = now()
+            state.retry_at = state.failed_at and state.failed_at + state.runtime_failures or nil
+            local reason = tostring(failure)
+            if state.runtime_error ~= reason then
+                state.runtime_error = reason; note("RUNTIME_ERROR retrying: " .. reason)
+            end
+        else
+            state.runtime_failures = nil
+            if retrying then
+                state.runtime_error = nil; note("RUNTIME_RECOVERY reader reset; fresh fire press required")
+            end
+        end
+    end
+end
+
+local function resume_on_press(state, fire)
+    if not state.runtime_rearm then return true, false end
+    local pressed = fire == true and state.recovery_fire ~= true
+    state.recovery_fire = fire == true
+    if not pressed then return false, false end
+    state.runtime_rearm, state.recovery_fire = nil, nil
+    return true, true
+end
+
 if rawget(_G, "HD2_AUTO_RELOAD_TEST") then
     return { Policy = Policy, Charge = Charge, Reader = Reader, Native = Native, boolean = boolean, Options = Options,
         NativeReader = NativeReader,
         recover_identity = recover_identity,
-        install_hooks = install_hooks }
+        install_hooks = install_hooks, make_runtime_guard = make_runtime_guard,
+        resume_on_press = resume_on_press }
 end
 if rawget(_G, "HD2HelperAutoReload") then return end
 
@@ -197,8 +255,23 @@ local log_ok, log_file = pcall(function()
     return loader and loader.open_log and loader.open_log("hd2_helper_auto_reload.log")
 end)
 if not log_ok then log_file = nil end
+local local_appdata = os.getenv("LOCALAPPDATA")
+local log_path = local_appdata and (local_appdata .. "\\CowboyBingus\\Helldivers2\\Logs\\hd2_helper_auto_reload.log")
+if log_path and log_file then pcall(function() log_file:close() end); log_file = nil end
 local function log(line)
-    if log_file then pcall(function() log_file:write(tostring(line), "\n"); log_file:flush() end) end
+    -- Close event-only appends so errors remain visible even without a working flush method.
+    if log_path then
+        pcall(function()
+            local file = io.open(log_path, "a")
+            if file then
+                local good, why = pcall(file.write, file, tostring(line) .. "\n")
+                file:close()
+                if not good then error(why, 0) end
+            end
+        end)
+    elseif log_file then
+        pcall(function() log_file:write(tostring(line) .. "\n"); log_file:flush() end)
+    end
 end
 if not ok then log("DISABLED reader initialization: " .. tostring(reader)); return end
 
@@ -241,7 +314,8 @@ local native_ok, native = pcall(Native.create, ffi, config)
 if not native_ok then log("DISABLED input initialization: " .. tostring(native)); return end
 
 if type(App.time_since_launch) ~= "function" then log("DISABLED monotonic clock unavailable"); return end
-local policy, state = Policy.new(), { paused = false, keys = {}, config = config }
+local policy, state = Policy.new(), { paused = false, keys = {}, next_keys = {}, config = config }
+local switch_slots = {"primary", "sidearm", "support"}
 local charge = Charge.new()
 rawset(_G, "HD2HelperAutoReload", state)
 
@@ -314,11 +388,12 @@ local function status(reason, sample)
             " reserve=" .. tostring(sample.reserve) ..
             " reloading=" .. tostring(sample.reloading)
     end
+    if label == state.status then return end
     local text = label ..
         " ammo=" .. tostring(sample and sample.ammo) ..
         " heat=" .. tostring(sample and sample.heat_shown) ..
         "/" .. tostring(sample and sample.heat_max)
-    if label ~= state.status then log(text); state.status = label end
+    log(text); state.status = label
 end
 local function tick()
     local now = App.time_since_launch()
@@ -336,9 +411,10 @@ local function tick()
     end
     if state.release_at and (now >= state.release_at or not foreground()) then release() end
     local focused = foreground()
-    local keys = { enter = down(13), escape = down(27), tab = down(9),
-        pause = down(config.pause_vk), primary = down(49),
-        sidearm = down(50), support = down(51) }
+    local keys = state.next_keys
+    keys.enter, keys.escape, keys.tab = down(13), down(27), down(9)
+    keys.pause, keys.primary = down(config.pause_vk), down(49)
+    keys.sidearm, keys.support = down(50), down(51)
     local hotkeys = rawget(_G, "HD2StratagemHotkeys")
     keys.stratagem = down(164) or down(165) or
         (type(hotkeys) == "table" and hotkeys.blocking_inputs == true)
@@ -354,7 +430,7 @@ local function tick()
     end
     if focused and not state.paused and not state.chat and not keys.stratagem and
         not keys.enter and not keys.escape and not keys.tab then
-        for _, slot in ipairs({ "primary", "sidearm", "support" }) do
+        for _, slot in ipairs(switch_slots) do
             if keys[slot] and not previous_keys[slot] then
                 state.switch = { slot = slot, from_weapon = state.last_weapon,
                     ready_at = now + 1.1,
@@ -363,7 +439,7 @@ local function tick()
             end
         end
     end
-    state.keys = keys
+    state.keys, state.next_keys = keys, previous_keys
     local fire = focused and down(config.fire_vk)
     local aim = focused and down(2)
     if fire and not state.fire then
@@ -379,12 +455,23 @@ local function tick()
     if aim and fire then state.lean_fire_until = now + 0.8 end
     if not focused or state.paused or state.failed or state.chat or keys.stratagem or keys.enter or keys.escape or keys.tab or
         not (config.enabled or config.charge90 or config.vehicle) then
+        local blocked = not focused and "focus" or state.paused and "paused" or state.failed and "runtime-error" or
+            state.chat and "chat" or keys.stratagem and "stratagem" or keys.enter and "enter" or
+            keys.escape and "escape" or keys.tab and "tab" or "options-off"
+        status("blocked-" .. blocked)
         policy:reset(); charge:reset(); state.fire_pending = nil
         state.fire_attempt, state.fire_released_at = nil, nil
         state.fire_cycle, state.fire_release_pending = nil, nil
         reader.native_pending = nil
         state.switch, state.lean_fire_until = nil, nil
+        if state.runtime_rearm then state.recovery_fire = fire end
         release(); return
+    end
+    local runtime_ready, recovered_press = resume_on_press(state, fire)
+    if recovered_press then
+        state.fire_pending, state.fire_cycle, state.next_read = true, true, nil
+        state.fire_release_pending, state.fire_attempt, state.fire_released_at = nil, nil, nil
+        log("RUNTIME_RECOVERY resumed on fresh fire press")
     end
     if state.next_read and now < state.next_read and
         not state.fire_pending and not state.fire_release_pending then return end
@@ -413,6 +500,7 @@ local function tick()
         state.fire_attempt, state.fire_released_at = nil, nil
         state.fire_cycle, state.fire_release_pending = nil, nil
     end
+    if recovered_press then state.fire_pending, state.fire_cycle = true, true end
     local allow_seated_fire = aim and state.lean_fire_until and
         now <= state.lean_fire_until
     local sample, reason = reader:sample(session, world, peer, allow_seated_fire)
@@ -446,6 +534,13 @@ local function tick()
     end
     if sample.active and sample.weapon then
         state.last_weapon, state.last_weapon_at = sample.weapon, now
+    end
+    if not runtime_ready then
+        policy:reset(); charge:reset()
+        state.fire_pending, state.fire_attempt, state.fire_released_at = nil, nil, nil
+        state.fire_cycle, state.fire_release_pending, state.switch = nil, nil, nil
+        status("waiting-fresh-fire-press:" .. tostring(reason), sample)
+        return
     end
     if (state.fire_pending or state.fire_release_pending) and
         state.last_weapon and state.last_weapon_at and
@@ -558,17 +653,26 @@ local function tick()
         end
     end
 end
-local function guarded_tick()
-    local success, failure = pcall(tick)
-    if not success then
-        pcall(release); policy:reset(); charge:reset(); state.failed = true
-        log("DISABLED runtime error: " .. tostring(failure))
-    end
+local function reset_runtime()
+    release()
+    if state.release_at then return false end
+    policy:reset(); charge:reset(); reader.identity:invalidate()
+    reader.native_pending = nil
+    state.context, state.avatar, state.status = nil, nil, nil
+    state.avatar_missing, state.unresolved_since, state.next_recovery = nil, nil, nil
+    state.last_weapon, state.last_weapon_at, state.next_read = nil, nil, nil
+    state.fire_pending, state.fire_attempt, state.fire_released_at = nil, nil, nil
+    state.fire_cycle, state.fire_release_pending, state.switch, state.lean_fire_until = nil, nil, nil, nil
+    state.runtime_rearm, state.recovery_fire = true, down(config.fire_vk)
+    return true
 end
+local guarded_tick = make_runtime_guard(state, tick, function()
+    release(); policy:reset(); charge:reset()
+end, reset_runtime, App.time_since_launch, log)
 if not install_hooks(_G, guarded_tick, function() pcall(release) end) then
     log("DISABLED update callback unavailable"); rawset(_G, "HD2HelperAutoReload", nil); return
 end
-log("START " .. VERSION .. " Arsenal + optional MODS options enabled=" .. tostring(config.enabled) ..
+log("START " .. VERSION .. " in-game HD2H options enabled=" .. tostring(config.enabled) ..
     " charge90=" .. tostring(config.charge90) ..
     " railgun_threshold=" .. tostring(config.railgun_threshold) ..
     " vehicle=" .. tostring(config.vehicle) ..

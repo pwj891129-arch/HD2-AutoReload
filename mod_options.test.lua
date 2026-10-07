@@ -94,6 +94,29 @@ return function(equal,read,fixture,finish)
     local ko=LiveOptions.new(env,app,load,schema,'ko',log);ko:tick()
     equal(korean.options[sid('shared_reinforce')].label,'공용: 증원','Korean label is UTF-8 text')
     equal(korean.options[rid('enabled')].mod,'HD2 헬퍼','Korean category label')
+    local language = {current='ko',poll=function() end}
+    local dynamic=menu({[rid('enabled')]=true,[sid('scale')]=4})
+    env.ModOptionsMenu=dynamic
+    local automatic=LiveOptions.new(env,app,load,schema,language,log);automatic:tick()
+    equal(type(dynamic.options[rid('enabled')].label),'function','provider receives automatic language text function')
+    equal(dynamic.options[sid('shared_reinforce')].label(),'공용: 증원','game Korean selected')
+    equal(dynamic.options[rid('enabled')].mod(),'HD2 헬퍼','dynamic Korean category')
+    equal(automatic.values.scale,2,'saved value retained independently of language')
+    language.current='en';now=now+.3;automatic:tick()
+    local reinforce
+    for _,definition in ipairs(schema) do if definition.key=='shared_reinforce' then reinforce=definition end end
+    equal(dynamic.options[sid('shared_reinforce')].label(),reinforce.text.en.label,'English switch without re-registering')
+    equal(dynamic.options[rid('enabled')].mod(),'HD2 Helper','dynamic English category')
+    equal(dynamic.registrations,46,'language change never duplicates registration')
+    equal(automatic.values.enabled,true,'language change never resets toggle')
+    equal(automatic.values.scale,2,'language change never resets choice')
+    language.current='fr'
+    equal(dynamic.options[rid('enabled')].label(),schema[1].text.fr.label,'French option language is translated')
+    language.current='zz'
+    equal(dynamic.options[rid('enabled')].label(),schema[1].text.en.label,'unsupported option language is English')
+    local scale
+    for _,definition in ipairs(schema) do if definition.key=='scale' then scale=definition end end
+    equal(dynamic.options[sid('scale')].choices[2](),scale.text.en.choices[2],'choice text uses English fallback')
     local failing=menu();failing.fail=sid('mission_flag');env.ModOptionsMenu=failing
     settings=LiveOptions.new(env,app,load,schema,'en',log);now=1;settings:tick()
     equal(failing.registrations,45,'one registration failure does not block other rows')

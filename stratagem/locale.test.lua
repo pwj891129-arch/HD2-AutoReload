@@ -1,5 +1,8 @@
 return function(equal, Reader)
-    local en, ko = dofile("dist/locale.en.generated.lua"), dofile("dist/locale.ko.generated.lua")
+    local en, ko = dofile("dist/locale.generated.lua"), dofile("dist/locale.generated.lua")
+    local language = {current = 'ko'}
+    ko.bind(language)
+    ko.name(124,'MISSIONS. REINFORCEMENT BEACON')
     equal(en.language, "en"); equal(ko.language, "ko")
     for _, row in ipairs({
         {124, "MISSIONS. REINFORCEMENT BEACON", "증원"},
@@ -34,5 +37,9 @@ return function(equal, Reader)
     Reader.Locale = en
     equal(reader:radial(true, false).rows[2].name, "HARPOON GUN ")
     Reader.Locale = nil
-    assert(loadfile("../dist/combined.ko.generated.lua"), "Korean combined payload compiles in LuaJIT")
+    language.current = 'en'
+    equal(ko.name(124,'MISSIONS. REINFORCEMENT BEACON'),'REINFORCEMENT BEACON','game language change refreshes names')
+    language.current = 'fr'
+    equal(ko.name(124,'MISSIONS. REINFORCEMENT BEACON'),'REINFORCEMENT BEACON','unsupported wheel language falls back to English')
+    assert(loadfile("../dist/combined.generated.lua"), "Unified bilingual payload compiles in LuaJIT")
 end

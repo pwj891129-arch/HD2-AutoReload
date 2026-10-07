@@ -1,4 +1,14 @@
 const optionModel = require('./arsenal-options.cjs');
+const sourceTranslations = require('./menu-locales.json');
+const translations = Object.fromEntries(Object.entries(sourceTranslations).map(([language, locale]) => {
+  if (!locale.extends) return [language, locale];
+  const base = sourceTranslations[locale.extends];
+  if (!base || base.extends) throw new Error(`Invalid base locale: ${language}`);
+  return [language, {...base, ...locale, Categories: {...base.Categories, ...locale.Categories},
+    Groups: {...base.Groups, ...locale.Groups}, Options: {...base.Options, ...locale.Options},
+    Calls: {...base.Calls, ...locale.Calls}}];
+}));
+const languages = ['en', 'ko', ...Object.keys(translations)];
 
 function schema(filters, texts) {
   const definitions = optionModel.definitions(filters);
@@ -9,7 +19,19 @@ function schema(filters, texts) {
       key.startsWith('shared_') && key !== 'shared_mission_all' ? 'shared' : 'general';
     const filter = filters.find(item => item.id === key);
     counts[category] = (counts[category] || 0) + 1;
-    const text = Object.fromEntries(['en', 'ko'].map(language => {
+    const text = Object.fromEntries(languages.map(language => {
+      const translated = translations[language];
+      if (translated) {
+        const selected = filter ? [translated.Groups[category] + ': ' + translated.Calls[key], translated.FilterDescription] :
+          translated.Options[key];
+        if (!selected || selected.some(value => typeof value !== 'string') || filter && !translated.Calls[key]) {
+          throw new Error(`Incomplete ${language} option translation: ${key}`);
+        }
+        return [language, {label: selected[0], description: selected[1], mod: translated.Categories[category],
+          choices: definition.toggle ? undefined : definition.values.map(value => key === 'slow' ?
+            (value ? '30 ms' : '15 ms') : value === 'individual' ? translated.Individual : typeof value === 'number' ?
+              `${value * 100}%` : value ? translated.Enabled : translated.Disabled)}];
+      }
       const locale = texts[language];
       const selected = filter ? {Name: filter[language], Description: locale.FilterDescription} : locale.Options[key];
       const description = Array.from(selected.Description);
@@ -38,4 +60,4 @@ function literal(value) {
   return '{' + Object.entries(value).filter(([, item]) => item !== undefined)
     .map(([key, item]) => '[' + literal(key) + ']=' + literal(item)).join(',') + '}';
 }
-module.exports = {schema, literal};
+module.exports = {schema, literal, languages};

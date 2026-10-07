@@ -1,6 +1,6 @@
 return function(equal,read,fixture,finish)
     local runtime=read('../DroneRemoteControl/src/runtime.lua')
-    for _,name in ipairs({'binary','lease','flight','control_hotkey','cooperation','controller'}) do
+    for _,name in ipairs({'binary','lease','flight','control_hotkey','cooperation','controller','clock'}) do
         runtime=runtime:gsub('%-%- @'..name:upper()..'@',function()
             return read('../DroneRemoteControl/src/'..name..'.lua')
         end)
@@ -14,10 +14,11 @@ return function(equal,read,fixture,finish)
         local snapshot={brain={address=1000,valid=function() return true end},camera=10000,camera_row=1100,
             drone_position={0,5,2},actor_position={0,0,0},deployed=true,token='DRONE',heat=0,reserve=3,
             overheated=false,fire_valid=function() return true end,camera_valid=function() return true end}
-        local bindings={stratagem=env.TEST_MENU.bindings().start_vk,backpack=84,fire=1,forward=87,
+        local bindings={aim_mode=4,backpack=84,fire=1,forward=87,
             back=83,left=65,right=68,up=32,down=17,binding_token='DRONE-KEYS',
             pack_entries={{2000,'KEY'}},valid=function() return true end}
         env.DRONE_CHANNEL={foreground=function() return env.TEST_CHANNEL.foreground() end,
+            now=function() return env.stingray.Application.time_since_launch() end,
             down=function(_,vk) return keys[vk]==true end,
             read=function(_,at) return memory[at] end,
             write=function(_,at,value) memory[at]=value;return true end,
@@ -69,7 +70,7 @@ return function(equal,read,fixture,finish)
                 equal(a,123,'coexistence update return');equal(b,nil,'coexistence nil return');equal(c,321,'coexistence tail')
                 f.keys[vk]=true;if mode=='toggle' then f.latch(true) end;f.step(0.02)
                 equal(env.TEST_RADIAL.opened,true,'ordinary wheel works with idle drone mod')
-                f.keys[84]=true;f.step(0.02)
+                f.keys[4],f.keys[84]=true,true;f.step(0.02)
                 equal(env.DroneRemoteControl.control_active,true,'both load orders enter with companions enabled')
                 equal(env.HD2StratagemHotkeys.config.radial,true,'wheel preference remains on')
                 equal(env.HD2HelperAutoReload.config.enabled,true,'reload preference remains on')
@@ -85,7 +86,7 @@ return function(equal,read,fixture,finish)
                 equal(env.DroneRemoteControl.blocking_inputs,false,'input gate released after restoration')
                 for _=1,5 do f.step(0.02) end
                 equal(#f.events,0,'held inputs at exit cannot replay automation')
-                f.keys[vk],f.keys[1],f.keys[84]=false,false,false
+                f.keys[vk],f.keys[1],f.keys[84],f.keys[4]=false,false,false,false
                 if mode=='toggle' then f.latch(false) end
                 f.shot.ammo,f.shot.charging=1,false
                 for _=1,5 do f.step(0.02) end
@@ -108,14 +109,14 @@ return function(equal,read,fixture,finish)
             end
         end
     end
-    local f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5]=true;f.step(0.02)
+    local f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5],f.keys[4]=true,true;f.step(0.02)
     f.env.restore_error=true;f.keys[84]=true;f.step(0.02)
     equal(f.env.DroneRemoteControl.control_active,false,'failed companion cleanup refuses capture')
     equal(f.env.drone_capture,false,'no partial drone focus capture')
     equal(f.env.drone_memory[1000],'\190\0\0\0','failed handoff leaves native AI unchanged')
     f.env.restore_error=false;f.env.shutdown()
 
-    f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5]=true;f.step(0.02);f.keys[84]=true;f.step(0.02)
+    f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5],f.keys[4]=true,true;f.step(0.02);f.keys[84]=true;f.step(0.02)
     f.keys[84]=false;f.step(0.02);f.env.drone_cleanup_error=true;f.keys[84]=true;f.step(0.02)
     equal(f.env.DroneRemoteControl.blocking_inputs,true,'drone restore failure retains companion gate')
     f.keys[49],f.keys[1]=true,true;f.shot.ammo=0
@@ -125,15 +126,15 @@ return function(equal,read,fixture,finish)
     equal(f.env.DroneRemoteControl.blocking_inputs,false,'restore retry releases companion gate')
     f.env.shutdown()
 
-    for _,fault in ipairs({'focus','respawn','heat','dt','foreign-update'}) do
-        f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5]=true;f.step(0.02)
+    for _,fault in ipairs({'focus','respawn','heat','foreign-update'}) do
+        f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5],f.keys[4]=true,true;f.step(0.02)
         f.keys[84]=true;f.step(0.02)
         equal(f.env.DroneRemoteControl.control_active,true,'cleanup scenario starts active')
         if fault=='focus' then f.focus(false)
         elseif fault=='respawn' then f.env.drone_snapshot.token='NEW-AVATAR'
         elseif fault=='heat' then f.env.drone_snapshot.overheated=true
         elseif fault=='foreign-update' then f.env.base_error=true end
-        local ok,why=pcall(f.step,fault=='dt' and 0 or 0.02)
+        local ok,why=pcall(f.step,0.02)
         if fault=='foreign-update' then
             equal(ok,false,'foreign update error remains visible')
             equal(tostring(why):find('original update failed',1,true)~=nil,true,'foreign error preserved')
@@ -146,6 +147,24 @@ return function(equal,read,fixture,finish)
         equal(f.env.HD2HelperAutoReload.remote_owner,nil,'reload owner released on '..fault)
         f.env.base_error=false;f.env.shutdown()
     end
+
+    f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5],f.keys[4]=true,true;f.step(0.02)
+    f.keys[84]=true;f.step(0.02)
+    f.step(0)
+    equal(f.env.DroneRemoteControl.control_active,true,'zero-time update keeps remote control active')
+    f.step(0.5)
+    equal(f.env.DroneRemoteControl.control_active,true,'long frame uses bounded movement instead of refusing control')
+    equal(f.env.HD2StratagemHotkeys.remote_owner,f.env.DroneRemoteControl.input_owner,'long frame retains input owner')
+    f.env.shutdown()
+
+    f=fixture();setup(f.env,f.keys);f.step(0.02)
+    equal(f.env.TEST_MENU.menu_active(),false,'aim-mode scenario begins without native stratagem menu')
+    f.keys[4]=true;f.step(0.02);f.keys[84]=true;f.step(0.02)
+    equal(f.env.DroneRemoteControl.control_active,true,'aim-mode combo enters without opening helper wheel')
+    equal(f.env.TEST_RADIAL.opened,false,'aim-mode combo does not open helper wheel')
+    f.keys[4],f.keys[84]=false,false;f.step(0.02);f.keys[84]=true;f.step(0.02)
+    equal(f.env.DroneRemoteControl.control_active,false,'backpack alone exits aim-mode control')
+    f.env.shutdown()
 
     f=fixture();f.step(0.02)
     local owner,other={},{}

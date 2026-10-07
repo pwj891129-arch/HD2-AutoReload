@@ -32,7 +32,11 @@ function Radial:world_live(world)
     return false
 end
 function Radial:clear()
-    local live = self.gui and self:world_live(self.world)
+    local shapes = #self.ids > 0
+    if not shapes then
+        for _, icon in pairs(self.icons) do if icon.id ~= nil then shapes = true; break end end
+    end
+    local live = shapes and self.gui and self:world_live(self.world)
     -- Remove each successful deletion immediately so a retry never destroys it twice.
     for index = #self.ids, 1, -1 do
         local item = self.ids[index]
@@ -43,7 +47,7 @@ function Radial:clear()
         if live and icon.id ~= nil then self.sr.Gui.destroy_bitmap(icon.gui, icon.id) end
         icon.id = nil
     end
-    self.ids, self.signature = {}, nil
+    self.signature = nil
 end
 function Radial:restore()
     if self.mouse and self.channel.foreground() then
@@ -57,7 +61,7 @@ function Radial:close()
     self.opened, self.selected, self.inventory = false, nil, nil
     local good, why = pcall(function()
         self:clear()
-        if self.gui and self:world_live(self.world) then
+        if (next(self.icons) or next(self.fonts)) and self.gui and self:world_live(self.world) then
             for _, icon in pairs(self.icons) do
                 if icon.gui then self.sr.World.destroy_gui(self.world, icon.gui); icon.gui = nil end
             end
@@ -66,8 +70,12 @@ function Radial:close()
             end
         end
     end)
-    if good then self.icons, self.fonts = {}, {} end
-    self.icon_reasons, self.icon_report = {}, nil
+    if good then
+        if next(self.icons) then self.icons = {} end
+        if next(self.fonts) then self.fonts = {} end
+    end
+    if next(self.icon_reasons) then self.icon_reasons = {} end
+    self.icon_report = nil
     self.glyph_failed = nil
     self.native_font_failed = nil
     self.native_font_error, self.native_fallback_report, self.measure_error = nil, nil, nil
@@ -81,7 +89,17 @@ function Radial:dispose()
     end
     self.gui, self.world = nil, nil
 end
-function Radial:icon_data(row)
+local function image_resource(sr, kind, hex, resources)
+    local key = kind .. ":" .. hex
+    local cached = resources and resources[key]
+    if cached then return unpack(cached, 1, 4) end
+    local ok, id = pcall(sr.IdString64.from_hex, hex)
+    local queried, available
+    if ok and id then queried, available = pcall(sr.Application.can_get, kind, id) end
+    if resources then resources[key] = {ok, id, queried, available} end
+    return ok, id, queried, available
+end
+function Radial:icon_data(row, resources)
     local sr = self.sr
     local picture, art = row.picture, row.art
     if type(picture) ~= "string" or #picture ~= 16 or not picture:match("^[0-9a-fA-F]+$") or
@@ -114,15 +132,13 @@ function Radial:icon_data(row)
     if not sr.Gui.material or not sr.Material or not sr.Material.set_texture or
         not sr.Material.set_vector4 or not sr.Vector4 then return nil, "image-material-api-unavailable" end
     if not sr.IdString64 or not sr.IdString64.from_hex then return nil, "idstring-api-unavailable" end
-    local ok, material = pcall(sr.IdString64.from_hex, ICON_MATERIAL)
+    local ok, material, queried, available = image_resource(sr, "material", ICON_MATERIAL, resources)
     if not ok or not material then return nil, "material-id-failed:" .. tostring(material) end
-    local queried, available = pcall(sr.Application.can_get, "material", material)
     if not queried then return nil, "material-query-failed:" .. tostring(available) end
     if available ~= true then return nil, "native-mask-material-unavailable" end
-    local texture_ok, texture = pcall(sr.IdString64.from_hex, art.texture)
+    local texture_ok, texture, texture_queried, texture_available = image_resource(sr, "texture", art.texture, resources)
     if not texture_ok or not texture then return nil, "texture-id-failed:" .. tostring(texture) end
-    queried, available = pcall(sr.Application.can_get, "texture", texture)
-    if not queried or available ~= true then return nil, "native-atlas-unavailable" end
+    if not texture_queried or texture_available ~= true then return nil, "native-atlas-unavailable" end
     return {picture = picture, material = material, texture = texture, art = art,
         signature = table.concat(signature, "|")}, "ready"
 end
@@ -535,8 +551,10 @@ function Radial:draw(inventory)
         mark[#mark + 1] = self:native_font_resources(spec) and spec.font or "native-font-unavailable"
     end
     mark[#mark + 1] = self:glyph_resources() and not self.glyph_failed and "glyph-ready" or "glyph-unavailable"
+    -- Resource availability is shared only within this draw, including failures.
+    local resources = {}
     for index, row in ipairs(rows) do
-        pictures[index], reasons[index] = self:icon_data(row)
+        pictures[index], reasons[index] = self:icon_data(row, resources)
         mark[#mark + 1] = row.kind .. ":" .. row.status .. ":" .. tostring(row.name) .. ":" .. tostring(row.slot) ..
             ":" .. tostring(row.ready) .. ":" .. tostring(row.picture) .. ":" .. tostring(reasons[index]) ..
             ":" .. (pictures[index] and pictures[index].signature or "")

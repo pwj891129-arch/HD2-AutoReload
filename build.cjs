@@ -5,9 +5,10 @@ const assert = require('node:assert/strict');
 const optionModel = require('./arsenal-options.cjs');
 const menuSchema = require('./menu-schema.cjs');
 const wheelTexture = require('./tools/wheel-texture.cjs');
+const archiveModel = require('./tools/archive.cjs');
 
 const root = __dirname;
-const version = '0.3.54-test';
+const version = '0.3.61-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -125,16 +126,18 @@ const namesSource = 'return {\n' + labels.names.map(row => {
   return `    [${row.kind}] = {native = ${JSON.stringify(row.native)}, ko = ${JSON.stringify(row.ko)}},`;
 }).join('\n') + '\n}\n';
 const localeSource = readSource(path.join(stratagemRoot, 'locale.lua')).replace('-- @NAMES@', () => namesSource);
-stratagemSource = stratagemSource.replace('-- @LOCALE@', () => localeSource.replace('@LANGUAGE@', 'en'));
+stratagemSource = stratagemSource.replace('-- @LOCALE@', () => localeSource);
 const source = readSource(path.join(root, 'combined.lua'))
+  .replace('-- @LANGUAGE@', () => readSource(path.join(root, 'language.lua')))
   .replace('-- @MOD_OPTIONS@', () => readSource(path.join(root, 'mod_options.lua')))
+  .replace('-- @OPTIONS_TAB@', () => readSource(path.join(root, 'options_tab.lua')))
   .replace('-- @MENU_SCHEMA@', () => settingsSource)
   .replace('-- @STRATAGEM@', () => stratagemSource)
   .replace('-- @AUTORELOAD@', () => autoSource);
 assert.equal(source.split('\n')[0], `-- HD2-Addon: ${resource}`);
 assert(!source.includes('00-boot-state') && !source.includes('90-main'), 'HUD test reference must not ship');
 assert(!source.includes('-- @'), 'Combined source has unresolved includes');
-const stage = path.join(root, 'dist', `HD2-AutoReload-${version}-en`);
+const stage = path.join(root, 'dist', `HD2-AutoReload-${version}`);
 fs.mkdirSync(stage, { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'auto_reload.generated.lua'), autoSource);
 fs.writeFileSync(path.join(root, 'dist', 'combined.generated.lua'), source);
@@ -143,8 +146,7 @@ fs.writeFileSync(path.join(root, 'dist', 'menu-schema.json'), JSON.stringify(set
 fs.mkdirSync(path.join(stratagemRoot, 'dist'), {recursive: true});
 fs.writeFileSync(path.join(stratagemRoot, 'dist', 'stratagem_hotkeys.generated.lua'), stratagemSource);
 fs.writeFileSync(path.join(stratagemRoot, 'dist', 'visibility.generated.lua'), filterSource);
-for (const language of ['en', 'ko']) fs.writeFileSync(path.join(stratagemRoot, 'dist', `locale.${language}.generated.lua`),
-  localeSource.replace('@LANGUAGE@', language));
+fs.writeFileSync(path.join(stratagemRoot, 'dist', 'locale.generated.lua'), localeSource);
 fs.writeFileSync(path.join(root, 'dist', 'reader_core.lua'), core);
 fs.writeFileSync(path.join(root, 'dist', 'numbers.lua'), compact(numbers));
 fs.copyFileSync(path.join(vendor, 'HD2-HUD-0.1.2-original-README.txt'), path.join(stage, 'HD2-HUD-0.1.2-original-README.txt'));
@@ -218,32 +220,21 @@ fs.copyFileSync(path.join(root, 'assets/native-option-icons.json'), path.join(st
 fs.copyFileSync(path.join(root, 'assets/WHEEL-FONT-LICENSE.txt'), path.join(stage, 'WHEEL-FONT-LICENSE.txt'));
 const {glyphs, ...fontSource} = wheelTexture.metadata();
 fs.writeFileSync(path.join(stage, 'WHEEL-FONT-SOURCES.json'), JSON.stringify(fontSource, null, 2));
-const stages = {};
+const hiddenOptions = {};
 for (const language of ['en', 'ko']) {
   const text = texts[language];
   for (const key of ['Description', 'Default', 'Enabled', 'Disabled', 'FilterDescription',
     'Individual', 'IndividualDescription', 'ScaleDescription', 'NativeIconDescription', 'FallbackIconDescription']) {
     assert(typeof text[key] === 'string' && text[key].trim(), `Missing ${language} text: ${key}`);
   }
-  stages[language] = path.join(root, 'dist', `HD2-AutoReload-${version}-${language}`);
-  if (language !== 'en') fs.cpSync(stage, stages[language], {recursive: true});
-  if (language === 'ko') {
-    const localized = Buffer.from(source.replace('local LANGUAGE = "en"', 'local LANGUAGE = "ko"')
-      .replace('local MENU_LANGUAGE = "en"', 'local MENU_LANGUAGE = "ko"'), 'utf8');
-    assert.equal(localized.length, lua.length);
-    const korean = Buffer.from(archive);
-    localized.copy(korean, offset + 8);
-    fs.writeFileSync(path.join(stages[language], 'Core', filename), korean);
-    fs.writeFileSync(path.join(root, 'dist', 'combined.ko.generated.lua'), localized);
-  }
   const localizedOptions = {...text.Options};
   for (const filter of filters) localizedOptions[filter.id] = {
     Name: filter[language], Description: text.FilterDescription + ' ' +
       (nativeIcons.icons[filter.id].source === 'game' ? text.NativeIconDescription : text.FallbackIconDescription)
   };
-  fs.writeFileSync(path.join(stages[language], 'manifest.json'), JSON.stringify({
-    Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload + Stratagems ${version}`,
-    Description: `${version}. ${text.Description}`,
+  // Preserve the complete Arsenal editor definition outside its entry manifest.
+  // Arsenal reads manifest.json only; this file is for restoring the editor later.
+  hiddenOptions[language] = {
     Options: optionManifest.map((option, index) => {
       const {id: name, values} = options[index];
       const localized = localizedOptions[name];
@@ -258,10 +249,30 @@ for (const language of ['en', 'ko']) {
           Description: optionModel.description(value, text, name)};
       })};
     })
-  }, null, 2));
+  };
 }
+fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify({
+  Version: 1, Guid: '9d720fab-718f-4c91-93c5-31c4c3e6c42e', Name: `HD2 Helper Auto Reload + Stratagems ${version}`,
+  Description: `${version}. ${texts.en.Description}`
+}, null, 2));
+fs.writeFileSync(path.join(stage, 'arsenal-options.hidden.json'), JSON.stringify(hiddenOptions, null, 2));
+// Arsenal 0.36.2 ignores manifest Include and collects only patch_0 at the root.
+const defaultFolders = ['Core', ...options.map(option => `Option_${option.id}_${optionModel.suffix(option.values[0])}`)];
+const defaultArchives = defaultFolders.flatMap(folder=>fs.readdirSync(path.join(stage,folder))
+  .filter(file=>/\.patch_\d+$/.test(file)).map(file=>path.join(stage,folder,file)));
+assert.equal(defaultArchives.length,48);
+const deployment = archiveModel.merge(defaultArchives);
+for (const file of fs.readdirSync(stage).filter(file=>/\.patch_\d+(\.stream|\.gpu_resources)?$/.test(file))) {
+  fs.unlinkSync(path.join(stage,file));
+}
+fs.writeFileSync(path.join(stage,filename),deployment.bytes);
+fs.writeFileSync(path.join(stage,filename+'.stream'),deployment.stream);
+fs.writeFileSync(path.join(stage,filename+'.gpu_resources'),deployment.gpu);
 const report = { version, resource, resourceHash: hash64(resource).toString(16),
-  archiveBytes: archive.length, sourceBytes: lua.length, stage, stages,
+  archiveBytes: archive.length, sourceBytes: lua.length, stage, languages: menuSchema.languages,
+  legacyEditorLanguages: ['en','ko'],
+  deploymentAssets:48, deploymentBytes:deployment.bytes.length,
+  deploymentSha256:crypto.createHash('sha256').update(deployment.bytes).digest('hex'),
   archiveSha256: crypto.createHash('sha256').update(archive).digest('hex') };
 fs.writeFileSync(path.join(root, 'dist', 'build-report.json'), JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
