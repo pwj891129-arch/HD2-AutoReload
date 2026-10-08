@@ -1,5 +1,7 @@
 {
   "es": {
+    "Directions":{"counterclockwise":"Antihorario","clockwise":"Horario"},
+    "DirectionOption":["Dirección de la rueda","Desde las doce: antihorario (por defecto) u horario. Orden: ranuras 1-4, misión y comunes. La selección sigue la misma dirección; los atajos conservan sus ranuras. Confirma con APPLY."],
     "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: comunes","mission":"HD2 Helper: misión"},
     "Groups":{"shared":"Común","mission":"Misión"},
     "Individual":"Ajustes individuales", "Enabled":"Activado", "Disabled":"Desactivado",
@@ -32,6 +34,8 @@
     "Calls":{"shared_resupply":"Reabastecimiento","mission_scrambler":"Interferidor","mission_cyborg_data":"Transporte de datos cyborg"}
   },
   "pt": {
+    "Directions":{"counterclockwise":"Anti-horário","clockwise":"Horário"},
+    "DirectionOption":["Sentido da roda","A partir das doze: anti-horário (predefinição) ou horário. Ordem: espaços 1-4, missão e comuns. A seleção segue o mesmo sentido; os atalhos mantêm os espaços. Confirme com APPLY."],
     "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: comuns","mission":"HD2 Helper: missão"},
     "Groups":{"shared":"Comum","mission":"Missão"},
     "Individual":"Definições individuais", "Enabled":"Ativado", "Disabled":"Desativado",
@@ -75,6 +79,8 @@
     "Calls":{"mission_prospecting":"Broca de prospecção","mission_cargo":"Contêiner de carga","mission_camera":"Câmera de ombro","mission_carpet_bomb":"Bombardeio em tapete","mission_destroyer":"Chamar destróier"}
   },
   "ja": {
+    "Directions":{"counterclockwise":"反時計回り","clockwise":"時計回り"},
+    "DirectionOption":["ホイールの方向","12時から反時計回り（初期値）または時計回りに並べます。装備1～4、任務、共通の順序と数字キーの対象は変わりません。表示とマウス選択を同時に変更します。APPLYで適用します。"],
     "Categories":{"general":"HD2 ヘルパー","shared":"HD2 ヘルパー：共通","mission":"HD2 ヘルパー：任務"},
     "Groups":{"shared":"共通","mission":"任務"},
     "Individual":"個別設定を使用", "Enabled":"有効", "Disabled":"無効",
@@ -99,6 +105,8 @@
     }
   },
   "zh-Hans": {
+    "Directions":{"counterclockwise":"逆时针","clockwise":"顺时针"},
+    "DirectionOption":["轮盘排列方向","从12点位置开始，逆时针（默认）或顺时针排列。顺序保持装备1-4、任务、通用。显示与鼠标选择同步改变，数字快捷键对应槽位不变。使用APPLY应用。"],
     "Categories":{"general":"HD2 助手","shared":"HD2 助手：公共","mission":"HD2 助手：任务"},
     "Groups":{"shared":"公共","mission":"任务"},
     "Individual":"使用单独设置", "Enabled":"开启", "Disabled":"关闭",
@@ -123,6 +131,8 @@
     }
   },
   "zh-Hant": {
+    "Directions":{"counterclockwise":"逆時針","clockwise":"順時針"},
+    "DirectionOption":["輪盤排列方向","從12點位置開始，逆時針（預設）或順時針排列。順序維持裝備1-4、任務、通用。顯示與滑鼠選擇同步改變，數字快捷鍵對應欄位不變。使用APPLY套用。"],
     "Categories":{"general":"HD2 助手","shared":"HD2 助手：共用","mission":"HD2 助手：任務"},
     "Groups":{"shared":"共用","mission":"任務"},
     "Individual":"使用個別設定", "Enabled":"開啟", "Disabled":"關閉",
@@ -147,6 +157,8 @@
     }
   },
   "pl": {
+    "Directions":{"counterclockwise":"Przeciwnie do wskazówek zegara","clockwise":"Zgodnie ze wskazówkami zegara"},
+    "DirectionOption":["Kierunek koła","Od godziny dwunastej: przeciwnie do wskazówek zegara (domyślnie) lub zgodnie. Kolejność: sloty 1-4, misja, wspólne. Wybór myszą podąża za układem; skróty zachowują sloty. Zatwierdź przez APPLY."],
     "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: wspólne","mission":"HD2 Helper: misja"},
     "Groups":{"shared":"Wspólne","mission":"Misja"},
     "Individual":"Ustawienia indywidualne", "Enabled":"Włączone", "Disabled":"Wyłączone",
@@ -171,6 +183,8 @@
     }
   },
   "ru": {
+    "Directions":{"counterclockwise":"Против часовой стрелки","clockwise":"По часовой стрелке"},
+    "DirectionOption":["Направление колеса","От позиции 12 часов: против часовой стрелки (по умолчанию) или по часовой. Порядок: слоты 1-4, миссия, общие. Выбор мышью соответствует отображению; горячие клавиши сохраняют слоты. Примените через APPLY."],
     "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: общие","mission":"HD2 Helper: миссия"},
     "Groups":{"shared":"Общие","mission":"Миссия"},
     "Individual":"Индивидуальные настройки", "Enabled":"Включено", "Disabled":"Выключено",
@@ -195,6 +209,8 @@
     }
   },
   "fr": {
+    "Directions":{"counterclockwise":"Antihoraire","clockwise":"Horaire"},
+    "DirectionOption":["Sens de la roue","Depuis midi : antihoraire (par défaut) ou horaire. Ordre : emplacements 1-4, mission, communs. La sélection suit le même sens ; les raccourcis gardent leurs emplacements. Validez avec APPLY."],
     "Categories": {"general":"HD2 Helper","shared":"HD2 Helper : commun","mission":"HD2 Helper : mission"},
     "Groups": {"shared":"Commun","mission":"Mission"},
     "Individual":"Réglages individuels", "Enabled":"Activé", "Disabled":"Désactivé",
@@ -219,6 +235,8 @@
     }
   },
   "de": {
+    "Directions":{"counterclockwise":"Gegen den Uhrzeigersinn","clockwise":"Im Uhrzeigersinn"},
+    "DirectionOption":["Drehrichtung des Rads","Ab zwölf Uhr: gegen den Uhrzeigersinn (Standard) oder im Uhrzeigersinn. Reihenfolge: Plätze 1-4, Mission, gemeinsam. Mausauswahl und Anzeige stimmen überein; Zahlentasten behalten ihre Plätze. Mit APPLY übernehmen."],
     "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: Gemeinsam","mission":"HD2 Helper: Mission"},
     "Groups":{"shared":"Gemeinsam","mission":"Mission"},
     "Individual":"Einzeleinstellungen", "Enabled":"Ein", "Disabled":"Aus",
@@ -243,6 +261,8 @@
     }
   },
   "it": {
+    "Directions":{"counterclockwise":"Antiorario","clockwise":"Orario"},
+    "DirectionOption":["Direzione della ruota","Da ore dodici: antiorario (predefinito) o orario. Ordine: slot 1-4, missione, comuni. La selezione segue lo stesso verso; i tasti numerici mantengono gli slot. Conferma con APPLY."],
     "Categories":{"general":"HD2 Helper","shared":"HD2 Helper: comuni","mission":"HD2 Helper: missione"},
     "Groups":{"shared":"Comune","mission":"Missione"},
     "Individual":"Impostazioni individuali", "Enabled":"Attivo", "Disabled":"Disattivo",

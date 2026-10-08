@@ -1,6 +1,6 @@
 return function(equal,read,fixture,finish)
     local runtime=read('../DroneRemoteControl/src/runtime.lua')
-    for _,name in ipairs({'binary','lease','flight','control_hotkey','cooperation','controller','clock'}) do
+    for _,name in ipairs({'binary','lease','flight','control_hotkey','cooperation','options','aim','controller','clock'}) do
         runtime=runtime:gsub('%-%- @'..name:upper()..'@',function()
             return read('../DroneRemoteControl/src/'..name..'.lua')
         end)
@@ -9,13 +9,30 @@ return function(equal,read,fixture,finish)
         :gsub('%-%- @READER@','return {new=function() return DRONE_READER end}')
         :gsub('%-%- @ENGINE@','return {new=function() return DRONE_ENGINE end}')
     assert(not runtime:find('%-%- @'))
+    local B = dofile('../DroneRemoteControl/src/binary.lua')
+    local ffi = require('ffi')
+    local function floats(values)
+        local raw = ffi.new('float[?]',#values)
+        for index,value in ipairs(values) do raw[index-1]=value end
+        return ffi.string(raw,#values*4)
+    end
     local function setup(env,keys)
         local memory={[1000]='\190\0\0\0',[1100]='\4\0',[1284]='POS',[1300]='ROT',[2000]='KEY'}
         local snapshot={brain={address=1000,valid=function() return true end},camera=10000,camera_row=1100,
             drone_position={0,5,2},actor_position={0,0,0},deployed=true,token='DRONE',heat=0,reserve=3,
+            node_index=0,docked=false,unit_valid=function()return true end,
+            motion={address=1500,enabled='\1',valid=function()return true end},
+            movement={address=1600,original=floats({0,1,0,2}),valid=function()return true end},
+            targeting={flags=1700,position=1800,valid=function()return true end},
+            weapon_position={0,5,2},weapon_forward={0,1,0},
+            aim_motor={position=2200,engaged=2300,fire_position=2400,valid=function()return true end},
             overheated=false,fire_valid=function() return true end,camera_valid=function() return true end}
+        memory[1500],memory[1600],memory[1700],memory[1800]='\1',snapshot.movement.original,B.u32(0),floats({0,0,0})
+        memory[2100]=B.u32(1)
+        memory[2200],memory[2300],memory[2400]=floats({0,0,0}),'\0',floats({0,0,0})
         local bindings={aim_mode=4,backpack=84,fire=1,forward=87,
             back=83,left=65,right=68,up=32,down=17,binding_token='DRONE-KEYS',
+            input_entries={{2100,B.u32(1)}},
             pack_entries={{2000,'KEY'}},valid=function() return true end}
         env.DRONE_CHANNEL={foreground=function() return env.TEST_CHANNEL.foreground() end,
             now=function() return env.stingray.Application.time_since_launch() end,
@@ -23,11 +40,21 @@ return function(equal,read,fixture,finish)
             read=function(_,at) return memory[at] end,
             write=function(_,at,value) memory[at]=value;return true end,
             mouse_delta=function() return 0,0 end,vector=function() return {0,1,0} end,
-            floats=function(_,value) return #value==4 and 'DRONE-ROT' or 'DRONE-POS' end,
+            floats=function(_,values)return floats(values)end,
+            key=function(_,vk,pressed)
+                equal(vk,84,'drone preparation uses configured backpack key')
+                keys[vk]=pressed
+                if not pressed then
+                    snapshot.docked=not snapshot.docked
+                    snapshot.deployed=not snapshot.docked
+                    snapshot.drone_position=snapshot.docked and {0,0,0.8} or {0,5,2}
+                end
+                return true
+            end,
             fire=function(_,_,value) env.drone_firing=value end}
         env.DRONE_READER={bindings=function() return bindings end,
             raw=function(_,at) return memory[at] or 'FORWARD' end,
-            word=function(_,at) return memory[at]=='\190\0\0\0' and 190 or 0 end,
+            word=function(_,at) return memory[at] and B.word(memory[at],0) or 0 end,
             snapshot=function() snapshot.menu_active=env.TEST_MENU.menu_active();return snapshot end}
         local old_open=env.TEST_RADIAL.open
         env.TEST_RADIAL.open=function(self,...)
@@ -39,7 +66,10 @@ return function(equal,read,fixture,finish)
         end
         local old_close=env.TEST_RADIAL.close
         env.TEST_RADIAL.close=function(self) old_close(self);self:restore() end
-        env.DRONE_ENGINE={prepare=function() end,capture_input=function()
+        env.DRONE_ENGINE={prepare=function() end,observe=function()
+            return {docked=snapshot.docked,airborne=not snapshot.docked,free=not snapshot.docked,
+                position=snapshot.drone_position,distance=snapshot.docked and 0.8 or math.sqrt(29)}
+        end,capture_input=function()
             equal(env.TEST_RADIAL.opened,false,'wheel closed before drone captures input')
             equal(env.TEST_RADIAL.mouse,nil,'wheel relinquishes focus first')
             equal(env.HD2StratagemHotkeys.remote_owner,env.DroneRemoteControl.input_owner,'wheel handoff acknowledged')
@@ -60,6 +90,14 @@ return function(equal,read,fixture,finish)
         setfenv(assert(loadstring(runtime)),env)()
         env.drone_snapshot,env.drone_memory=snapshot,memory
     end
+    local function prepare(f)
+        f.keys[4],f.keys[84]=false,false
+        for _=1,100 do
+            f.step(0.02)
+            if f.env.DroneRemoteControl.control_active then return end
+        end
+        error('drone preparation failed: '..tostring(f.env.DroneRemoteControl.last_error))
+    end
     for _,order in ipairs({'drone-first','helper-first'}) do
         for _,mode in ipairs({'hold','toggle'}) do
             for _,vk in ipairs({164,5,6}) do
@@ -71,6 +109,8 @@ return function(equal,read,fixture,finish)
                 f.keys[vk]=true;if mode=='toggle' then f.latch(true) end;f.step(0.02)
                 equal(env.TEST_RADIAL.opened,true,'ordinary wheel works with idle drone mod')
                 f.keys[4],f.keys[84]=true,true;f.step(0.02)
+                equal(env.DroneRemoteControl.control_active,false,'recall preparation precedes control capture')
+                prepare(f)
                 equal(env.DroneRemoteControl.control_active,true,'both load orders enter with companions enabled')
                 equal(env.HD2StratagemHotkeys.config.radial,true,'wheel preference remains on')
                 equal(env.HD2HelperAutoReload.config.enabled,true,'reload preference remains on')
@@ -117,7 +157,7 @@ return function(equal,read,fixture,finish)
     f.env.restore_error=false;f.env.shutdown()
 
     f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5],f.keys[4]=true,true;f.step(0.02);f.keys[84]=true;f.step(0.02)
-    f.keys[84]=false;f.step(0.02);f.env.drone_cleanup_error=true;f.keys[84]=true;f.step(0.02)
+    prepare(f);f.keys[84]=false;f.step(0.02);f.env.drone_cleanup_error=true;f.keys[84]=true;f.step(0.02)
     equal(f.env.DroneRemoteControl.blocking_inputs,true,'drone restore failure retains companion gate')
     f.keys[49],f.keys[1]=true,true;f.shot.ammo=0
     for _=1,5 do f.step(0.02) end
@@ -129,6 +169,7 @@ return function(equal,read,fixture,finish)
     for _,fault in ipairs({'focus','respawn','heat','foreign-update'}) do
         f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5],f.keys[4]=true,true;f.step(0.02)
         f.keys[84]=true;f.step(0.02)
+        prepare(f)
         equal(f.env.DroneRemoteControl.control_active,true,'cleanup scenario starts active')
         if fault=='focus' then f.focus(false)
         elseif fault=='respawn' then f.env.drone_snapshot.token='NEW-AVATAR'
@@ -150,6 +191,7 @@ return function(equal,read,fixture,finish)
 
     f=fixture();setup(f.env,f.keys);f.step(0.02);f.keys[5],f.keys[4]=true,true;f.step(0.02)
     f.keys[84]=true;f.step(0.02)
+    prepare(f)
     f.step(0)
     equal(f.env.DroneRemoteControl.control_active,true,'zero-time update keeps remote control active')
     f.step(0.5)
@@ -160,6 +202,7 @@ return function(equal,read,fixture,finish)
     f=fixture();setup(f.env,f.keys);f.step(0.02)
     equal(f.env.TEST_MENU.menu_active(),false,'aim-mode scenario begins without native stratagem menu')
     f.keys[4]=true;f.step(0.02);f.keys[84]=true;f.step(0.02)
+    prepare(f)
     equal(f.env.DroneRemoteControl.control_active,true,'aim-mode combo enters without opening helper wheel')
     equal(f.env.TEST_RADIAL.opened,false,'aim-mode combo does not open helper wheel')
     f.keys[4],f.keys[84]=false,false;f.step(0.02);f.keys[84]=true;f.step(0.02)

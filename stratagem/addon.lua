@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.61-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.63-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -72,19 +72,23 @@ local config = {radial = option("radial", false), hotkeys = option("hotkeys", fa
     scale = setting("scale", 1, 1, function(value)
         return value == 1 or value == 1.25 or value == 1.5 or value == 2 or value == 3
     end),
+    wheel_direction = setting("wheel_direction", "counterclockwise", "counterclockwise", function(value)
+        return value == "clockwise" or value == "counterclockwise"
+    end),
     delay = option("slow", false) and 0.030 or 0.015}
-local reader = Reader.new(channel)
+local reader = Reader.new(channel, Visibility)
 local policy = Policy.new(channel.command_key, function(binding) return reader:command_state(binding) end)
 policy.delay = config.delay
-local radial = Radial.new(sr, channel, config.scale, log)
+local radial = Radial.new(sr, channel, config.scale, log, config.wheel_direction)
 local live = combined and combined.options
 if not live and not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.61-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.63-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.61-test; stratagem-base=0.1.13-test; in-game HD2H options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.63-test; stratagem-base=0.1.13-test; in-game HD2H options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("OVERLAY mission-location=native-stage-and-radius; refresh=50ms; no native calls or game writes")
+log("OVERLAY order=equipped-1-4,mission,common; slot-1=12-o-clock; direction=" .. config.wheel_direction)
 log("CONFIG radial=" .. tostring(config.radial) .. " hotkeys=" .. tostring(config.hotkeys))
 log("CONFIG shared-all=" .. tostring(groups.shared) .. " mission-all=" .. tostring(groups.mission) ..
     " combined-all=" .. tostring(all) .. " scale=" .. tostring(config.scale))
@@ -183,17 +187,19 @@ if live then
         end
         local delay = values.slow and 0.030 or 0.015
         local changed = config.radial ~= values.radial or config.hotkeys ~= values.hotkeys or
-            config.scale ~= values.scale or config.delay ~= delay
+            config.scale ~= values.scale or config.delay ~= delay or config.wheel_direction ~= values.wheel_direction
         for kind, value in pairs(shared) do if config.shared[kind] ~= value then changed = true end end
         if not changed then return end
         stop()
         config.radial,config.hotkeys,config.scale,config.delay = values.radial,values.hotkeys,values.scale,delay
+        config.wheel_direction = values.wheel_direction
         for kind, value in pairs(shared) do config.shared[kind] = value end
         policy.delay,radial.scale = delay,values.scale
+        radial.direction = values.wheel_direction
         state.remote_rearm,state.radial_rearm,state.toggle_suppressed = true,true,true
         state.list_ready,state.overlay = false,false
         log("MOD_OPTIONS applied radial="..tostring(config.radial).." hotkeys="..tostring(config.hotkeys)..
-            " scale="..tostring(config.scale).." delay="..tostring(config.delay))
+            " scale="..tostring(config.scale).." delay="..tostring(config.delay).." direction="..config.wheel_direction)
     end)
 end
 local function recovery_cleanup(now)
@@ -212,7 +218,7 @@ local function recover_radial(now)
     if now < state.radial_retry_at then return end
     local cleaned, why = recovery_cleanup(now)
     if cleaned then
-        local good, replacement = pcall(Radial.new, sr, channel, config.scale, log)
+        local good, replacement = pcall(Radial.new, sr, channel, config.scale, log, config.wheel_direction)
         if good and type(replacement) == "table" then
             radial = replacement
             state.radial_failed, state.radial_retry_at, state.radial_retry_delay = nil, nil, nil

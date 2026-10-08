@@ -1,6 +1,6 @@
 return function(equal, read_file, Radial)
     local Policy = dofile("policy.lua")
-    local function fixture(mode, vk)
+    local function fixture(mode, vk, direction)
         local f = {now = 0, held = {}, events = {}, faults = {}, instances = {}, logs = {},
             focused = true, active = false, chained = 0}
         local binding = {owner = "OWNER", start_vk = vk or 164, start_mode = mode or "hold",
@@ -36,9 +36,9 @@ return function(equal, read_file, Radial)
                 directions = {f.held[38] == true, f.held[39] == true, false, false}} end,
             loadout = function() return {token = "LOADOUT"} end,
             radial = function() return {token = "LOADOUT", rows = {{kind = 1, ready = true, status = "READY"}}} end}
-        local factory = {new = function()
+        local factory = {new = function(_, _, _, _, applied_direction)
             fault("factory")
-            local radial = {opened = false}
+            local radial = {opened = false, direction = applied_direction}
             f.instances[#f.instances + 1] = radial
             function radial:open(inventory)
                 fault("open")
@@ -74,6 +74,7 @@ return function(equal, read_file, Radial)
             can_get = function(_, resource) return resource:match("stratagem_option_(.+)$") ~= nil end}}
         env.require = function(name)
             local option = name:match("stratagem_option_(.+)$")
+            if option == "wheel_direction" then return direction or "counterclockwise" end
             if option then return option == "radial" or option == "hotkeys" end
             return require(name)
         end
@@ -135,6 +136,14 @@ return function(equal, read_file, Radial)
             end
             f.env.shutdown()
         end
+    end
+    for _, direction in ipairs({"counterclockwise", "clockwise"}) do
+        local f = fixture("hold", 164, direction)
+        equal(f.instances[1].direction, direction, "initial renderer receives direction")
+        f:open(); f.faults.draw = true; f:step()
+        f.faults.draw = false; f:step(0.51)
+        equal(f.instances[2].direction, direction, "recovered renderer preserves direction")
+        f:fresh_open(); f.env.shutdown()
     end
     local f = fixture()
     f:open(); f.faults.reader, f.faults.dispose = true, true; f:step()

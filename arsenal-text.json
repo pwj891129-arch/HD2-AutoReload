@@ -1,9 +1,10 @@
 {
   "en": {
-    "Description": "Use Bingus Shared Loader v19 / API 1 and Mod Options Menu v1.2 (API 1 version 3) for the separate HD2H tab. Fixes stale option texts when switching languages back to Korean. All 46 option names, descriptions and custom choices follow the game's 14 supported text languages; unreadable or unsupported settings use English. One ZIP, stable saved settings, no visible Arsenal options. Existing MODS/BTO/HUD+ titles are retained. One root archive deploys all 48 resources. Includes personal/vehicle reload, default-on Railgun 90%/95% (default 95%) / Epoch 100% release, native-icon wheel and hotkeys. The wheel's existing English/Korean name renderer is unchanged. Replace the previous helper, Purge / Deploy with the game closed, then restart. Offline language-cycle/provider/Arsenal/SDK/LuaJIT checks passed; native in-game display validation is still needed.",
+    "Description": "Use Bingus Shared Loader v19 / API 1 and Mod Options Menu v1.2 (API 1 version 3) for the separate HD2H tab. Fixes stale option texts when switching languages back to Korean. All 47 option names, descriptions and custom choices follow the game's 14 supported text languages; unreadable or unsupported settings use English. One ZIP, stable saved settings, no visible Arsenal options. Existing MODS/BTO/HUD+ titles are retained. One root archive deploys all 49 resources. Includes personal/vehicle reload, default-on Railgun 90%/95% (default 95%) / Epoch 100% release, native-icon wheel and hotkeys. The wheel's existing English/Korean name renderer is unchanged. Replace the previous helper, Purge / Deploy with the game closed, then restart. Offline language-cycle/provider/Arsenal/SDK/LuaJIT checks passed; native in-game display validation is still needed.",
     "Default": "Default",
     "Enabled": "Enabled",
     "Disabled": "Disabled",
+    "Directions": {"counterclockwise": "Counterclockwise", "clockwise": "Clockwise"},
     "FilterDescription": "Checked: ON. Unchecked: OFF. No ON/OFF submenu. Shows this call only when present in your mission and the group/combined controls use Individual Settings. Bulk controls override visibility without erasing this checkbox. Personal slots 1-4 are unchanged. Variants share one toggle.",
     "Individual": "Individual Settings",
     "IndividualDescription": "Use saved individual choices, or group choices when this is the combined control. Does not erase any ON/OFF selection.",
@@ -35,6 +36,10 @@
         "Name": "Radial Menu Size",
         "Description": "Choose 100% (default), 125%, 150%, 200% or 300%. Large sizes are limited to fit the screen. Apply using the in-game APPLY control; no restart is needed."
       },
+      "wheel_direction": {
+        "Name": "Radial Menu Direction",
+        "Description": "Counterclockwise (default) or Clockwise, starting at twelve o'clock. Equipped slots 1-4 come first, then mission calls, then common calls. Display and mouse selection use the same direction. Number hotkeys keep their slot targets. Apply using APPLY; no restart needed."
+      },
       "slow": {
         "Name": "Command Input Interval",
         "Description": "Choose 15 ms (default) or 30 ms for each press and release. The next key is sent only after the game observes the previous direction input."
@@ -62,10 +67,11 @@
     }
   },
   "ko": {
-    "Description": "독립 HD2H 탭에는 Bingus Shared Loader v19 / API 1과 Mod Options Menu 1.2(API 1 버전 3)가 필요합니다. 다른 언어에서 한국어로 돌아오면 옵션 문구가 갱신되지 않던 문제를 수정했습니다. 46개 옵션 이름·설명·선택값을 게임의 14개 지원 언어로 표시하며 미지원 언어나 판독 실패는 영어로 표시합니다. 단일 ZIP이며 기존 설정 ID·저장값과 MODS·BTO·HUD+ 제목을 유지합니다. 최상위 패치 하나가 48개 리소스를 배포하며 Arsenal 옵션은 숨기고 정의는 보존합니다. 일반·차량 자동재장전, 기본 ON인 레일건 90%/95%(기본 95%)·에포크 100% 자동발사, 게임 아이콘 휠·핫키를 지원합니다. 휠 이름은 기존 한국어·영어 표시를 유지합니다. 게임 종료 후 이전 헬퍼를 교체하고 Purge / Deploy·재시작하세요. 오프라인 언어 순환·제공자·Arsenal·SDK·LuaJIT 검사는 통과했으며 실제 게임 표시 검증은 필요합니다.",
+    "Description": "독립 HD2H 탭에는 Bingus Shared Loader v19 / API 1과 Mod Options Menu 1.2(API 1 버전 3)가 필요합니다. 다른 언어에서 한국어로 돌아오면 옵션 문구가 갱신되지 않던 문제를 수정했습니다. 47개 옵션 이름·설명·선택값을 게임의 14개 지원 언어로 표시하며 미지원 언어나 판독 실패는 영어로 표시합니다. 단일 ZIP이며 기존 설정 ID·저장값과 MODS·BTO·HUD+ 제목을 유지합니다. 최상위 패치 하나가 49개 리소스를 배포하며 Arsenal 옵션은 숨기고 정의는 보존합니다. 일반·차량 자동재장전, 기본 ON인 레일건 90%/95%(기본 95%)·에포크 100% 자동발사, 게임 아이콘 휠·핫키를 지원합니다. 휠 이름은 기존 한국어·영어 표시를 유지합니다. 게임 종료 후 이전 헬퍼를 교체하고 Purge / Deploy·재시작하세요. 오프라인 언어 순환·제공자·Arsenal·SDK·LuaJIT 검사는 통과했으며 실제 게임 표시 검증은 필요합니다.",
     "Default": "기본",
     "Enabled": "활성화",
     "Disabled": "비활성화",
+    "Directions": {"counterclockwise": "반시계방향", "clockwise": "시계방향"},
     "FilterDescription": "체크하면 ON, 해제하면 OFF입니다. 하위 ON/OFF 메뉴는 없습니다. 해당 그룹과 공용·임무 전체가 ‘개별 설정 사용’일 때 현재 임무에 있는 해당 항목을 표시합니다. 전체 옵션은 표시 여부만 덮어쓰며 체크값을 지우지 않습니다. 개인 슬롯 1~4는 유지하고 동일 항목의 변형은 같은 토글을 사용합니다.",
     "Individual": "개별 설정 사용",
     "IndividualDescription": "저장된 개별 선택값을 적용합니다. 공용·임무 전체 옵션에서는 각 그룹의 설정부터 적용하며 기존 ON/OFF 선택값을 지우지 않습니다.",
@@ -96,6 +102,10 @@
       "scale": {
         "Name": "원형 메뉴 크기",
         "Description": "100%(기본), 125%, 150%, 200%, 300% 중 선택합니다. 큰 배율은 화면 밖으로 잘리지 않도록 제한됩니다. 인게임 APPLY로 적용하며 게임을 재시작할 필요는 없습니다."
+      },
+      "wheel_direction": {
+        "Name": "휠 나열 방향",
+        "Description": "12시부터 반시계방향(기본) 또는 시계방향으로 나열합니다. 장착 슬롯 1~4, 임무, 공용 순서는 유지하며 화면 표시와 마우스 선택 방향을 함께 바꿉니다. 숫자 핫키의 슬롯 대상은 변하지 않습니다. 인게임 APPLY로 적용하며 재시작은 필요 없습니다."
       },
       "slow": {
         "Name": "커맨드 입력 간격",

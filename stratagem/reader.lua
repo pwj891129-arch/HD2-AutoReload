@@ -23,7 +23,15 @@ local function pointer(raw, at)
     if value < 65536 or value >= 140737488355328 then return nil end
     return value
 end
-function Reader.new(channel) return setmetatable({channel = channel}, Reader) end
+function Reader.new(channel, visibility)
+    local missions = {}
+    for _, filter in ipairs(visibility or {}) do
+        if filter.group == "mission" then
+            for _, kind in ipairs(filter.kinds) do missions[kind] = true end
+        end
+    end
+    return setmetatable({channel = channel, mission_kinds = missions}, Reader)
+end
 function Reader:read(at, size) return self.channel:read(at, size) end
 function Reader:word(at) return word(self:read(at, 4), 0) end
 function Reader:ptr(at) return pointer(self:read(at, 8), 0) end
@@ -663,7 +671,16 @@ function Reader:radial(include_shared, read_icons)
                 (row.ready and "READY" or "UNKNOWN"))
         end
     end
-    inventory.rows = visible
+    -- Keep native identities and hotkeys intact; only partition the visible wheel.
+    local equipped, missions, common = {}, {}, {}
+    for _, row in ipairs(visible) do
+        local group = row.slot and equipped or (self.mission_kinds[row.kind] and missions or common)
+        group[#group + 1] = row
+    end
+    for _, group in ipairs({missions, common}) do
+        for _, row in ipairs(group) do equipped[#equipped + 1] = row end
+    end
+    inventory.rows = equipped
     local current = self:inventory(include_shared)
     if not current or current.token ~= inventory.token then return nil, "loadout-changed" end
     return inventory, "ready"

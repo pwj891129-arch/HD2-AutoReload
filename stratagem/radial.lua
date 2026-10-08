@@ -8,8 +8,10 @@ local KOREAN_FONTS = {
     {font = "fca7631255290a2c", atlas = "9ae590aec7c63b1c"},
 }
 -- @GLYPHS@
-function Radial.new(sr, channel, scale, trace)
-    return setmetatable({sr = sr, channel = channel, scale = scale or 1, ids = {}, icons = {}, fonts = {}, icon_reasons = {}, trace = trace}, Radial)
+function Radial.new(sr, channel, scale, trace, direction)
+    return setmetatable({sr = sr, channel = channel, scale = scale or 1,
+        direction = direction == "clockwise" and "clockwise" or "counterclockwise",
+        ids = {}, icons = {}, fonts = {}, icon_reasons = {}, trace = trace}, Radial)
 end
 function Radial:dimensions()
     -- Gui.resolution accepts an optional viewport, never a Gui object.
@@ -19,11 +21,16 @@ function Radial:dimensions()
         return width, height
     end
 end
-function Radial.pick(x, y, width, height, count, scale)
+function Radial.angle(index, count, direction)
+    local sign = direction == "clockwise" and -1 or 1
+    return math.pi / 2 + sign * (index - 1) * 2 * math.pi / count
+end
+function Radial.pick(x, y, width, height, count, scale, direction)
     if not x or not y or count < 1 then return nil end
     local dx, dy = (x - 0.5) * width, (y - 0.5) * height
     if dx * dx + dy * dy < (38 * scale) ^ 2 then return nil end
-    local angle = (math.pi / 2 - math.atan2(dy, dx)) % (2 * math.pi)
+    local sign = direction == "clockwise" and -1 or 1
+    local angle = (sign * (math.atan2(dy, dx) - math.pi / 2)) % (2 * math.pi)
     return math.floor((angle + math.pi / count) / (2 * math.pi / count)) % count + 1
 end
 function Radial:world_live(world)
@@ -544,8 +551,8 @@ function Radial:draw(inventory)
     scale = math.min(scale, h / (2 * (base_radius + 104)), w / (2 * (base_radius + 76)))
     local nx, ny = self.channel.cursor()
     if not nx then return false end
-    self.selected = Radial.pick(nx, ny, w, h, #rows, scale)
-    local mark, pictures, reasons = {tostring(self.selected), tostring(w), tostring(h), tostring(scale)}, {}, {}
+    self.selected = Radial.pick(nx, ny, w, h, #rows, scale, self.direction)
+    local mark, pictures, reasons = {tostring(self.selected), tostring(w), tostring(h), tostring(scale), self.direction}, {}, {}
     mark[#mark + 1] = tostring(self.native_font_failed)
     for _, spec in ipairs(KOREAN_FONTS) do
         mark[#mark + 1] = self:native_font_resources(spec) and spec.font or "native-font-unavailable"
@@ -571,13 +578,13 @@ function Radial:draw(inventory)
     local radius = base_radius * scale
     local inner, outer = 54 * scale, radius + 64 * scale
     local cx, cy = w / 2, h / 2
-    local geometry = table.concat({#rows, inner, outer}, ":")
+    local geometry = table.concat({#rows, inner, outer, self.direction}, ":")
     if self.geometry ~= geometry then self.geometry, self.blocks = geometry, {} end
     local drawn_icons = 0
     local function vertex(r, a) return sr.Vector3(cx + r * math.cos(a), 0, cy + r * math.sin(a)) end
     for index, row in ipairs(rows) do
         local selected = index == self.selected
-        local angle, half = math.pi / 2 - (index - 1) * math.pi * 2 / #rows, math.pi / #rows - 0.02
+        local angle, half = Radial.angle(index, #rows, self.direction), math.pi / #rows - 0.02
         local colour = selected and row.ready and sr.Color(225, 92, 110, 38) or
             (row.ready and sr.Color(205, 28, 32, 36) or sr.Color(200, 18, 20, 23))
         for step = 0, 5 do

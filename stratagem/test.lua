@@ -90,7 +90,8 @@ put(local_record + 0x788, word(0))
 for index, kind in ipairs({113, 101, 66, 1}) do
     put(local_data + 0x188 + (index - 1) * 0x30, word(kind) .. word(3) .. string.rep("\0", 40))
 end
-local reader = Reader.new(channel)
+local visibility_options = dofile("dist/visibility.generated.lua")
+local reader = Reader.new(channel, visibility_options)
 local keys = assert(reader:bindings())
 equal(keys.start_vk, 164, "saved Alt")
 equal(table.concat(keys.directions, ","), "38,39,40,37", "game direction enum to native actions")
@@ -372,17 +373,17 @@ local second = local_data + 0x188 + 48
 local second_bytes, shared_bytes = channel:read(second, 48), channel:read(extra, 48)
 put(second, shared_bytes); put(extra, second_bytes)
 local mixed = assert(reader:radial(true))
-equal(mixed.rows[2].shared, true, "shared row can occur between personal slots")
-equal(mixed.rows[2].slot, nil, "interleaved shared row is not assigned hotkey 2")
-equal(mixed.rows[3].slot, 2, "second equipped item retains number 2")
-equal(mixed.rows[5].slot, 4, "last equipped item retains number 4")
+equal(assert(reader:inventory(true)).rows[2].shared, true, "native shared row can occur between personal slots")
+equal(mixed.rows[2].slot, 2, "second equipped item occupies second wheel position")
+equal(mixed.rows[4].slot, 4, "last equipped item occupies fourth wheel position")
+equal(mixed.rows[5].shared, true, "interleaved shared row moved behind personal equipment")
+equal(mixed.rows[5].slot, nil, "shared row never acquires a personal hotkey")
 for _, row in ipairs(mixed.rows) do
     if row.slot then equal(assert(reader:request(row.slot)).kind, row.kind, "radial number and hotkey target match") end
 end
 put(second, second_bytes); put(extra, shared_bytes)
 put(extra + 9, "\2")
 equal(reader:loadout(), nil, "invalid shared flag blocked")
-local visibility_options = dofile("dist/visibility.generated.lua")
 local function shared_row(at, kind)
     put(at, word(kind) .. word(2) .. "\0\1" .. string.rep("\0", 38))
 end
@@ -411,8 +412,8 @@ for index, kind in ipairs({124, 145, 33, 42, 28, 49}) do shared_row(extra + (ind
 put(local_data + 0x788, word(10))
 local visible = assert(reader:radial(individual))
 equal(#visible.rows, 6, "only enabled common and mission calls are shown")
-equal(visible.rows[5].kind, 124, "reinforce independent of SOS and resupply")
-equal(visible.rows[6].kind, 28, "SEAF independent of Hellbomb")
+equal(visible.rows[5].kind, 28, "enabled SEAF mission follows equipped slots")
+equal(visible.rows[6].kind, 124, "enabled reinforce follows mission calls")
 equal(visible.rows[5].slot, nil, "shared entries never acquire personal numbers")
 equal(visible.token, assert(reader:inventory(false)).token, "filters do not alter loadout identity")
 individual.other = true
@@ -427,6 +428,79 @@ channel.read = function(self, at, size)
 end
 equal(reader:inventory({other = true}), nil, "shared membership change during read is rejected")
 channel.read = original_read
+put(local_data + 0x788, word(4))
+
+-- Native shared/mission rows may lead or interrupt the four equipped entries.
+local personal_bytes = {}
+for index = 1, 4 do personal_bytes[index] = channel:read(local_data + 0x188 + (index - 1) * 48, 48) end
+local interleaved = {{11, true}, {33, true}, {113, false}, {28, true}, {101, false},
+    {124, true}, {66, false}, {42, true}, {145, true}, {1, false}, {49, true}}
+for index, entry in ipairs(interleaved) do
+    put(local_data + 0x188 + (index - 1) * 48,
+        word(entry[1]) .. word(3) .. "\0" .. (entry[2] and "\1" or "\0") .. string.rep("\0", 38))
+end
+put(local_data + 0x788, word(#interleaved))
+local function wheel_kinds(inventory)
+    local kinds = {}; for _, row in ipairs(inventory.rows) do kinds[#kinds + 1] = row.kind end
+    return table.concat(kinds, ",")
+end
+local ordered = assert(reader:radial(true))
+equal(wheel_kinds(ordered), "113,101,66,1,11,28,42,33,124,145,49", "equipped, mission, common wheel order")
+equal(wheel_kinds(assert(reader:inventory(true))), "11,33,113,28,101,124,66,42,145,1,49",
+    "wheel partition does not reorder the native inventory")
+equal(ordered.token, assert(reader:inventory(false)).token, "wheel order leaves native identity token unchanged")
+for index = 1, 4 do
+    equal(ordered.rows[index].slot, index, "first four wheel positions retain personal numbers")
+    equal(assert(reader:request(index)).kind, ordered.rows[index].kind, "numeric hotkey targets fixed wheel slot")
+end
+for _, filter in ipairs(visibility_options) do
+    for _, kind in ipairs(filter.kinds) do
+        equal(reader.mission_kinds[kind] == true, filter.group == "mission", "existing visibility category " .. filter.id)
+    end
+end
+local order_cases = {
+    {false, "113,101,66,1"},
+    {{[11] = true, [28] = true, [42] = true}, "113,101,66,1,11,28,42"},
+    {{[33] = true, [124] = true, [145] = true, [49] = true}, "113,101,66,1,33,124,145,49"},
+    {{[28] = true, [124] = true, [49] = true}, "113,101,66,1,28,124,49"},
+}
+local Wheel = dofile("radial.lua")
+for _, case in ipairs(order_cases) do
+    local shown = assert(reader:radial(case[1]))
+    equal(wheel_kinds(shown), case[2], "visibility changes preserve group order")
+    for index = 1, 4 do
+        equal(shown.rows[index].slot, index, "visibility cannot shift first four positions")
+        for _, direction in ipairs({"clockwise", "counterclockwise"}) do
+            local angle = Wheel.angle(index, #shown.rows, direction)
+            local picked = Wheel.pick(0.5 + 100 * math.cos(angle) / 1920,
+                0.5 + 100 * math.sin(angle) / 1080, 1920, 1080, #shown.rows, 1, direction)
+            equal(picked, index, "both directions start at twelve o'clock")
+            equal(shown.rows[picked].slot, index, "rendered sector and numeric hotkey agree")
+        end
+    end
+    for _, row in ipairs(shown.rows) do
+        equal(assert(reader:request_kind(row.kind, case[1])).kind, row.kind, "wheel selection calls displayed identity")
+    end
+end
+local flag_record = native_definitions[11].record
+put(flag_record + 0x7c, word(1))
+local at_flag = false
+reader.local_position = function() return {0, 0, 0} end
+reader.mission_location = function(_, _, kind) return kind ~= 11 or at_flag end
+equal(wheel_kinds(assert(reader:radial(true))), "113,101,66,1,28,42,33,124,145,49", "unavailable flag omitted in mission group")
+at_flag = true
+equal(wheel_kinds(assert(reader:radial(true))), "113,101,66,1,11,28,42,33,124,145,49", "flag appears after equipped slots at its location")
+at_flag = false
+equal(wheel_kinds(assert(reader:radial(true))), "113,101,66,1,28,42,33,124,145,49", "leaving flag location cannot shift equipped slots")
+put(local_data + 0x188 + 4 * 48 + 24, pointer(70000000))
+local cooling = assert(reader:radial(true))
+equal(cooling.rows[2].kind, 101, "cooling equipped item stays in second wheel position")
+equal(cooling.rows[2].status, "1:00", "cooldown formatting survives wheel partition")
+put(local_data + 0x188 + 6 * 48 + 4, word(0))
+equal(assert(reader:radial(true)).rows[3].status, "EMPTY", "empty equipped item keeps third wheel position")
+reader.local_position, reader.mission_location = nil, nil
+put(flag_record + 0x7c, word(0))
+for index, raw in ipairs(personal_bytes) do put(local_data + 0x188 + (index - 1) * 48, raw) end
 put(local_data + 0x788, word(4))
 
 -- Validate the parser against the local read-only capture when it is available.

@@ -12,7 +12,8 @@ function definitions(filters) {
     ...filters.map(filter => bool(filter.id)),
     bulk('shared_all'), bulk('mission_all'), bulk('shared_mission_all'),
     bool('vehicle', 'autoreload_setting_'),
-    {id: 'railgun_threshold', prefix: 'autoreload_setting_', values: [0.95, 0.9], icon: 'charge90'}
+    {id: 'railgun_threshold', prefix: 'autoreload_setting_', values: [0.95, 0.9], icon: 'charge90'},
+    {id: 'wheel_direction', prefix: 'stratagem_option_', values: ['counterclockwise', 'clockwise'], icon: 'radial'}
   ];
 }
 function suffix(value) {
@@ -20,11 +21,13 @@ function suffix(value) {
   return typeof value === 'number' ? String(value * 100) : value;
 }
 function label(value, text, id) {
+  if (id === 'wheel_direction') return text.Directions[value];
   if (id === 'slow') return value ? '30 ms' : '15 ms';
   if (value === 'individual') return text.Individual;
   return typeof value === 'number' ? `${value * 100}%` : value ? 'ON' : 'OFF';
 }
 function description(value, text, id) {
+  if (id === 'wheel_direction') return text.Options.wheel_direction.Description;
   if (id === 'slow') return text.Options.slow.Description;
   if (id === 'railgun_threshold') return text.Options.railgun_threshold.Description;
   if (value === 'individual') return text.IndividualDescription;

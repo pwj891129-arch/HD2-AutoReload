@@ -2,7 +2,28 @@ return function(equal, read_file, source)
     local Radial = dofile("radial.lua")
     equal(Radial.pick(0.5, 0.5, 1280, 720, 4, 1), nil, "radial dead zone")
     for index, point in ipairs({{0.5, 0.9}, {0.8, 0.5}, {0.5, 0.1}, {0.2, 0.5}}) do
-        equal(Radial.pick(point[1], point[2], 1280, 720, 4, 1), index, "clockwise sectors")
+        equal(Radial.pick(point[1], point[2], 1280, 720, 4, 1, "clockwise"), index, "clockwise sectors")
+    end
+    for index, point in ipairs({{0.5, 0.9}, {0.2, 0.5}, {0.5, 0.1}, {0.8, 0.5}}) do
+        equal(Radial.pick(point[1], point[2], 1280, 720, 4, 1), index, "default counterclockwise sectors")
+    end
+    for count = 1, 16 do
+        for _, direction in ipairs({"clockwise", "counterclockwise"}) do
+            for index = 1, count do
+                local angle = Radial.angle(index, count, direction)
+                equal(Radial.pick(0.5 + 100 * math.cos(angle) / 1280,
+                    0.5 + 100 * math.sin(angle) / 720, 1280, 720, count, 1, direction),
+                    index, "drawn sector center selects identical item in both directions")
+                if count > 1 then
+                    for _, edge in ipairs({-1, 1}) do
+                        local inside = angle + edge * (math.pi / count - 0.000001)
+                        equal(Radial.pick(0.5 + 100 * math.cos(inside) / 1280,
+                            0.5 + 100 * math.sin(inside) / 720, 1280, 720, count, 1, direction),
+                            index, "sector edges and wraparound stay with displayed identity")
+                    end
+                end
+            end
+        end
     end
     local x, y, foreground, worlds = 0.5, 0.5, true, {1, 2}
     local show, focus, created, destroyed, shapes, next_id = false, true, 0, 0, {}, 0
@@ -56,7 +77,7 @@ return function(equal, read_file, source)
         picture = "0000000100000001", name = "ITEM", status = index == 2 and "5s" or "READY"} end
     local radial = Radial.new(sr, channel, 1, function(line)
         if not line:find("icon-fallback", 1, true) then phases[#phases + 1] = line end
-    end)
+    end, "clockwise")
     equal(radial:open(inventory), true, "radial opens")
     equal(table.concat(phases, "|"), "OVERLAY stage=resources|OVERLAY stage=dimensions|OVERLAY stage=world|" ..
         "OVERLAY stage=create-gui|OVERLAY stage=cursor|OVERLAY stage=draw|OVERLAY icons=0/4|OVERLAY stage=ready",
@@ -97,6 +118,14 @@ return function(equal, read_file, source)
     x, y = 0.8, 0.5; equal(radial:draw(inventory), true); equal(radial.selected, 2)
     local before = next_id; radial:draw(inventory)
     equal(next_id, before, "retained GUI avoids redraw")
+    local geometry = radial.geometry
+    radial.direction = "counterclockwise"; radial:draw(inventory)
+    equal(radial.selected, 4, "direction switch mirrors hit testing")
+    equal(radial.geometry ~= geometry, true, "direction switch invalidates cached content blocks")
+    equal(next_id > before, true, "direction switch redraws retained GUI")
+    before = next_id; radial:draw(inventory)
+    equal(next_id, before, "unchanged new direction does not redraw")
+    radial.direction = "clockwise"
     foreground = false; radial:close()
     equal(show, true, "focus loss defers cursor restore")
     foreground = true; radial:restore()

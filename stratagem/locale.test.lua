@@ -31,11 +31,11 @@ return function(equal, Reader)
     reader.hash = function() return "0123456789abcdef" end
     Reader.Locale = ko
     local translated = reader:radial(true, false)
-    equal(translated.rows[1].name, "증원"); equal(translated.rows[2].name, "작살총")
-    equal(translated.rows[2].slot, 1, "personal hotkey number is unchanged")
-    equal(translated.rows[2].command[1], 2, "localized label never changes command")
+    equal(translated.rows[1].name, "작살총"); equal(translated.rows[2].name, "증원")
+    equal(translated.rows[1].slot, 1, "personal hotkey number is unchanged")
+    equal(translated.rows[1].command[1], 2, "localized label never changes command")
     Reader.Locale = en
-    equal(reader:radial(true, false).rows[2].name, "HARPOON GUN ")
+    equal(reader:radial(true, false).rows[1].name, "HARPOON GUN ")
     Reader.Locale = nil
     language.current = 'en'
     equal(ko.name(124,'MISSIONS. REINFORCEMENT BEACON'),'REINFORCEMENT BEACON','game language change refreshes names')

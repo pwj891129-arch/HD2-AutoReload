@@ -23,12 +23,13 @@ function schema(filters, texts) {
       const translated = translations[language];
       if (translated) {
         const selected = filter ? [translated.Groups[category] + ': ' + translated.Calls[key], translated.FilterDescription] :
-          translated.Options[key];
+          key === 'wheel_direction' ? translated.DirectionOption : translated.Options[key];
         if (!selected || selected.some(value => typeof value !== 'string') || filter && !translated.Calls[key]) {
           throw new Error(`Incomplete ${language} option translation: ${key}`);
         }
         return [language, {label: selected[0], description: selected[1], mod: translated.Categories[category],
-          choices: definition.toggle ? undefined : definition.values.map(value => key === 'slow' ?
+          choices: definition.toggle ? undefined : definition.values.map(value => key === 'wheel_direction' ?
+            translated.Directions[value] : key === 'slow' ?
             (value ? '30 ms' : '15 ms') : value === 'individual' ? translated.Individual : typeof value === 'number' ?
               `${value * 100}%` : value ? translated.Enabled : translated.Disabled)}];
       }
@@ -43,10 +44,10 @@ function schema(filters, texts) {
     }));
     return {key, id: `hd2_helper.${definition.prefix === 'autoreload_setting_' ? 'autoreload' : 'stratagem'}.${key}`,
       prefix: definition.prefix, toggle: definition.toggle === true, values: definition.values,
-      invalid: key === 'scale' ? 1 : false, category: `hd2_helper.${category}`, text,
+      invalid: key === 'scale' ? 1 : key === 'wheel_direction' ? 'counterclockwise' : false, category: `hd2_helper.${category}`, text,
       gap: key === 'radial' || key === 'shared_mission_all'};
   });
-  if (entries.length !== 46 || Object.values(counts).some(count => count > 32)) throw new Error('MODS row budget exceeded');
+  if (entries.length !== 47 || Object.values(counts).some(count => count > 32)) throw new Error('MODS row budget exceeded');
   return entries;
 }
 

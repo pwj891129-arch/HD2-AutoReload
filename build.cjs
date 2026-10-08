@@ -8,7 +8,7 @@ const wheelTexture = require('./tools/wheel-texture.cjs');
 const archiveModel = require('./tools/archive.cjs');
 
 const root = __dirname;
-const version = '0.3.61-test';
+const version = '0.3.63-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;
@@ -260,7 +260,7 @@ fs.writeFileSync(path.join(stage, 'arsenal-options.hidden.json'), JSON.stringify
 const defaultFolders = ['Core', ...options.map(option => `Option_${option.id}_${optionModel.suffix(option.values[0])}`)];
 const defaultArchives = defaultFolders.flatMap(folder=>fs.readdirSync(path.join(stage,folder))
   .filter(file=>/\.patch_\d+$/.test(file)).map(file=>path.join(stage,folder,file)));
-assert.equal(defaultArchives.length,48);
+assert.equal(defaultArchives.length,49);
 const deployment = archiveModel.merge(defaultArchives);
 for (const file of fs.readdirSync(stage).filter(file=>/\.patch_\d+(\.stream|\.gpu_resources)?$/.test(file))) {
   fs.unlinkSync(path.join(stage,file));
@@ -271,7 +271,7 @@ fs.writeFileSync(path.join(stage,filename+'.gpu_resources'),deployment.gpu);
 const report = { version, resource, resourceHash: hash64(resource).toString(16),
   archiveBytes: archive.length, sourceBytes: lua.length, stage, languages: menuSchema.languages,
   legacyEditorLanguages: ['en','ko'],
-  deploymentAssets:48, deploymentBytes:deployment.bytes.length,
+  deploymentAssets:49, deploymentBytes:deployment.bytes.length,
   deploymentSha256:crypto.createHash('sha256').update(deployment.bytes).digest('hex'),
   archiveSha256: crypto.createHash('sha256').update(archive).digest('hex') };
 fs.writeFileSync(path.join(root, 'dist', 'build-report.json'), JSON.stringify(report, null, 2));

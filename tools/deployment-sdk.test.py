@@ -38,13 +38,13 @@ stage = Path(report['stage'])
 file = stage / '9ba626afa44a3aa3.patch_0'
 raw = file.read_bytes()
 gpu_bytes = Path(str(file) + '.gpu_resources').read_bytes()
-assert struct.unpack_from('<III', raw) == (0xf0000011, 2, 48)
+assert struct.unpack_from('<III', raw) == (0xf0000011, 2, 49)
 main, gpu, stream = Stream(raw), Stream(gpu_bytes), Stream(b'')
 main.seek(72)
 types_read = [namespace['TocFileType']().Serialize(main) for _ in range(2)]
-assert sorted(row.NumFiles for row in types_read) == [1, 47]
-entries = [namespace['TocEntry']().Serialize(main) for _ in range(48)]
-assert len({(entry.FileID, entry.TypeID) for entry in entries}) == 48
+assert sorted(row.NumFiles for row in types_read) == [1, 48]
+entries = [namespace['TocEntry']().Serialize(main) for _ in range(49)]
+assert len({(entry.FileID, entry.TypeID) for entry in entries}) == 49
 for index, entry in enumerate(entries):
     assert entry.EntryIndex == index
     entry.SerializeData(main, gpu, stream)
@@ -57,9 +57,9 @@ assert 'Options' not in defaults and 'Include' not in defaults
 settings = json.loads((root / 'dist/menu-schema.json').read_text(encoding='utf-8'))
 lua_type = 0xa14e8dfa2cd117e2
 lua = [bytes(entry.TocData)[8:].decode('utf-8') for entry in entries if entry.TypeID == lua_type]
-assert len(lua) == 47
+assert len(lua) == 48
 assert sum(text.startswith('-- HD2-Addon: mods/hd2_helper/auto_reload\n') for text in lua) == 1
-assert sum(text.startswith('return ') for text in lua) == len(settings) == 46
+assert sum(text.startswith('return ') for text in lua) == len(settings) == 47
 font_entry = next(entry for entry in entries if entry.TypeID != lua_type)
 font = Texture()
 font.Serialize(Stream(font_entry.TocData), Stream(font_entry.GpuData), Stream(font_entry.StreamData))
@@ -84,4 +84,4 @@ for folder in folders:
                             Stream(Path(str(original) + '.stream').read_bytes()))
         target = merged[(entry.FileID, entry.TypeID)]
         assert (entry.TocData, entry.GpuData, entry.StreamData) == (target.TocData, target.GpuData, target.StreamData)
-print('PASS actual HD2SDK: 48 merged assets, default settings, typed headers, alignments and Korean glyph DDS pixels')
+print('PASS actual HD2SDK: 49 merged assets, default settings, typed headers, alignments and Korean glyph DDS pixels')

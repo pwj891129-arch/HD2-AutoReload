@@ -63,6 +63,8 @@ return function(equal)
         return bitmap_style(self, value)
     end
     local korean = {"궤도 380mm 고폭 폭격", "이글 가스 공중타격", "증원", "중기관총"}
+    for _, direction in ipairs({"counterclockwise", "clockwise"}) do
+    radial.direction = direction
     for _, mode in ipairs({{names}, {korean}, {korean, true}}) do
     local labels = mode[1]; native = mode[2]
     for _, dimensions in ipairs({{320, 240}, {1280, 720}, {1920, 1080}, {2560, 1440}, {3840, 2160}}) do
@@ -79,7 +81,7 @@ return function(equal)
                 local inner, outer = 54 * effective, (radius + 64) * effective
                 blocks = {}
                 for index = 1, count do
-                    local angle = math.pi / 2 - (index - 1) * 2 * math.pi / count
+                    local angle = Radial.angle(index, count, radial.direction)
                     local dx, dy, bw, bh = Radial.content(count, inner, outer, angle, effective)
                     blocks[index] = {x = width / 2 + dx - bw / 2, y = height / 2 + dy - bh / 2, w = bw, h = bh}
                     local half = math.pi / count - 0.02
@@ -110,6 +112,7 @@ return function(equal)
                 end
             end
         end
+    end
     end
     end
     native = false

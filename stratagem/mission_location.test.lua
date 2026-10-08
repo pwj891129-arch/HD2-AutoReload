@@ -13,7 +13,7 @@ return function(equal)
         for i = 0, size - 1 do if not memory[at + i] then return nil end; raw[#raw + 1] = memory[at + i] end
         return table.concat(raw)
     end
-    local reader = Reader.new(channel)
+    local reader = Reader.new(channel, dofile("dist/visibility.generated.lua"))
     local function root(name, at) put(channel.base + Reader.RVA[name], ptr(at)) end
     local registry, objects, generations = 0x20000000, 0x21000000, 0x22000000
     put(channel.exe_base + 0x1a100f0, ptr(registry))
@@ -178,7 +178,9 @@ return function(equal)
     reader.bindings = function() return {directions = {38, 39, 40, 37}} end
     local inventory = assert(reader:radial(true, false))
     equal(#inventory.rows, 3, "location eligibility separate from cooldown")
-    equal(inventory.rows[3].status, "0:01", "visible cooldown retains minutes-seconds")
+    equal(inventory.rows[2].kind, 42, "nearby mission precedes common calls")
+    equal(inventory.rows[3].kind, 124, "common call follows mission calls")
+    equal(inventory.rows[2].status, "0:01", "visible cooldown retains minutes-seconds")
     equal(reader:request_kind(42, true), nil, "nearby cooldown cannot be invoked")
     put(data + 24, ptr(0))
     local request = assert(reader:request_kind(42, true))

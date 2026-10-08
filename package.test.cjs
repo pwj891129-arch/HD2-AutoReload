@@ -11,23 +11,24 @@ const oldMarker = Buffer.alloc(224);
 oldMarker.writeUInt32LE(1, 8);
 assert.throws(() => checkMinimum(oldMarker), /below native minimum/);
 
-const version = '0.3.61-test';
+const version = '0.3.63-test';
 const texts = JSON.parse(fs.readFileSync(path.join(__dirname, 'arsenal-text.json'), 'utf8'));
 const filters = JSON.parse(fs.readFileSync(path.join(__dirname, 'stratagem-filters.json'), 'utf8'));
 const nativeIcons = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets/native-option-icons.json'), 'utf8'));
 const coreIds = ['enabled', 'charge90', 'radial', 'hotkeys', 'shared_other', 'scale', 'slow',
-  'shared_all', 'mission_all', 'shared_mission_all', 'vehicle', 'railgun_threshold'];
+  'shared_all', 'mission_all', 'shared_mission_all', 'vehicle', 'railgun_threshold', 'wheel_direction'];
 const definitions = optionModel.definitions(filters);
 const optionIds = definitions.map(option => option.id);
 const defaults = definitions.map(option => option.toggle ? false : option.values[0]);
 const variantsFor = option => option.SubOptions ?? [option];
 const variantCount = definitions.reduce((sum, option) => sum + option.values.length, 0);
-assert.equal(optionIds.length, 46);
-assert.equal(variantCount, 58);
+assert.equal(optionIds.length, 47);
+assert.equal(variantCount, 60);
 assert.equal(definitions.filter(option => option.toggle).length, 40);
 assert.deepEqual(definitions.find(option => option.id === 'scale').values, [1, 1.25, 1.5, 2, 3]);
 assert.deepEqual(definitions.find(option => option.id === 'railgun_threshold').values, [0.95, 0.9]);
-assert.equal(optionIds.at(-1), 'railgun_threshold', 'New choice does not shift existing option positions');
+assert.deepEqual(definitions.find(option => option.id === 'wheel_direction').values, ['counterclockwise', 'clockwise']);
+assert.equal(optionIds.at(-1), 'wheel_direction', 'New choice does not shift existing option positions');
 for (const id of ['shared_all', 'mission_all', 'shared_mission_all']) {
   assert.deepEqual(definitions.find(option => option.id === id).values, ['individual', true, false]);
 }
@@ -79,7 +80,7 @@ function checkPackage(language) {
   assert.equal(manifest.Name, `HD2 Helper Auto Reload + Stratagems ${version}`);
   assert.equal(manifest.Description, `${version}. ${texts.en.Description}`);
   assert.deepEqual(Object.keys(manifest).sort(), ['Description', 'Guid', 'Name', 'Options', 'Version']);
-  assert.deepEqual(Object.keys(text.Options), coreIds);
+  assert.deepEqual(Object.keys(text.Options).sort(), [...coreIds].sort());
   assert.equal(manifest.Options.length, optionIds.length);
   assert(!manifest.Options.some(option => /F9|진단|실탄.*OFF|과열.*OFF/.test(option.Name)));
   for (let i = 0; i < optionIds.length; i++) {
@@ -166,9 +167,9 @@ function checkPackage(language) {
   const deployed = fs.readFileSync(path.join(stage,rootPatches[0]));
   checkMinimum(deployed);
   assert.equal(deployed.readUInt32LE(4),2);
-  assert.equal(deployed.readUInt32LE(8),48,'Core, font texture and all 46 defaults in one archive');
+  assert.equal(deployed.readUInt32LE(8),49,'Core, font texture and all 47 defaults in one archive');
   const entries = new Map();
-  for (let i=0;i<48;i++) {
+  for (let i=0;i<49;i++) {
     const at=72+32*2+80*i;
     const id=deployed.readBigUInt64LE(at),type=deployed.readBigUInt64LE(at+8);
     const key=`${id}/${type}`;assert(!entries.has(key),'no duplicate resource in deployment');
@@ -240,6 +241,8 @@ function checkPackage(language) {
       assert(!source.includes('hi % 438'), 'Old objective divisor must not ship');
       assert(source.includes('function Reader:reference_anchor(radius, children)'));
       assert(source.includes('self:mission_location(definition, row.kind, here)'));
+      assert(source.includes('Reader.new(channel, Visibility)'), 'Wheel ordering uses existing visibility categories');
+      assert(source.includes('self.mission_kinds[row.kind] and missions or common'), 'Mission rows precede common rows');
       assert(source.includes('reader:request_location_valid(request, config.shared)'));
       assert(source.includes('if not same_rows(radial.inventory, current) then'));
       assert(source.includes('Radial.Glyphs = (function()'));
