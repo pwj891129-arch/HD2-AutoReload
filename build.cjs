@@ -8,7 +8,7 @@ const wheelTexture = require('./tools/wheel-texture.cjs');
 const archiveModel = require('./tools/archive.cjs');
 
 const root = __dirname;
-const version = '0.3.63-test';
+const version = '0.3.64-test';
 const luaType = 0xA14E8DFA2CD117E2n;
 const mask = 0xffffffffffffffffn;
 const mix = 0xC6A4A7935BD1E995n;

@@ -9,6 +9,17 @@ return function(equal, read_file, source)
     end
     for count = 1, 16 do
         for _, direction in ipairs({"clockwise", "counterclockwise"}) do
+            local sign = direction == "clockwise" and -1 or 1
+            equal(math.abs(Radial.angle(1, count, direction) - sign * math.pi / count - math.pi / 2) < 0.0000001,
+                true, "first block boundary, not center, is at twelve o'clock")
+            equal(Radial.pick(0.5, 0.9, 1280, 720, count, 1, direction), 1,
+                "exact twelve o'clock boundary starts first block")
+            for _, side in ipairs({-1, 1}) do
+                local angle = math.pi / 2 + sign * side * 0.000001
+                equal(Radial.pick(0.5 + 100 * math.cos(angle) / 1280,
+                    0.5 + 100 * math.sin(angle) / 720, 1280, 720, count, 1, direction),
+                    side == 1 and 1 or count, "twelve o'clock seam separates first and last blocks")
+            end
             for index = 1, count do
                 local angle = Radial.angle(index, count, direction)
                 equal(Radial.pick(0.5 + 100 * math.cos(angle) / 1280,
@@ -20,6 +31,11 @@ return function(equal, read_file, source)
                         equal(Radial.pick(0.5 + 100 * math.cos(inside) / 1280,
                             0.5 + 100 * math.sin(inside) / 720, 1280, 720, count, 1, direction),
                             index, "sector edges and wraparound stay with displayed identity")
+                        local outside = angle + edge * (math.pi / count + 0.000001)
+                        local expected = (index - 1 + edge * sign) % count + 1
+                        equal(Radial.pick(0.5 + 100 * math.cos(outside) / 1280,
+                            0.5 + 100 * math.sin(outside) / 720, 1280, 720, count, 1, direction),
+                            expected, "crossing block boundary selects its displayed neighbor")
                     end
                 end
             end

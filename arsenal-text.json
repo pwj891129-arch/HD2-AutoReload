@@ -38,7 +38,7 @@
       },
       "wheel_direction": {
         "Name": "Radial Menu Direction",
-        "Description": "Counterclockwise (default) or Clockwise, starting at twelve o'clock. Equipped slots 1-4 come first, then mission calls, then common calls. Display and mouse selection use the same direction. Number hotkeys keep their slot targets. Apply using APPLY; no restart needed."
+        "Description": "Counterclockwise (default) or Clockwise. The first block starts at the twelve o'clock boundary, not its center. Equipped slots 1-4 come first, then mission calls, then common calls. Display and mouse selection use the same direction. Number hotkeys keep their slot targets. Apply using APPLY; no restart needed."
       },
       "slow": {
         "Name": "Command Input Interval",
@@ -105,7 +105,7 @@
       },
       "wheel_direction": {
         "Name": "휠 나열 방향",
-        "Description": "12시부터 반시계방향(기본) 또는 시계방향으로 나열합니다. 장착 슬롯 1~4, 임무, 공용 순서는 유지하며 화면 표시와 마우스 선택 방향을 함께 바꿉니다. 숫자 핫키의 슬롯 대상은 변하지 않습니다. 인게임 APPLY로 적용하며 재시작은 필요 없습니다."
+        "Description": "첫 블록의 중심이 아닌 시작 경계를 12시에 두고 반시계방향(기본) 또는 시계방향으로 나열합니다. 장착 슬롯 1~4, 임무, 공용 순서는 유지하며 화면 표시와 마우스 선택 방향을 함께 바꿉니다. 숫자 핫키의 슬롯 대상은 변하지 않습니다. 인게임 APPLY로 적용하며 재시작은 필요 없습니다."
       },
       "slow": {
         "Name": "커맨드 입력 간격",

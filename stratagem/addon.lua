@@ -22,7 +22,7 @@ pcall(function() file = loader.open_log("hd2_helper_stratagem_hotkeys.log") end)
 local function log(line)
     if file then pcall(function() file:write(tostring(line) .. "\n"); file:flush() end) end
 end
-log("BOOT combined-0.3.63-test; stratagem-base=0.1.13-test; lua-only; platform-init")
+log("BOOT combined-0.3.64-test; stratagem-base=0.1.13-test; lua-only; platform-init")
 local ok, channel = pcall(function() return Platform.create(require("ffi")) end)
 if not ok then log("DISABLED " .. tostring(channel)); return end
 log("BOOT platform-ready")
@@ -82,13 +82,13 @@ policy.delay = config.delay
 local radial = Radial.new(sr, channel, config.scale, log, config.wheel_direction)
 local live = combined and combined.options
 if not live and not config.radial and not config.hotkeys then log("DISABLED Arsenal stratagem options off"); return end
-local state = {version = "combined-0.3.63-test", keys = {}, blocking_inputs = false, config = config}
+local state = {version = "combined-0.3.64-test", keys = {}, blocking_inputs = false, config = config}
 rawset(_G, "HD2StratagemHotkeys", state)
-log("START combined-0.3.63-test; stratagem-base=0.1.13-test; in-game HD2H options; list-key radial; command only; no automatic throw")
+log("START combined-0.3.64-test; stratagem-base=0.1.13-test; in-game HD2H options; list-key radial; command only; no automatic throw")
 log("OVERLAY icon-path=atlas-rgb-mask; read-only lookup; owned-GUI materials")
 log("INPUT direction-mode=virtual-key; game-action-observation=required")
 log("OVERLAY mission-location=native-stage-and-radius; refresh=50ms; no native calls or game writes")
-log("OVERLAY order=equipped-1-4,mission,common; slot-1=12-o-clock; direction=" .. config.wheel_direction)
+log("OVERLAY order=equipped-1-4,mission,common; slot-1-start-edge=12-o-clock; direction=" .. config.wheel_direction)
 log("CONFIG radial=" .. tostring(config.radial) .. " hotkeys=" .. tostring(config.hotkeys))
 log("CONFIG shared-all=" .. tostring(groups.shared) .. " mission-all=" .. tostring(groups.mission) ..
     " combined-all=" .. tostring(all) .. " scale=" .. tostring(config.scale))

@@ -117,7 +117,7 @@ return function(equal)
     end
     native = false
     for index = 1, 9 do
-        local angle = math.pi / 2 - (index - 1) * 2 * math.pi / 9
+        local angle = Radial.angle(index, 9, "clockwise")
         local _, _, _, _, icon_size, name_size, status_size = Radial.content(9, 54, 299, angle, 1)
         equal(icon_size > 63, true, "readable names do not require shrinking normal nine-sector icons")
         equal(name_size >= 18, true, "normal nine-sector names have at least 18px nominal height")

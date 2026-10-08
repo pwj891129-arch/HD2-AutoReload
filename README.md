@@ -1,4 +1,4 @@
-# HD2 Helper Auto Reload + Stratagems 0.3.63-test
+# HD2 Helper Auto Reload + Stratagems 0.3.64-test
 
 ## Dependencies
 
@@ -14,10 +14,12 @@
 로더와 옵션 메뉴는 헬퍼 ZIP에 포함하지 않으므로 필요에 따라 별도로 설치한다.
 옵션 메뉴: [CowboyBingus ModOptionsMenu](https://github.com/CowboyBingus/ModOptionsMenu).
 
-## Wheel Order And Direction (0.3.63)
+## Wheel Order And Direction (0.3.64)
 
 휠 표시 순서는 **장착 스트라타젬 1~4번 → 임무 → 공용**이다.
-1번은 12시부터 시작하며 **반시계방향이 기본**이다. HD2H의 **휠 나열 방향**에서 시계방향으로 바꿀 수 있다.
+1번 블록의 **시작 경계가 12시**이며, 블록 중심을 12시에 놓지 않는다.
+**반시계방향이 기본**이며 HD2H의 **휠 나열 방향**에서 시계방향으로 바꿀 수 있다.
+반시계방향은 12시 경계의 왼쪽부터, 시계방향은 오른쪽부터 1번 블록이 이어진다.
 APPLY로 적용하면 표시와 마우스 선택 방향이 함께 바뀌며 숫자 핫키 대상은 유지한다.
 열린 휠에서 방향을 바꾸면 기존 선택을 취소하고, 다음에 새로 열 때 적용한다.
 임무·공용 항목을 켜고 끄거나 임무 위치에 진입·이탈해도 앞의 네 칸은 장착 순서를 유지한다.
@@ -25,7 +27,9 @@ APPLY로 적용하면 표시와 마우스 선택 방향이 함께 바뀌며 숫�
 숫자 단축키 1~4와 실제 호출 대상, 임무 사용 위치 조건 및 개별 표시 설정은 바꾸지 않았다.
 
 The wheel now displays equipped slots 1-4 first, then mission calls, then common
-calls. Slot 1 starts at twelve o'clock. Counterclockwise is the default; choose
+calls. The leading boundary of slot 1 is at twelve o'clock, not its center.
+The first block extends left for counterclockwise or right for clockwise.
+Counterclockwise is the default; choose
 Clockwise in HD2H > Radial Menu Direction and APPLY. Display and hit testing
 change together without changing numeric hotkey targets. Changing direction
 cancels an open selection and takes effect on the next fresh activation. Native
@@ -207,7 +211,7 @@ tab beside MODS, BTO and HUD+. All 46 stable setting IDs, APPLY, descriptions an
 saved values remain owned by Mod Options Menu. Only helper categories leave MODS;
 other mods remain there. The title is always `HD2H`, with no space.
 
-게임을 종료하고 `HD2-AutoReload-0.3.63-test.zip`으로 이전 헬퍼를 교체한 뒤 Purge / Deploy한다.
+게임을 종료하고 `HD2-AutoReload-0.3.64-test.zip`으로 이전 헬퍼를 교체한 뒤 Purge / Deploy한다.
 ESC 상단의 `HD2H` 탭에서 일반·공용·임무 설정을 조절하고 APPLY로 적용한다.
 언어별 ZIP은 분리하지 않는다. 옵션 메뉴는 게임 텍스트 언어에 맞춰 14개 언어로 표시한다.
 미지원 언어나 판독 실패는 영어로 표시한다. 휠 이름은 기존 한국어·영어 표시를 유지한다.
@@ -825,7 +829,7 @@ charge release and feature defaults are unchanged.
 
 ## Unified Language Package
 
-The current test release has one asset: `HD2-AutoReload-0.3.63-test.zip`.
+The current test release has one asset: `HD2-AutoReload-0.3.64-test.zip`.
 
 Both menu translations and wheel names are bundled. The game Text Language
 setting selects Korean or English at runtime; other languages fall back to
@@ -1021,7 +1025,7 @@ and its [resource hash names](https://github.com/xypwn/filediver/blob/master/has
 ## Compatibility And Installation
 
 1. Close the game before deploying.
-2. Import the unified HD2-AutoReload-0.3.63-test.zip into Arsenal and replace the previous version.
+2. Import the unified HD2-AutoReload-0.3.64-test.zip into Arsenal and replace the previous version.
 3. Enable this addon and Bingus Shared Loader v19 / API 1 (v18 retains legacy integration).
 4. For editable settings and the separate HD2H tab, also enable Mod Options Menu 1.2. Without it, deployed defaults remain active. Purge / Deploy and restart. Settings require APPLY; Arsenal options are hidden.
 5. Disable/remove separate Stratagem Hotkeys and other automatic-reload implementations to prevent double input.
@@ -1100,7 +1104,7 @@ node tools/mission-location-layout.test.cjs
 node tools/reload-layout.test.cjs
 node tools/vehicle-layout.test.cjs
 node tools/stratagem-names.cjs --check
-Compress-Archive -Path './dist/HD2-AutoReload-0.3.63-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.63-test.zip'
+Compress-Archive -Path './dist/HD2-AutoReload-0.3.64-test/*' -DestinationPath './dist/HD2-AutoReload-0.3.64-test.zip'
 ```
 
 PNG assets are committed, so ordinary builds do not require an image library.

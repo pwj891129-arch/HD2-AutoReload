@@ -23,7 +23,7 @@ function Radial:dimensions()
 end
 function Radial.angle(index, count, direction)
     local sign = direction == "clockwise" and -1 or 1
-    return math.pi / 2 + sign * (index - 1) * 2 * math.pi / count
+    return math.pi / 2 + sign * (index - 0.5) * 2 * math.pi / count
 end
 function Radial.pick(x, y, width, height, count, scale, direction)
     if not x or not y or count < 1 then return nil end
@@ -31,7 +31,7 @@ function Radial.pick(x, y, width, height, count, scale, direction)
     if dx * dx + dy * dy < (38 * scale) ^ 2 then return nil end
     local sign = direction == "clockwise" and -1 or 1
     local angle = (sign * (math.atan2(dy, dx) - math.pi / 2)) % (2 * math.pi)
-    return math.floor((angle + math.pi / count) / (2 * math.pi / count)) % count + 1
+    return math.floor(angle / (2 * math.pi / count)) % count + 1
 end
 function Radial:world_live(world)
     local worlds = self.sr.Application.worlds()
